@@ -102,6 +102,7 @@ export interface OrchestrateAPI {
   resizeTerminal: (id: string, cols: number, rows: number) => void
   closeTerminal: (id: string) => Promise<void>
   onTerminalOutput: (callback: (id: string, data: string) => void) => () => void
+  onTerminalExit: (callback: (id: string, exitCode: number) => void) => () => void
 
   // Tasks
   loadBoard: () => Promise<BoardState | null>

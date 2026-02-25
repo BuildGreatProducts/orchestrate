@@ -4,6 +4,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { registerFolderHandlers, getCurrentFolder } from './ipc/folder'
 import { registerFileHandlers } from './ipc/files'
+import { registerTerminalHandlers, closeAllTerminals } from './ipc/terminal'
 import { registerStubHandlers } from './ipc/stubs'
 import { startWatching, stopWatching } from './file-watcher'
 
@@ -48,9 +49,11 @@ app.whenReady().then(() => {
 
   // Register real handlers first, then stubs for everything else
   registerFolderHandlers(() => mainWindow, (folder) => {
+    closeAllTerminals()
     startWatching(folder, () => mainWindow)
   })
   registerFileHandlers(() => mainWindow, getCurrentFolder)
+  registerTerminalHandlers(() => mainWindow, getCurrentFolder)
   registerStubHandlers()
 
   // Start watching the last-used folder if one exists
@@ -67,6 +70,7 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
+  closeAllTerminals()
   stopWatching()
   if (process.platform !== 'darwin') {
     app.quit()
