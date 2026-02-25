@@ -10,7 +10,11 @@ if (fs.existsSync(prebuildsDir)) {
   for (const arch of fs.readdirSync(prebuildsDir)) {
     const helper = path.join(prebuildsDir, arch, 'spawn-helper')
     if (fs.existsSync(helper)) {
-      fs.chmodSync(helper, 0o755)
+      try {
+        fs.chmodSync(helper, 0o755)
+      } catch (err) {
+        console.warn(`Warning: could not set permissions on ${helper}: ${err.message}`)
+      }
     }
   }
 }

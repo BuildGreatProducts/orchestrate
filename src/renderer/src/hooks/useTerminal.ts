@@ -2,7 +2,13 @@ import { useEffect, useRef, useCallback } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
-import { useTerminalStore } from '@renderer/stores/terminal'
+import {
+  useTerminalStore,
+  registerOutputHandler,
+  registerExitHandler,
+  unregisterTerminalHandlers,
+  signalTerminalReady
+} from '@renderer/stores/terminal'
 
 interface UseTerminalOptions {
   id: string
@@ -110,20 +116,18 @@ export function useTerminal({ id, active }: UseTerminalOptions): UseTerminalResu
       window.orchestrate.writeTerminal(id, data)
     })
 
-    // PTY output → screen
-    const unsubOutput = window.orchestrate.onTerminalOutput((outputId, data) => {
-      if (outputId === id) {
-        term.write(data)
-      }
+    // Register with shared dispatcher (single global IPC listener)
+    registerOutputHandler(id, (data) => {
+      term.write(data)
     })
 
-    // PTY exit → show message + update store
-    const unsubExit = window.orchestrate.onTerminalExit((exitId, exitCode) => {
-      if (exitId === id) {
-        term.write(`\r\n\x1b[38;5;242m[Process exited with code ${exitCode}]\x1b[0m\r\n`)
-        useTerminalStore.getState().markExited(id, exitCode)
-      }
+    registerExitHandler(id, (exitCode) => {
+      term.write(`\r\n\x1b[38;5;242m[Process exited with code ${exitCode}]\x1b[0m\r\n`)
+      useTerminalStore.getState().markExited(id, exitCode)
     })
+
+    // Signal that this terminal's handlers are ready
+    signalTerminalReady(id)
 
     // If the DOM container was already captured by the ref callback
     // before this effect ran, attach now
@@ -132,8 +136,7 @@ export function useTerminal({ id, active }: UseTerminalOptions): UseTerminalResu
     }
 
     return () => {
-      unsubOutput()
-      unsubExit()
+      unregisterTerminalHandlers(id)
       observerRef.current?.disconnect()
       term.dispose()
       termRef.current = null

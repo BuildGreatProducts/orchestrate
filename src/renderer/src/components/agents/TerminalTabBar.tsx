@@ -10,9 +10,13 @@ export default function TerminalTabBar(): React.JSX.Element {
   const createTab = useTerminalStore((s) => s.createTab)
   const currentFolder = useAppStore((s) => s.currentFolder)
 
-  const handleNewTerminal = (): void => {
+  const handleNewTerminal = async (): Promise<void> => {
     if (currentFolder) {
-      createTab(currentFolder)
+      try {
+        await createTab(currentFolder)
+      } catch (err) {
+        console.error('Failed to create terminal:', err)
+      }
     }
   }
 
@@ -38,9 +42,17 @@ export default function TerminalTabBar(): React.JSX.Element {
               )}
             </span>
             <span
+              role="button"
+              tabIndex={0}
               onClick={(e) => {
                 e.stopPropagation()
                 closeTab(tab.id)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.stopPropagation()
+                  closeTab(tab.id)
+                }
               }}
               className="ml-1 shrink-0 rounded p-0.5 opacity-0 hover:bg-zinc-600 group-hover:opacity-100"
             >

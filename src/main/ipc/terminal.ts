@@ -11,6 +11,12 @@ export function registerTerminalHandlers(
   markChannelRegistered('terminal:create')
   markChannelRegistered('terminal:close')
 
+  // Remove any existing handlers to prevent duplicate accumulation
+  ipcMain.removeHandler('terminal:create')
+  ipcMain.removeHandler('terminal:close')
+  ipcMain.removeAllListeners('terminal:input')
+  ipcMain.removeAllListeners('terminal:resize')
+
   ptyManager = new PtyManager(
     (id, data) => {
       const win = getWindow()
@@ -43,6 +49,10 @@ export function registerTerminalHandlers(
   ipcMain.on('terminal:resize', (_, id: string, cols: number, rows: number) => {
     ptyManager!.resize(id, cols, rows)
   })
+}
+
+export function getPtyManager(): PtyManager | null {
+  return ptyManager
 }
 
 export function closeAllTerminals(): void {

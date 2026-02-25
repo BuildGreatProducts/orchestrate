@@ -2,7 +2,10 @@ import * as pty from 'node-pty'
 import type { IPty } from 'node-pty'
 import { platform } from 'os'
 
-const DEFAULT_SHELL = platform() === 'win32' ? 'powershell.exe' : '/bin/zsh'
+function resolveShell(): string {
+  if (platform() === 'win32') return 'powershell.exe'
+  return process.env.SHELL || '/bin/bash'
+}
 
 export class PtyManager {
   private sessions = new Map<string, IPty>()
@@ -13,7 +16,14 @@ export class PtyManager {
   ) {}
 
   create(id: string, cwd: string, command?: string): void {
-    const shell = DEFAULT_SHELL
+    // Clean up any existing session with the same id
+    if (this.sessions.has(id)) {
+      const old = this.sessions.get(id)!
+      old.kill()
+      this.sessions.delete(id)
+    }
+
+    const shell = resolveShell()
     const args: string[] = command ? ['-c', command] : []
 
     const ptyProcess = pty.spawn(shell, args, {
@@ -58,9 +68,9 @@ export class PtyManager {
   }
 
   closeAll(): void {
-    for (const [id, session] of this.sessions) {
+    for (const session of this.sessions.values()) {
       session.kill()
-      this.sessions.delete(id)
     }
+    this.sessions.clear()
   }
 }

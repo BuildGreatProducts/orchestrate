@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { VscChevronRight, VscChevronDown, VscFolder, VscFolderOpened, VscFile } from 'react-icons/vsc'
 import { useAppStore } from '@renderer/stores/app'
 import { useFilesStore } from '@renderer/stores/files'
@@ -8,11 +8,13 @@ import type { FileEntry } from '@shared/types'
 function FileNode({
   entry,
   depth,
-  loadChildren
+  loadChildren,
+  treeVersion
 }: {
   entry: FileEntry
   depth: number
   loadChildren: (dirPath: string) => Promise<FileEntry[]>
+  treeVersion: number
 }): React.JSX.Element {
   const openFile = useFilesStore((s) => s.openFile)
   const activeFilePath = useFilesStore((s) => s.activeFilePath)
@@ -22,20 +24,42 @@ function FileNode({
 
   const isActive = !entry.isDirectory && entry.path === activeFilePath
 
+  // Invalidate cached children when the tree is refreshed externally
+  const prevTreeVersionRef = useRef(treeVersion)
+  useEffect(() => {
+    if (prevTreeVersionRef.current !== treeVersion) {
+      prevTreeVersionRef.current = treeVersion
+      setChildren(null)
+    }
+  }, [treeVersion])
+
   const handleClick = useCallback(async () => {
     if (entry.isDirectory) {
       const opening = !isOpen
       setIsOpen(opening)
       if (opening && children === null) {
         setLoading(true)
-        const loaded = await loadChildren(entry.path)
-        setChildren(loaded)
-        setLoading(false)
+        try {
+          const loaded = await loadChildren(entry.path)
+          setChildren(loaded)
+        } finally {
+          setLoading(false)
+        }
       }
     } else {
       openFile(entry.path)
     }
   }, [entry, isOpen, children, loadChildren, openFile])
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        handleClick()
+      }
+    },
+    [handleClick]
+  )
 
   const Chevron = entry.isDirectory
     ? isOpen
@@ -48,7 +72,12 @@ function FileNode({
   return (
     <>
       <div
+        role="treeitem"
+        tabIndex={0}
+        aria-selected={isActive}
+        aria-expanded={entry.isDirectory ? isOpen : undefined}
         onClick={handleClick}
+        onKeyDown={handleKeyDown}
         style={{ paddingLeft: depth * 16 + 8 }}
         className={`flex cursor-pointer items-center gap-1 py-0.5 pr-2 text-sm ${
           isActive ? 'bg-zinc-700 text-white' : 'text-zinc-300 hover:bg-zinc-800'
@@ -61,7 +90,7 @@ function FileNode({
         <span className="truncate">{entry.name}</span>
       </div>
       {isOpen && entry.isDirectory && (
-        <div>
+        <div role="group">
           {loading && (
             <div
               style={{ paddingLeft: (depth + 1) * 16 + 8 }}
@@ -76,6 +105,7 @@ function FileNode({
               entry={child}
               depth={depth + 1}
               loadChildren={loadChildren}
+              treeVersion={treeVersion}
             />
           ))}
         </div>
@@ -86,6 +116,7 @@ function FileNode({
 
 export default function FileTree(): React.JSX.Element {
   const currentFolder = useAppStore((s) => s.currentFolder)
+  const treeVersion = useFilesStore((s) => s.treeVersion)
   const { treeData, isLoading, error, loadChildren } = useFileTree()
 
   if (!currentFolder) {
@@ -121,9 +152,15 @@ export default function FileTree(): React.JSX.Element {
   }
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div role="tree" className="h-full overflow-y-auto">
       {treeData.map((entry) => (
-        <FileNode key={entry.path} entry={entry} depth={0} loadChildren={loadChildren} />
+        <FileNode
+          key={entry.path}
+          entry={entry}
+          depth={0}
+          loadChildren={loadChildren}
+          treeVersion={treeVersion}
+        />
       ))}
     </div>
   )

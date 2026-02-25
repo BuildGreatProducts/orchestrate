@@ -19,6 +19,54 @@ interface TerminalState {
   closeAllTabs: () => void
 }
 
+// --- Shared IPC dispatcher ---
+// Single global listeners forward events to per-terminal callbacks,
+// avoiding a growing listener count on ipcRenderer.
+
+const outputHandlers = new Map<string, (data: string) => void>()
+const exitHandlers = new Map<string, (exitCode: number) => void>()
+
+let globalListenersRegistered = false
+
+function ensureGlobalListeners(): void {
+  if (globalListenersRegistered) return
+  globalListenersRegistered = true
+
+  window.orchestrate.onTerminalOutput((id, data) => {
+    outputHandlers.get(id)?.(data)
+  })
+
+  window.orchestrate.onTerminalExit((id, exitCode) => {
+    exitHandlers.get(id)?.(exitCode)
+  })
+}
+
+export function registerOutputHandler(id: string, handler: (data: string) => void): void {
+  ensureGlobalListeners()
+  outputHandlers.set(id, handler)
+}
+
+export function registerExitHandler(id: string, handler: (exitCode: number) => void): void {
+  ensureGlobalListeners()
+  exitHandlers.set(id, handler)
+}
+
+export function unregisterTerminalHandlers(id: string): void {
+  outputHandlers.delete(id)
+  exitHandlers.delete(id)
+}
+
+// --- Readiness handshake ---
+// createTab waits for the TerminalPane to mount and register its
+// IPC handlers before telling the main process to spawn the PTY.
+
+const readyResolvers = new Map<string, () => void>()
+
+export function signalTerminalReady(id: string): void {
+  readyResolvers.get(id)?.()
+  readyResolvers.delete(id)
+}
+
 export const useTerminalStore = create<TerminalState>((set, get) => ({
   tabs: [],
   activeTabId: null,
@@ -29,18 +77,35 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     const id = `terminal-${Date.now()}-${nextIndex}`
     const tabName = name ?? `Terminal ${nextIndex}`
 
+    // Create a promise that resolves when TerminalPane signals ready
+    const readyPromise = new Promise<void>((resolve) => {
+      readyResolvers.set(id, resolve)
+    })
+
     // Add tab to state FIRST so the component mounts and registers
-    // its onTerminalOutput listener before the PTY starts emitting
+    // its handlers before the PTY starts emitting
     set((state) => ({
       tabs: [...state.tabs, { id, name: tabName, exited: false }],
       activeTabId: id,
       nextIndex: state.nextIndex + 1
     }))
 
-    // Small yield to let React render the TerminalPane and wire up IPC listeners
-    await new Promise((resolve) => requestAnimationFrame(resolve))
+    // Wait for TerminalPane to mount and register its IPC handlers
+    await readyPromise
 
-    await window.orchestrate.createTerminal(id, cwd, command)
+    try {
+      await window.orchestrate.createTerminal(id, cwd, command)
+    } catch (err) {
+      // Remove the orphaned tab on failure
+      set((state) => {
+        const newTabs = state.tabs.filter((t) => t.id !== id)
+        return {
+          tabs: newTabs,
+          activeTabId: state.activeTabId === id ? (newTabs.at(-1)?.id ?? null) : state.activeTabId
+        }
+      })
+      throw err
+    }
   },
 
   closeTab: (id: string) => {
