@@ -116,8 +116,11 @@ export default function KanbanBoard(): React.JSX.Element {
         setBoardDirect({ board: newBoard })
         await window.orchestrate.saveBoard(newBoard)
       } else {
-        // Cross-column move already applied in handleDragOver — just persist
-        await window.orchestrate.saveBoard(board)
+        // Cross-column move already applied in handleDragOver — persist latest store state
+        const currentBoard = useTasksStore.getState().board
+        if (currentBoard) {
+          await window.orchestrate.saveBoard(currentBoard)
+        }
       }
     },
     [board, setBoardDirect]

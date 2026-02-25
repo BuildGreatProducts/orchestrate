@@ -9,6 +9,7 @@ export default function TasksTab(): React.JSX.Element {
   const board = useTasksStore((s) => s.board)
   const isLoading = useTasksStore((s) => s.isLoading)
   const hasLoaded = useTasksStore((s) => s.hasLoaded)
+  const loadError = useTasksStore((s) => s.loadError)
   const loadBoard = useTasksStore((s) => s.loadBoard)
   const resetBoard = useTasksStore((s) => s.resetBoard)
   const selectedTaskId = useTasksStore((s) => s.selectedTaskId)
@@ -38,6 +39,17 @@ export default function TasksTab(): React.JSX.Element {
     return (
       <div className="flex flex-1 items-center justify-center">
         <p className="text-zinc-500">Loading board...</p>
+      </div>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <div className="text-center">
+          <p className="text-zinc-400">Failed to load board</p>
+          <p className="mt-1 text-sm text-zinc-600">{loadError}</p>
+        </div>
       </div>
     )
   }

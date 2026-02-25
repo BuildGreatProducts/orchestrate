@@ -3,6 +3,8 @@ import type { BoardState, ColumnId, AgentType } from '@shared/types'
 import { useTerminalStore } from './terminal'
 import { useAppStore } from './app'
 
+const SAFE_ID_RE = /^[A-Za-z0-9_-]{1,64}$/
+
 function generateId(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
   let result = ''
@@ -28,6 +30,7 @@ interface TasksState {
   selectedTaskId: string | null
   isLoading: boolean
   hasLoaded: boolean
+  loadError: string | null
 
   loadBoard: () => Promise<void>
   resetBoard: () => void
@@ -47,27 +50,41 @@ export const useTasksStore = create<TasksState>((set, get) => ({
   selectedTaskId: null,
   isLoading: false,
   hasLoaded: false,
+  loadError: null,
 
   loadBoard: async () => {
-    set({ isLoading: true })
+    set({ isLoading: true, loadError: null })
     try {
       const board = await window.orchestrate.loadBoard()
       set({ board: board ?? structuredClone(EMPTY_BOARD), isLoading: false, hasLoaded: true })
     } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error'
       console.error('[Tasks] Failed to load board:', err)
-      set({ board: structuredClone(EMPTY_BOARD), isLoading: false, hasLoaded: true })
+      set({
+        board: structuredClone(EMPTY_BOARD),
+        isLoading: false,
+        hasLoaded: true,
+        loadError: message
+      })
     }
   },
 
   resetBoard: () => {
-    set({ board: null, selectedTaskId: null, hasLoaded: false })
+    set({ board: null, selectedTaskId: null, hasLoaded: false, loadError: null })
   },
 
   createTask: async (columnId: ColumnId, title: string) => {
     const { board } = get()
     if (!board) return
 
-    const id = generateId()
+    let id = generateId()
+    let attempts = 0
+    while (board.tasks[id] && attempts < 10) {
+      id = generateId()
+      attempts++
+    }
+    if (board.tasks[id]) return
+
     const newBoard: BoardState = {
       columns: {
         ...board.columns,
@@ -129,18 +146,22 @@ export const useTasksStore = create<TasksState>((set, get) => ({
     const newColumns = { ...board.columns }
 
     // Remove from current column
+    let found = false
     for (const col of Object.keys(newColumns) as ColumnId[]) {
       const idx = newColumns[col].indexOf(taskId)
       if (idx !== -1) {
         newColumns[col] = [...newColumns[col]]
         newColumns[col].splice(idx, 1)
+        found = true
         break
       }
     }
+    if (!found) return
 
-    // Insert into target column
+    // Insert into target column with clamped index
     newColumns[toColumn] = [...newColumns[toColumn]]
-    newColumns[toColumn].splice(toIndex, 0, taskId)
+    const clampedIndex = Math.max(0, Math.min(toIndex, newColumns[toColumn].length))
+    newColumns[toColumn].splice(clampedIndex, 0, taskId)
 
     const newBoard: BoardState = { ...board, columns: newColumns }
     set({ board: newBoard })
@@ -152,8 +173,12 @@ export const useTasksStore = create<TasksState>((set, get) => ({
     if (!board) return
 
     const items = [...board.columns[columnId]]
+    if (oldIdx < 0 || oldIdx >= items.length) return
+    const clampedNewIdx = Math.max(0, Math.min(newIdx, items.length - 1))
+
     const [removed] = items.splice(oldIdx, 1)
-    items.splice(newIdx, 0, removed)
+    if (removed === undefined) return
+    items.splice(clampedNewIdx, 0, removed)
 
     const newBoard: BoardState = {
       ...board,
@@ -178,6 +203,11 @@ export const useTasksStore = create<TasksState>((set, get) => ({
   sendToAgent: async (id: string, agent: AgentType) => {
     const { board, moveTask } = get()
     if (!board || !board.tasks[id]) return
+
+    if (!SAFE_ID_RE.test(id)) {
+      console.error('[Tasks] Refusing to send task with unsafe ID:', id)
+      return
+    }
 
     // Notify main process (Phase 5.11 hook)
     await window.orchestrate.sendToAgent(id, agent)

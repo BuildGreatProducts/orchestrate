@@ -42,6 +42,7 @@ export default function KanbanColumn({
         </div>
         <button
           onClick={handleAdd}
+          aria-label="Add task"
           className="rounded p-0.5 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-300"
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">

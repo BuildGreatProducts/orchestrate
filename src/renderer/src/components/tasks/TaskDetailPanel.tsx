@@ -42,11 +42,17 @@ export default function TaskDetailPanel(): React.JSX.Element | null {
   // Load task data when selection changes
   useEffect(() => {
     if (!selectedTaskId || !task) return
+    let cancelled = false
     setTitle(task.title)
     setIsDirty(false)
     readMarkdown(selectedTaskId).then((content) => {
-      setMarkdown(content)
+      if (!cancelled) {
+        setMarkdown(content)
+      }
     })
+    return () => {
+      cancelled = true
+    }
   }, [selectedTaskId, task, readMarkdown])
 
   const handleTitleBlur = useCallback(() => {

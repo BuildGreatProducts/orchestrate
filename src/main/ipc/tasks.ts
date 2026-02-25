@@ -4,6 +4,14 @@ import { TaskManager } from '../task-manager'
 import type { BoardState, AgentType } from '@shared/types'
 import type { PtyManager } from '../pty-manager'
 
+const SAFE_ID_RE = /^[A-Za-z0-9_-]{1,64}$/
+
+function validateTaskId(id: unknown): asserts id is string {
+  if (typeof id !== 'string' || !SAFE_ID_RE.test(id)) {
+    throw new Error(`Invalid task ID: ${String(id)}`)
+  }
+}
+
 let taskManager: TaskManager | null = null
 
 export function registerTaskHandlers(
@@ -41,22 +49,25 @@ export function registerTaskHandlers(
   })
 
   ipcMain.handle('task:readMarkdown', async (_, id: string) => {
+    validateTaskId(id)
     const mgr = getManager()
     return mgr.readMarkdown(id)
   })
 
   ipcMain.handle('task:writeMarkdown', async (_, id: string, content: string) => {
+    validateTaskId(id)
     const mgr = getManager()
     await mgr.writeMarkdown(id, content)
   })
 
   ipcMain.handle('task:delete', async (_, id: string) => {
+    validateTaskId(id)
     const mgr = getManager()
     await mgr.deleteMarkdown(id)
   })
 
   ipcMain.handle('task:sendToAgent', async (_, id: string, _agent: AgentType) => {
-    // Validate that the task exists
+    validateTaskId(id)
     const mgr = getManager()
     const board = await mgr.loadBoard()
     if (!board.tasks[id]) {
