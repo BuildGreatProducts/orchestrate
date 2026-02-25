@@ -8,13 +8,13 @@ import TasksTab from '@renderer/components/tasks/TasksTab'
 import FilesTab from '@renderer/components/files/FilesTab'
 import HistoryTab from '@renderer/components/history/HistoryTab'
 
-const TAB_COMPONENTS: Record<TabId, React.ComponentType> = {
-  manage: ManageTab,
-  agents: AgentsTab,
-  tasks: TasksTab,
-  files: FilesTab,
-  history: HistoryTab
-}
+const TABS: { id: TabId; Component: React.ComponentType }[] = [
+  { id: 'manage', Component: ManageTab },
+  { id: 'agents', Component: AgentsTab },
+  { id: 'tasks', Component: TasksTab },
+  { id: 'files', Component: FilesTab },
+  { id: 'history', Component: HistoryTab }
+]
 
 function App(): React.JSX.Element {
   const activeTab = useAppStore((s) => s.activeTab)
@@ -24,13 +24,18 @@ function App(): React.JSX.Element {
     loadLastFolder()
   }, [loadLastFolder])
 
-  const ActiveTabComponent = TAB_COMPONENTS[activeTab]
-
   return (
     <div className="flex h-screen flex-col bg-zinc-950 text-white">
       <TopNav />
-      <main className="flex flex-1 overflow-hidden">
-        <ActiveTabComponent />
+      <main className="relative flex-1 overflow-hidden">
+        {TABS.map(({ id, Component }) => (
+          <div
+            key={id}
+            className={id === activeTab ? 'flex h-full w-full' : 'hidden'}
+          >
+            <Component />
+          </div>
+        ))}
       </main>
     </div>
   )

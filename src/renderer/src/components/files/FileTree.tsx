@@ -1,113 +1,92 @@
-import { useRef, useState, useEffect, useCallback } from 'react'
-import { Tree, type NodeRendererProps } from 'react-arborist'
-import { VscFolder, VscFolderOpened, VscFile } from 'react-icons/vsc'
+import { useState, useCallback } from 'react'
+import { VscChevronRight, VscChevronDown, VscFolder, VscFolderOpened, VscFile } from 'react-icons/vsc'
 import { useAppStore } from '@renderer/stores/app'
 import { useFilesStore } from '@renderer/stores/files'
 import { useFileTree } from '@renderer/hooks/useFileTree'
 import type { FileEntry } from '@shared/types'
 
-interface TreeNode {
-  id: string
-  name: string
-  isDirectory: boolean
-  children?: TreeNode[]
-}
-
-function fileEntriesToNodes(entries: FileEntry[]): TreeNode[] {
-  return entries.map((entry) => ({
-    id: entry.path,
-    name: entry.name,
-    isDirectory: entry.isDirectory,
-    children: entry.isDirectory ? [] : undefined
-  }))
-}
-
-function mergeChildren(
-  nodes: TreeNode[],
-  parentId: string,
-  children: TreeNode[]
-): TreeNode[] {
-  return nodes.map((node) => {
-    if (node.id === parentId) {
-      return { ...node, children }
-    }
-    if (node.children && node.children.length > 0) {
-      return { ...node, children: mergeChildren(node.children, parentId, children) }
-    }
-    return node
-  })
-}
-
-function Node({ node, style }: NodeRendererProps<TreeNode>): React.JSX.Element {
+function FileNode({
+  entry,
+  depth,
+  loadChildren
+}: {
+  entry: FileEntry
+  depth: number
+  loadChildren: (dirPath: string) => Promise<FileEntry[]>
+}): React.JSX.Element {
   const openFile = useFilesStore((s) => s.openFile)
   const activeFilePath = useFilesStore((s) => s.activeFilePath)
-  const isActive = !node.data.isDirectory && node.data.id === activeFilePath
+  const [isOpen, setIsOpen] = useState(false)
+  const [children, setChildren] = useState<FileEntry[] | null>(null)
+  const [loading, setLoading] = useState(false)
 
-  const handleClick = (): void => {
-    if (node.data.isDirectory) {
-      node.toggle()
+  const isActive = !entry.isDirectory && entry.path === activeFilePath
+
+  const handleClick = useCallback(async () => {
+    if (entry.isDirectory) {
+      const opening = !isOpen
+      setIsOpen(opening)
+      if (opening && children === null) {
+        setLoading(true)
+        const loaded = await loadChildren(entry.path)
+        setChildren(loaded)
+        setLoading(false)
+      }
     } else {
-      openFile(node.data.id)
+      openFile(entry.path)
     }
-  }
+  }, [entry, isOpen, children, loadChildren, openFile])
 
-  const Icon = node.data.isDirectory ? (node.isOpen ? VscFolderOpened : VscFolder) : VscFile
+  const Chevron = entry.isDirectory
+    ? isOpen
+      ? VscChevronDown
+      : VscChevronRight
+    : null
+
+  const FileIcon = entry.isDirectory ? (isOpen ? VscFolderOpened : VscFolder) : VscFile
 
   return (
-    <div
-      style={style}
-      onClick={handleClick}
-      className={`flex cursor-pointer items-center gap-1.5 px-2 py-0.5 text-sm ${
-        isActive ? 'bg-zinc-700 text-white' : 'text-zinc-300 hover:bg-zinc-800'
-      }`}
-    >
-      <Icon className="shrink-0 text-zinc-500" size={16} />
-      <span className="truncate">{node.data.name}</span>
-    </div>
+    <>
+      <div
+        onClick={handleClick}
+        style={{ paddingLeft: depth * 16 + 8 }}
+        className={`flex cursor-pointer items-center gap-1 py-0.5 pr-2 text-sm ${
+          isActive ? 'bg-zinc-700 text-white' : 'text-zinc-300 hover:bg-zinc-800'
+        }`}
+      >
+        <span className="flex w-4 shrink-0 items-center justify-center">
+          {Chevron ? <Chevron size={16} className="text-zinc-500" /> : null}
+        </span>
+        <FileIcon className="shrink-0 text-zinc-500" size={16} />
+        <span className="truncate">{entry.name}</span>
+      </div>
+      {isOpen && entry.isDirectory && (
+        <div>
+          {loading && (
+            <div
+              style={{ paddingLeft: (depth + 1) * 16 + 8 }}
+              className="py-0.5 text-xs text-zinc-600"
+            >
+              Loading...
+            </div>
+          )}
+          {children?.map((child) => (
+            <FileNode
+              key={child.path}
+              entry={child}
+              depth={depth + 1}
+              loadChildren={loadChildren}
+            />
+          ))}
+        </div>
+      )}
+    </>
   )
 }
 
 export default function FileTree(): React.JSX.Element {
   const currentFolder = useAppStore((s) => s.currentFolder)
-  const { treeData, isLoading, loadChildren } = useFileTree()
-  const containerRef = useRef<HTMLDivElement>(null)
-  const [height, setHeight] = useState(400)
-  const [nodes, setNodes] = useState<TreeNode[]>([])
-
-  // Update nodes when treeData changes (from IPC)
-  useEffect(() => {
-    setNodes(fileEntriesToNodes(treeData))
-  }, [treeData])
-
-  // Measure container height for react-arborist virtualization
-  useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        setHeight(entry.contentRect.height)
-      }
-    })
-
-    observer.observe(el)
-    setHeight(el.clientHeight)
-
-    return () => observer.disconnect()
-  }, [])
-
-  const handleToggle = useCallback(
-    (id: string): void => {
-      // Load children when a directory is toggled open
-      loadChildren(id).then((children) => {
-        if (children.length > 0) {
-          const childNodes = fileEntriesToNodes(children)
-          setNodes((prev) => mergeChildren(prev, id, childNodes))
-        }
-      })
-    },
-    [loadChildren]
-  )
+  const { treeData, isLoading, error, loadChildren } = useFileTree()
 
   if (!currentFolder) {
     return (
@@ -117,7 +96,7 @@ export default function FileTree(): React.JSX.Element {
     )
   }
 
-  if (isLoading) {
+  if (isLoading && treeData.length === 0) {
     return (
       <div className="flex h-full items-center justify-center p-4 text-sm text-zinc-500">
         Loading...
@@ -125,19 +104,27 @@ export default function FileTree(): React.JSX.Element {
     )
   }
 
+  if (error) {
+    return (
+      <div className="flex h-full items-center justify-center p-4 text-sm text-red-400">
+        {error}
+      </div>
+    )
+  }
+
+  if (treeData.length === 0) {
+    return (
+      <div className="flex h-full items-center justify-center p-4 text-sm text-zinc-500">
+        No files found
+      </div>
+    )
+  }
+
   return (
-    <div ref={containerRef} className="h-full overflow-hidden">
-      <Tree<TreeNode>
-        data={nodes}
-        openByDefault={false}
-        width={'100%'}
-        height={height}
-        indent={16}
-        rowHeight={28}
-        onToggle={handleToggle}
-      >
-        {Node}
-      </Tree>
+    <div className="h-full overflow-y-auto">
+      {treeData.map((entry) => (
+        <FileNode key={entry.path} entry={entry} depth={0} loadChildren={loadChildren} />
+      ))}
     </div>
   )
 }

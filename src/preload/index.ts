@@ -36,6 +36,16 @@ const api: OrchestrateAPI = {
     }
   },
 
+  onTerminalExit: (callback: (id: string, exitCode: number) => void) => {
+    const handler = (_: Electron.IpcRendererEvent, id: string, exitCode: number): void => {
+      callback(id, exitCode)
+    }
+    ipcRenderer.on('terminal:exit', handler)
+    return () => {
+      ipcRenderer.removeListener('terminal:exit', handler)
+    }
+  },
+
   // Tasks
   loadBoard: () => ipcRenderer.invoke('task:loadBoard'),
   saveBoard: (board) => ipcRenderer.invoke('task:saveBoard', board),
