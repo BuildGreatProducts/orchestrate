@@ -4,7 +4,8 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { registerFolderHandlers, getCurrentFolder } from './ipc/folder'
 import { registerFileHandlers } from './ipc/files'
-import { registerTerminalHandlers, closeAllTerminals } from './ipc/terminal'
+import { registerTerminalHandlers, closeAllTerminals, getPtyManager } from './ipc/terminal'
+import { registerTaskHandlers } from './ipc/tasks'
 import { registerStubHandlers } from './ipc/stubs'
 import { startWatching, stopWatching } from './file-watcher'
 
@@ -54,6 +55,7 @@ app.whenReady().then(() => {
   })
   registerFileHandlers(() => mainWindow, getCurrentFolder)
   registerTerminalHandlers(() => mainWindow, getCurrentFolder)
+  registerTaskHandlers(() => mainWindow, getCurrentFolder, getPtyManager)
   registerStubHandlers()
 
   // Start watching the last-used folder if one exists
