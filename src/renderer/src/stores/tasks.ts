@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { BoardState, ColumnId, AgentType } from '@shared/types'
 import { useTerminalStore } from './terminal'
 import { useAppStore } from './app'
+import { useHistoryStore } from './history'
 
 const SAFE_ID_RE = /^[A-Za-z0-9_-]{1,64}$/
 
@@ -209,8 +210,12 @@ export const useTasksStore = create<TasksState>((set, get) => ({
       return
     }
 
-    // Notify main process (Phase 5.11 hook)
+    // Notify main process (triggers auto-save if git repo)
     await window.orchestrate.sendToAgent(id, agent)
+
+    // Refresh history after auto-save
+    const { refreshAll, isGitRepo } = useHistoryStore.getState()
+    if (isGitRepo) refreshAll()
 
     // Find current column and move to in-progress
     let currentColumn: ColumnId | null = null

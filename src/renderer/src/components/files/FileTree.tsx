@@ -2,19 +2,31 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { VscChevronRight, VscChevronDown, VscFolder, VscFolderOpened, VscFile } from 'react-icons/vsc'
 import { useAppStore } from '@renderer/stores/app'
 import { useFilesStore } from '@renderer/stores/files'
+import { useHistoryStore } from '@renderer/stores/history'
 import { useFileTree } from '@renderer/hooks/useFileTree'
 import type { FileEntry } from '@shared/types'
+
+const STATUS_COLORS: Record<string, string> = {
+  M: 'text-amber-400',
+  A: 'text-green-400',
+  D: 'text-red-400',
+  '?': 'text-zinc-500'
+}
 
 function FileNode({
   entry,
   depth,
   loadChildren,
-  treeVersion
+  treeVersion,
+  fileStatusMap,
+  currentFolder
 }: {
   entry: FileEntry
   depth: number
   loadChildren: (dirPath: string) => Promise<FileEntry[]>
   treeVersion: number
+  fileStatusMap: Record<string, 'M' | 'A' | 'D' | '?'>
+  currentFolder: string
 }): React.JSX.Element {
   const openFile = useFilesStore((s) => s.openFile)
   const activeFilePath = useFilesStore((s) => s.activeFilePath)
@@ -69,6 +81,18 @@ function FileNode({
 
   const FileIcon = entry.isDirectory ? (isOpen ? VscFolderOpened : VscFolder) : VscFile
 
+  // Derive relative path for git status lookup
+  const relativePath = entry.path.startsWith(currentFolder)
+    ? entry.path.slice(currentFolder.length).replace(/^\//, '')
+    : entry.name
+
+  const fileStatus = entry.isDirectory ? undefined : fileStatusMap[relativePath]
+
+  // For directories, show a dot if any descendant has status
+  const dirHasStatus =
+    entry.isDirectory &&
+    Object.keys(fileStatusMap).some((key) => key.startsWith(relativePath + '/') || key === relativePath)
+
   return (
     <>
       <div
@@ -88,6 +112,14 @@ function FileNode({
         </span>
         <FileIcon className="shrink-0 text-zinc-500" size={16} />
         <span className="truncate">{entry.name}</span>
+        {fileStatus && (
+          <span className={`ml-auto shrink-0 font-mono text-xs font-bold ${STATUS_COLORS[fileStatus] ?? ''}`}>
+            {fileStatus}
+          </span>
+        )}
+        {!fileStatus && dirHasStatus && (
+          <span className="ml-auto shrink-0 text-amber-400">&bull;</span>
+        )}
       </div>
       {isOpen && entry.isDirectory && (
         <div role="group">
@@ -106,6 +138,8 @@ function FileNode({
               depth={depth + 1}
               loadChildren={loadChildren}
               treeVersion={treeVersion}
+              fileStatusMap={fileStatusMap}
+              currentFolder={currentFolder}
             />
           ))}
         </div>
@@ -117,6 +151,7 @@ function FileNode({
 export default function FileTree(): React.JSX.Element {
   const currentFolder = useAppStore((s) => s.currentFolder)
   const treeVersion = useFilesStore((s) => s.treeVersion)
+  const fileStatusMap = useHistoryStore((s) => s.fileStatusMap)
   const { treeData, isLoading, error, loadChildren } = useFileTree()
 
   if (!currentFolder) {
@@ -160,6 +195,8 @@ export default function FileTree(): React.JSX.Element {
           depth={0}
           loadChildren={loadChildren}
           treeVersion={treeVersion}
+          fileStatusMap={fileStatusMap}
+          currentFolder={currentFolder}
         />
       ))}
     </div>

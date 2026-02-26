@@ -124,7 +124,7 @@ export interface OrchestrateAPI {
   getStatus: () => Promise<GitStatus>
   createSavePoint: (message: string) => Promise<string>
   getSavePointDetail: (hash: string) => Promise<SavePointDetail>
-  getSavePointDiff: (hash: string, filePath: string) => Promise<string>
+  getSavePointDiff: (hash: string, filePath: string) => Promise<{ before: string; after: string }>
   revertSavePoint: (hash: string) => Promise<void>
   restoreToSavePoint: (hash: string) => Promise<void>
   hasUncommittedChanges: () => Promise<boolean>
