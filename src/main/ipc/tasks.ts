@@ -21,10 +21,14 @@ let getCurrentFolderFn: (() => string | null) | null = null
  * Safe to call from other IPC modules (e.g., agent).
  */
 export function getTaskManager(): TaskManager | null {
-  if (!taskManager || !getCurrentFolderFn) return null
+  if (!getCurrentFolderFn) return null
   const folder = getCurrentFolderFn()
   if (!folder) return null
-  taskManager.setProjectFolder(folder)
+  if (!taskManager) {
+    taskManager = new TaskManager(folder)
+  } else {
+    taskManager.setProjectFolder(folder)
+  }
   return taskManager
 }
 

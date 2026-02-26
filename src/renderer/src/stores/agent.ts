@@ -43,11 +43,11 @@ function ensureGlobalListeners(): void {
       useAgentStore.setState({
         streamingContent: state.streamingContent + chunk.content
       })
-    } else if (chunk.type === 'tool_use') {
+    } else if (chunk.type === 'tool_use' && chunk.tool && chunk.input) {
       useAgentStore.setState({
         currentToolUses: [
           ...state.currentToolUses,
-          { tool: chunk.tool!, input: chunk.input! }
+          { tool: chunk.tool, input: chunk.input }
         ]
       })
     } else if (chunk.type === 'done') {
@@ -126,6 +126,9 @@ function ensureGlobalListeners(): void {
             .createTab(folder, name, command)
             .then(() => {
               useAppStore.getState().setActiveTab('agents')
+            })
+            .catch((err) => {
+              console.error('[Agent] Failed to create terminal tab:', err)
             })
         }
         break

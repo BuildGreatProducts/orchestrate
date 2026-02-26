@@ -103,6 +103,7 @@ export default function ManageTab(): React.JSX.Element {
           onClick={() => setShowSettings(true)}
           className="rounded p-1 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-300"
           title="Settings"
+          aria-label="Settings"
         >
           <SettingsIcon />
         </button>

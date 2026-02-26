@@ -85,7 +85,14 @@ export default function ApiKeyPrompt({ onDone }: ApiKeyPromptProps): React.JSX.E
 
         <p className="text-xs text-zinc-500">
           Get an API key at{' '}
-          <span className="text-zinc-400">console.anthropic.com</span>
+          <a
+            href="https://console.anthropic.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-zinc-400 underline hover:text-zinc-300"
+          >
+            console.anthropic.com
+          </a>
         </p>
       </div>
     </div>

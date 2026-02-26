@@ -64,7 +64,14 @@ export function registerAgentHandlers(
 
   ipcMain.handle('agent:message', async (_, message: string) => {
     if (isProcessing) {
-      throw new Error('Already processing a message')
+      const win = getWindow()
+      if (win && !win.isDestroyed()) {
+        win.webContents.send('agent:response', {
+          type: 'error',
+          content: 'Already processing a message. Please wait or cancel the current request.'
+        })
+      }
+      return
     }
 
     const win = getWindow()

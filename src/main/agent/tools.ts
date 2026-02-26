@@ -4,7 +4,7 @@ import type { TaskManager } from '../task-manager'
 import type { GitManager } from '../git-manager'
 import type { PtyManager } from '../pty-manager'
 import { readFile, writeFile, unlink, readdir, stat, mkdir } from 'fs/promises'
-import { join, resolve, relative, sep } from 'path'
+import { dirname, join, resolve, relative, sep } from 'path'
 import type { ColumnId } from '@shared/types'
 
 const VALID_COLUMNS: ColumnId[] = ['draft', 'planning', 'in-progress', 'review', 'done']
@@ -384,16 +384,21 @@ export function createToolExecutor(deps: ToolExecutorDeps): (name: string, input
         case 'send_to_agent': {
           const mgr = requireTaskManager()
           const taskId = input.task_id as string
+          if (!/^[A-Za-z0-9_-]{1,64}$/.test(taskId)) {
+            return { success: false, error: `Invalid task ID: ${taskId}` }
+          }
           const agent = (input.agent as string) || 'claude-code'
           const board = await mgr.loadBoard()
           if (!board.tasks[taskId]) {
             return { success: false, error: `Task ${taskId} not found` }
           }
           const taskTitle = board.tasks[taskId].title
+          const markdown = await mgr.readMarkdown(taskId)
+          const escaped = markdown.replace(/'/g, "'\\''")
           const cmd =
             agent === 'claude-code'
-              ? `claude -p "$(cat tasks/task-${taskId}.md)"`
-              : `codex -q "$(cat tasks/task-${taskId}.md)"`
+              ? `claude -p '${escaped}'`
+              : `codex -q '${escaped}'`
           const tabName = `${agent === 'claude-code' ? 'Claude' : 'Codex'}: ${taskTitle}`
           notifyStateChanged('terminal', { name: tabName, command: cmd })
           return { success: true, data: { taskId, agent, tabName } }
@@ -414,8 +419,7 @@ export function createToolExecutor(deps: ToolExecutorDeps): (name: string, input
           const content = input.content as string
           const absPath = validatePath(filePath, folder)
           // Ensure parent directory exists
-          const dir = join(absPath, '..')
-          await mkdir(dir, { recursive: true })
+          await mkdir(dirname(absPath), { recursive: true })
           await writeFile(absPath, content, 'utf-8')
           notifyStateChanged('files')
           return { success: true, data: { path: filePath } }

@@ -20,7 +20,7 @@ export default function ChatInput(): React.JSX.Element {
   }, [text, isStreaming, sendMessage])
 
   const handleKeyDown = (e: React.KeyboardEvent): void => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault()
       handleSend()
     }

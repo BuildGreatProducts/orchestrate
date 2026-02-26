@@ -83,7 +83,7 @@ export class Agent {
           (block) => block.type === 'tool_use'
         )
 
-        if (toolUseBlocks.length === 0 || finalMessage.stop_reason === 'end_turn') {
+        if (toolUseBlocks.length === 0) {
           yield { type: 'done' }
           break
         }
