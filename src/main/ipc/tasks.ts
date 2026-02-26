@@ -1,5 +1,6 @@
 import { ipcMain, BrowserWindow } from 'electron'
 import { markChannelRegistered } from './stubs'
+import { getGitManager } from './git'
 import { TaskManager } from '../task-manager'
 import type { BoardState, AgentType } from '@shared/types'
 import type { PtyManager } from '../pty-manager'
@@ -73,6 +74,16 @@ export function registerTaskHandlers(
     if (!board.tasks[id]) {
       throw new Error(`Task ${id} not found`)
     }
-    // Phase 5.11: auto-save point logic will be added here
+
+    // Auto-save before agent run
+    const gitMgr = getGitManager()
+    if (gitMgr) {
+      try {
+        const isRepo = await gitMgr.isRepo()
+        if (isRepo) await gitMgr.autoSaveBeforeAgent(board.tasks[id].title)
+      } catch (err) {
+        console.warn('[Tasks] Auto-save failed:', err)
+      }
+    }
   })
 }
