@@ -1,19 +1,25 @@
 import { watch, type FSWatcher } from 'chokidar'
 import { BrowserWindow } from 'electron'
+import path from 'path'
 import type { FileChangeEvent } from '@shared/types'
 
 let watcher: FSWatcher | null = null
 
-const IGNORE_PATTERNS = [
-  '**/node_modules/**',
-  '**/.git/**',
-  '**/.DS_Store',
-  '**/dist/**',
-  '**/out/**',
-  '**/.next/**',
-  '**/.cache/**',
-  '**/.turbo/**'
-]
+const IGNORED_DIRS = new Set([
+  'node_modules',
+  '.git',
+  'dist',
+  'out',
+  '.next',
+  '.cache',
+  '.turbo'
+])
+
+function isIgnored(filePath: string): boolean {
+  const basename = path.basename(filePath)
+  if (basename === '.DS_Store') return true
+  return IGNORED_DIRS.has(basename)
+}
 
 export function startWatching(
   folderPath: string,
@@ -22,7 +28,7 @@ export function startWatching(
   stopWatching()
 
   watcher = watch(folderPath, {
-    ignored: IGNORE_PATTERNS,
+    ignored: isIgnored,
     persistent: true,
     ignoreInitial: true,
     awaitWriteFinish: {
