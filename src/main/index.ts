@@ -5,8 +5,9 @@ import icon from '../../resources/icon.png?asset'
 import { registerFolderHandlers, getCurrentFolder } from './ipc/folder'
 import { registerFileHandlers } from './ipc/files'
 import { registerTerminalHandlers, closeAllTerminals, getPtyManager } from './ipc/terminal'
-import { registerTaskHandlers } from './ipc/tasks'
-import { registerGitHandlers } from './ipc/git'
+import { registerTaskHandlers, getTaskManager } from './ipc/tasks'
+import { registerGitHandlers, getGitManager } from './ipc/git'
+import { registerAgentHandlers } from './ipc/agent'
 import { registerStubHandlers } from './ipc/stubs'
 import { startWatching, stopWatching } from './file-watcher'
 
@@ -58,6 +59,7 @@ app.whenReady().then(() => {
   registerTerminalHandlers(() => mainWindow, getCurrentFolder)
   registerTaskHandlers(() => mainWindow, getCurrentFolder, getPtyManager)
   registerGitHandlers(() => mainWindow, getCurrentFolder)
+  registerAgentHandlers(() => mainWindow, getCurrentFolder, getTaskManager, getGitManager, getPtyManager)
   registerStubHandlers()
 
   // Start watching the last-used folder if one exists
