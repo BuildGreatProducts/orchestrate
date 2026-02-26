@@ -113,12 +113,9 @@ export default function HistoryTab(): React.JSX.Element {
         <ConfirmDialog
           title="Unsaved Changes"
           description="You have unsaved changes. Create a save point first before restoring."
-          confirmLabel="Create Save Point"
+          confirmLabel="OK"
           variant="primary"
-          onConfirm={() => {
-            dismissUncommittedDialog()
-            // Focus will return to the CreateSavePoint input
-          }}
+          onConfirm={dismissUncommittedDialog}
           onCancel={dismissUncommittedDialog}
         />
       )}

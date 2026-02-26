@@ -87,6 +87,7 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
       set({ gitStatus: status, fileStatusMap: map })
     } catch (err) {
       console.error('[History] Failed to load status:', err)
+      set({ gitStatus: null, fileStatusMap: {} })
     }
   },
 
@@ -109,12 +110,8 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
   },
 
   createSavePoint: async (message: string) => {
-    try {
-      await window.orchestrate.createSavePoint(message)
-      await get().refreshAll()
-    } catch (err) {
-      console.error('[History] Failed to create save point:', err)
-    }
+    await window.orchestrate.createSavePoint(message)
+    await get().refreshAll()
   },
 
   toggleDetail: async (hash: string) => {
@@ -127,10 +124,15 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
     set({ expandedHash: hash, detailLoading: true, expandedDetail: null })
     try {
       const detail = await window.orchestrate.getSavePointDetail(hash)
-      set({ expandedDetail: detail, detailLoading: false })
+      // Guard against stale responses: only apply if this hash is still expanded
+      if (get().expandedHash === hash) {
+        set({ expandedDetail: detail, detailLoading: false })
+      }
     } catch (err) {
       console.error('[History] Failed to load detail:', err)
-      set({ detailLoading: false })
+      if (get().expandedHash === hash) {
+        set({ detailLoading: false })
+      }
     }
   },
 

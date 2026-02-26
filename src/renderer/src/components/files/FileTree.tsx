@@ -91,7 +91,8 @@ function FileNode({
   // For directories, show a dot if any descendant has status
   const dirHasStatus =
     entry.isDirectory &&
-    Object.keys(fileStatusMap).some((key) => key.startsWith(relativePath + '/') || key === relativePath)
+    relativePath.length > 0 &&
+    Object.keys(fileStatusMap).some((key) => key.startsWith(relativePath + '/'))
 
   return (
     <>

@@ -1,4 +1,5 @@
 import { ipcMain, BrowserWindow } from 'electron'
+import { normalize } from 'path'
 import { markChannelRegistered } from './stubs'
 import { GitManager } from '../git-manager'
 
@@ -10,9 +11,29 @@ function validateHash(hash: unknown): asserts hash is string {
   }
 }
 
-let gitManager: GitManager | null = null
+function validateFilePath(filePath: unknown): asserts filePath is string {
+  if (typeof filePath !== 'string' || filePath.length === 0) {
+    throw new Error('File path is required')
+  }
+  // Reject absolute paths and parent-segment escapes
+  const normalized = normalize(filePath)
+  if (normalized.startsWith('/') || normalized.startsWith('\\') || normalized.startsWith('..')) {
+    throw new Error('Invalid file path: must be a relative path within the repository')
+  }
+}
 
+let gitManager: GitManager | null = null
+let getCurrentFolderFn: (() => string | null) | null = null
+
+/**
+ * Returns the GitManager with its cwd synchronized to the current folder.
+ * Safe to call from other IPC modules (e.g., tasks).
+ */
 export function getGitManager(): GitManager | null {
+  if (!gitManager || !getCurrentFolderFn) return null
+  const folder = getCurrentFolderFn()
+  if (!folder) return null
+  gitManager.setCwd(folder)
   return gitManager
 }
 
@@ -20,6 +41,7 @@ export function registerGitHandlers(
   _getWindow: () => BrowserWindow | null,
   getCurrentFolder: () => string | null
 ): void {
+  getCurrentFolderFn = getCurrentFolder
   markChannelRegistered('git:isRepo')
   markChannelRegistered('git:init')
   markChannelRegistered('git:history')
@@ -74,9 +96,7 @@ export function registerGitHandlers(
 
   ipcMain.handle('git:diff', async (_, hash: string, filePath: string) => {
     validateHash(hash)
-    if (typeof filePath !== 'string' || filePath.length === 0) {
-      throw new Error('File path is required')
-    }
+    validateFilePath(filePath)
     return getManager().getFileDiff(hash, filePath)
   })
 

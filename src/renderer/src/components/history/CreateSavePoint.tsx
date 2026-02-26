@@ -3,6 +3,7 @@ import { useHistoryStore } from '@renderer/stores/history'
 
 export default function CreateSavePoint(): React.JSX.Element {
   const [message, setMessage] = useState('')
+  const [isSaving, setIsSaving] = useState(false)
   const gitStatus = useHistoryStore((s) => s.gitStatus)
   const createSavePoint = useHistoryStore((s) => s.createSavePoint)
 
@@ -24,12 +25,19 @@ export default function CreateSavePoint(): React.JSX.Element {
         .join(', ')
     : ''
 
-  const canSave = message.trim().length > 0 && hasChanges
+  const canSave = message.trim().length > 0 && hasChanges && !isSaving
 
   const handleSubmit = async (): Promise<void> => {
     if (!canSave) return
-    await createSavePoint(message.trim())
-    setMessage('')
+    setIsSaving(true)
+    try {
+      await createSavePoint(message.trim())
+      setMessage('')
+    } catch (err) {
+      console.error('[CreateSavePoint] Failed to create save point:', err)
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent): void => {
@@ -55,7 +63,7 @@ export default function CreateSavePoint(): React.JSX.Element {
           disabled={!canSave}
           className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          Save
+          {isSaving ? 'Saving...' : 'Save'}
         </button>
       </div>
       {changeSummary && (

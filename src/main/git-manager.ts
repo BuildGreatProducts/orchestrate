@@ -43,9 +43,11 @@ export class GitManager {
   }
 
   async createSavePoint(message: string): Promise<string> {
+    const dirty = await this.hasUncommittedChanges()
+    if (!dirty) return ''
     await this.git.add('-A')
     const result = await this.git.commit(message)
-    return result.commit
+    return result.commit ?? ''
   }
 
   async autoSaveBeforeAgent(taskTitle: string): Promise<boolean> {
@@ -86,25 +88,26 @@ export class GitManager {
       const raw = await this.git.raw(['diff-tree', '--root', '-r', '--numstat', hash])
       files = this.parseNumstatRoot(raw)
     } else {
+      // Get authoritative status via --name-status
+      const statusMap = await this.getNameStatusMap(hash)
       const summary = await this.git.diffSummary([`${hash}~1`, hash])
       files = summary.files.map((f) => ({
         path: f.file,
-        status: this.inferStatus(f),
+        status: statusMap[f.file] ?? this.inferStatusFallback(f),
         insertions: (f as { insertions: number }).insertions ?? 0,
         deletions: (f as { deletions: number }).deletions ?? 0
       }))
     }
 
-    // Get the commit info
-    const log = await this.git.log([`--max-count=1`, hash])
-    const entry = log.latest as (DefaultLogFields & ListLogLine) | null
+    // Get the commit info via git show
+    const raw = await this.git.raw([
+      'show', '-s', '--format=%s%n%aI', hash
+    ])
+    const lines = raw.trim().split('\n')
+    const message = lines[0] ?? ''
+    const date = lines[1] ?? ''
 
-    return {
-      hash,
-      message: entry?.message ?? '',
-      date: entry?.date ?? '',
-      files
-    }
+    return { hash, message, date, files }
   }
 
   async getFileDiff(hash: string, filePath: string): Promise<{ before: string; after: string }> {
@@ -164,6 +167,19 @@ export class GitManager {
     }
   }
 
+  private async getNameStatusMap(hash: string): Promise<Record<string, FileDiff['status']>> {
+    const raw = await this.git.raw(['diff-tree', '-r', '--name-status', `${hash}~1`, hash])
+    const map: Record<string, FileDiff['status']> = {}
+    for (const line of raw.trim().split('\n')) {
+      const match = line.match(/^([MADR])\d*\t(.+)$/)
+      if (match) {
+        const status = match[1].charAt(0) as FileDiff['status']
+        map[match[2]] = status
+      }
+    }
+    return map
+  }
+
   private parseNumstatRoot(raw: string): FileDiff[] {
     const files: FileDiff[] = []
     for (const line of raw.split('\n')) {
@@ -180,7 +196,8 @@ export class GitManager {
     return files
   }
 
-  private inferStatus(f: { file: string; insertions?: number; deletions?: number }): FileDiff['status'] {
+  /** Fallback heuristic when authoritative name-status is unavailable. */
+  private inferStatusFallback(f: { file: string; insertions?: number; deletions?: number }): FileDiff['status'] {
     const ins = (f as { insertions: number }).insertions ?? 0
     const del = (f as { deletions: number }).deletions ?? 0
     if (del === 0 && ins > 0) return 'A'
