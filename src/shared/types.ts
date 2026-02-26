@@ -116,6 +116,11 @@ export interface OrchestrateAPI {
   sendAgentMessage: (message: string) => Promise<void>
   onAgentResponse: (callback: (chunk: AgentResponseChunk) => void) => () => void
   onAgentToolUse: (callback: (tool: string, input: Record<string, unknown>) => void) => () => void
+  setApiKey: (key: string) => Promise<void>
+  hasApiKey: () => Promise<boolean>
+  clearAgentConversation: () => Promise<void>
+  cancelAgentMessage: () => Promise<void>
+  onAgentStateChanged: (callback: (domain: string, data?: unknown) => void) => () => void
 
   // Git / History
   isGitRepo: () => Promise<boolean>

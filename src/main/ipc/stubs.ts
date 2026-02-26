@@ -26,6 +26,10 @@ const stubs: StubDef[] = [
 
   // Agent
   { channel: 'agent:message', returns: undefined },
+  { channel: 'agent:setApiKey', returns: undefined },
+  { channel: 'agent:hasApiKey', returns: false },
+  { channel: 'agent:clearConversation', returns: undefined },
+  { channel: 'agent:cancel', returns: undefined },
 
   // Git
   { channel: 'git:isRepo', returns: false },

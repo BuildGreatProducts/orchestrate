@@ -80,6 +80,23 @@ const api: OrchestrateAPI = {
       ipcRenderer.removeListener('agent:toolUse', handler)
     }
   },
+  setApiKey: (key: string) => ipcRenderer.invoke('agent:setApiKey', key),
+  hasApiKey: () => ipcRenderer.invoke('agent:hasApiKey'),
+  clearAgentConversation: () => ipcRenderer.invoke('agent:clearConversation'),
+  cancelAgentMessage: () => ipcRenderer.invoke('agent:cancel'),
+  onAgentStateChanged: (callback: (domain: string, data?: unknown) => void) => {
+    const handler = (
+      _: Electron.IpcRendererEvent,
+      domain: string,
+      data?: unknown
+    ): void => {
+      callback(domain, data)
+    }
+    ipcRenderer.on('agent:stateChanged', handler)
+    return () => {
+      ipcRenderer.removeListener('agent:stateChanged', handler)
+    }
+  },
 
   // Git / History
   isGitRepo: () => ipcRenderer.invoke('git:isRepo'),

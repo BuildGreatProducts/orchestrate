@@ -14,12 +14,26 @@ function validateTaskId(id: unknown): asserts id is string {
 }
 
 let taskManager: TaskManager | null = null
+let getCurrentFolderFn: (() => string | null) | null = null
+
+/**
+ * Returns the TaskManager with its folder synchronized to the current folder.
+ * Safe to call from other IPC modules (e.g., agent).
+ */
+export function getTaskManager(): TaskManager | null {
+  if (!taskManager || !getCurrentFolderFn) return null
+  const folder = getCurrentFolderFn()
+  if (!folder) return null
+  taskManager.setProjectFolder(folder)
+  return taskManager
+}
 
 export function registerTaskHandlers(
   _getWindow: () => BrowserWindow | null,
   getCurrentFolder: () => string | null,
   _getPtyManager: () => PtyManager | null
 ): void {
+  getCurrentFolderFn = getCurrentFolder
   markChannelRegistered('task:loadBoard')
   markChannelRegistered('task:saveBoard')
   markChannelRegistered('task:readMarkdown')
