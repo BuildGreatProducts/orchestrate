@@ -3,6 +3,7 @@ import type { BoardState, ColumnId, AgentType } from '@shared/types'
 import { useTerminalStore } from './terminal'
 import { useAppStore } from './app'
 import { useHistoryStore } from './history'
+import { toast } from './toast'
 
 const SAFE_ID_RE = /^[A-Za-z0-9_-]{1,64}$/
 
@@ -61,6 +62,7 @@ export const useTasksStore = create<TasksState>((set, get) => ({
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error'
       console.error('[Tasks] Failed to load board:', err)
+      toast.error(`Failed to load task board: ${message}`)
       set({
         board: structuredClone(EMPTY_BOARD),
         isLoading: false,

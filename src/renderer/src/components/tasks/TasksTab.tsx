@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useAppStore } from '@renderer/stores/app'
 import { useTasksStore } from '@renderer/stores/tasks'
+import Spinner from '@renderer/components/ui/Spinner'
 import KanbanBoard from './KanbanBoard'
 import TaskDetailPanel from './TaskDetailPanel'
 
@@ -37,8 +38,9 @@ export default function TasksTab(): React.JSX.Element {
 
   if (isLoading || !hasLoaded) {
     return (
-      <div className="flex flex-1 items-center justify-center">
-        <p className="text-zinc-500">Loading board...</p>
+      <div className="flex flex-1 flex-col items-center justify-center gap-2">
+        <Spinner className="text-zinc-500" />
+        <p className="text-sm text-zinc-500">Loading board…</p>
       </div>
     )
   }

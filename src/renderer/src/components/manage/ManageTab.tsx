@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAppStore } from '../../stores/app'
 import { useAgentStore } from '../../stores/agent'
+import Spinner from '@renderer/components/ui/Spinner'
 import ApiKeyPrompt from './ApiKeyPrompt'
 import ChatMessage from './ChatMessage'
 import ChatInput from './ChatInput'
@@ -58,7 +59,7 @@ export default function ManageTab(): React.JSX.Element {
   if (!currentFolder) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3">
-        <h2 className="text-2xl font-semibold text-zinc-200">Manage</h2>
+        <h2 className="text-2xl font-semibold text-zinc-200">Orchestrate</h2>
         <p className="text-zinc-500">Select a project folder to get started</p>
       </div>
     )
@@ -76,8 +77,9 @@ export default function ManageTab(): React.JSX.Element {
   // Loading API key status
   if (hasApiKey === null) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center">
-        <p className="text-zinc-500">Loading...</p>
+      <div className="flex flex-1 flex-col items-center justify-center gap-2">
+        <Spinner className="text-zinc-500" />
+        <p className="text-sm text-zinc-500">Loading…</p>
       </div>
     )
   }

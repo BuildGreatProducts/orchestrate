@@ -1,9 +1,9 @@
 // ── Tab Navigation ──
 
-export type TabId = 'manage' | 'agents' | 'tasks' | 'files' | 'history'
+export type TabId = 'orchestrate' | 'agents' | 'tasks' | 'files' | 'history'
 
 export const TAB_LIST: { id: TabId; label: string }[] = [
-  { id: 'manage', label: 'Manage' },
+  { id: 'orchestrate', label: 'Orchestrate' },
   { id: 'agents', label: 'Agents' },
   { id: 'tasks', label: 'Tasks' },
   { id: 'files', label: 'Files' },

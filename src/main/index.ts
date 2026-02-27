@@ -1,5 +1,5 @@
 import { app, shell, BrowserWindow } from 'electron'
-import { join } from 'path'
+import { join, basename } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { registerFolderHandlers, getCurrentFolder } from './ipc/folder'
@@ -7,7 +7,7 @@ import { registerFileHandlers } from './ipc/files'
 import { registerTerminalHandlers, closeAllTerminals, getPtyManager } from './ipc/terminal'
 import { registerTaskHandlers, getTaskManager } from './ipc/tasks'
 import { registerGitHandlers, getGitManager } from './ipc/git'
-import { registerAgentHandlers } from './ipc/agent'
+import { registerAgentHandlers, clearAgentConversation } from './ipc/agent'
 import { registerStubHandlers } from './ipc/stubs'
 import { startWatching, stopWatching } from './file-watcher'
 
@@ -20,6 +20,7 @@ function createWindow(): void {
     show: false,
     autoHideMenuBar: true,
     backgroundColor: '#09090b',
+    title: 'Orchestrate',
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -53,7 +54,11 @@ app.whenReady().then(() => {
   // Register real handlers first, then stubs for everything else
   registerFolderHandlers(() => mainWindow, (folder) => {
     closeAllTerminals()
+    clearAgentConversation()
     startWatching(folder, () => mainWindow)
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.setTitle(`Orchestrate — ${basename(folder)}`)
+    }
   })
   registerFileHandlers(() => mainWindow, getCurrentFolder)
   registerTerminalHandlers(() => mainWindow, getCurrentFolder)
@@ -69,6 +74,11 @@ app.whenReady().then(() => {
   }
 
   createWindow()
+
+  // Set initial window title if a folder was previously open
+  if (lastFolder && mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.setTitle(`Orchestrate — ${basename(lastFolder)}`)
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

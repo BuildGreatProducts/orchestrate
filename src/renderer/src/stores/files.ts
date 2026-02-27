@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { toast } from './toast'
 
 interface OpenFile {
   path: string
@@ -92,7 +93,13 @@ export const useFilesStore = create<FilesState>((set, get) => ({
       return
     }
 
-    const content = await window.orchestrate.readFile(path)
+    let content: string
+    try {
+      content = await window.orchestrate.readFile(path)
+    } catch (err) {
+      toast.error(`Failed to open file: ${err instanceof Error ? err.message : String(err)}`)
+      return
+    }
     const name = path.split('/').pop() ?? path
 
     set((state) => ({
@@ -136,13 +143,17 @@ export const useFilesStore = create<FilesState>((set, get) => ({
     const file = get().openFiles.find((f) => f.path === path)
     if (!file) return
 
-    await window.orchestrate.writeFile(path, file.content)
-
-    set((state) => ({
-      openFiles: state.openFiles.map((f) =>
-        f.path === path ? { ...f, savedContent: f.content } : f
-      )
-    }))
+    try {
+      await window.orchestrate.writeFile(path, file.content)
+      set((state) => ({
+        openFiles: state.openFiles.map((f) =>
+          f.path === path ? { ...f, savedContent: f.content } : f
+        )
+      }))
+      toast.success('File saved')
+    } catch (err) {
+      toast.error(`Failed to save file: ${err instanceof Error ? err.message : String(err)}`)
+    }
   },
 
   saveActiveFile: async () => {

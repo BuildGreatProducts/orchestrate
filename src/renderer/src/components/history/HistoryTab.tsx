@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useAppStore } from '@renderer/stores/app'
 import { useHistoryStore } from '@renderer/stores/history'
+import Spinner from '@renderer/components/ui/Spinner'
 import EmptyState from './EmptyState'
 import CreateSavePoint from './CreateSavePoint'
 import SavePointList from './SavePointList'
@@ -59,8 +60,9 @@ export default function HistoryTab(): React.JSX.Element {
   // Still checking
   if (isGitRepo === null) {
     return (
-      <div className="flex flex-1 items-center justify-center p-4 text-sm text-zinc-500">
-        Checking git status...
+      <div className="flex flex-1 flex-col items-center justify-center gap-2 p-4 text-sm text-zinc-500">
+        <Spinner className="text-zinc-500" />
+        <span>Checking git status…</span>
       </div>
     )
   }
@@ -73,8 +75,9 @@ export default function HistoryTab(): React.JSX.Element {
   // Loading initial data
   if (isLoading && !hasLoaded) {
     return (
-      <div className="flex flex-1 items-center justify-center p-4 text-sm text-zinc-500">
-        Loading history...
+      <div className="flex flex-1 flex-col items-center justify-center gap-2 p-4 text-sm text-zinc-500">
+        <Spinner className="text-zinc-500" />
+        <span>Loading history…</span>
       </div>
     )
   }
