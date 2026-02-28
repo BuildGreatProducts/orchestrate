@@ -97,7 +97,7 @@ export default function TaskDetailPanel(): React.JSX.Element | null {
   if (!selectedTaskId || !task) return null
 
   return (
-    <div className="flex w-[480px] flex-shrink-0 flex-col border-l border-zinc-700 bg-zinc-900">
+    <div className="flex w-[480px] flex-shrink-0 flex-col border-l border-zinc-700 bg-zinc-900 animate-in slide-in-from-right duration-200">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-zinc-700 px-4 py-3">
         <span className="text-xs font-medium uppercase tracking-wider text-zinc-500">

@@ -66,8 +66,8 @@ export default function ChatMessage({
 
   if (role === 'user') {
     return (
-      <div className="flex justify-end px-4 py-2">
-        <div className="max-w-[75%] rounded-lg bg-blue-600 px-3 py-2 text-sm text-white">
+      <div className="flex justify-end px-4 py-2 animate-in fade-in slide-in-from-bottom-1 duration-150">
+        <div className="max-w-[75%] rounded-2xl rounded-br-md bg-blue-600 px-4 py-2.5 text-sm text-white shadow-sm">
           <span className="whitespace-pre-wrap">{content}</span>
         </div>
       </div>
@@ -76,8 +76,8 @@ export default function ChatMessage({
 
   // Assistant
   return (
-    <div className="flex justify-start px-4 py-2">
-      <div className="max-w-[75%] rounded-lg bg-zinc-800 px-3 py-2 text-sm text-zinc-200">
+    <div className="flex justify-start px-4 py-2 animate-in fade-in slide-in-from-bottom-1 duration-150">
+      <div className="max-w-[75%] rounded-2xl rounded-bl-md bg-zinc-800 px-4 py-2.5 text-sm text-zinc-200 shadow-sm">
         {toolUses && toolUses.length > 0 && (
           <div className="mb-2 flex flex-wrap gap-1">
             {toolUses.map((tu, idx) => (

@@ -8,6 +8,13 @@ import type { TaskManager } from '../task-manager'
 import type { GitManager } from '../git-manager'
 import type { PtyManager } from '../pty-manager'
 
+let agentInstance: Agent | null = null
+
+export function clearAgentConversation(): void {
+  agentInstance?.cancel()
+  agentInstance?.clearHistory()
+}
+
 export function registerAgentHandlers(
   getWindow: () => BrowserWindow | null,
   getCurrentFolder: () => string | null,
@@ -25,6 +32,7 @@ export function registerAgentHandlers(
   // to avoid module-level side effects that can fail during bundling/HMR
   const store = new Store()
   const agent = new Agent()
+  agentInstance = agent
 
   // Restore API key from persistent store
   const savedKey = store.get('anthropicApiKey') as string | undefined

@@ -1,5 +1,6 @@
 import { VscChevronRight, VscChevronDown } from 'react-icons/vsc'
 import type { SavePoint, SavePointDetail } from '@shared/types'
+import Spinner from '@renderer/components/ui/Spinner'
 import FileChangeList from './FileChangeList'
 
 function formatRelativeDate(dateStr: string): string {
@@ -101,9 +102,12 @@ export default function SavePointCard({
       </div>
 
       {isExpanded && (
-        <div className="px-3 pb-2">
+        <div className="px-3 pb-2 animate-in fade-in slide-in-from-top-1 duration-150">
           {detailLoading && (
-            <p className="py-2 text-xs text-zinc-600">Loading changes...</p>
+            <div className="flex items-center gap-2 py-2 text-xs text-zinc-600">
+              <Spinner className="h-3 w-3" />
+              Loading changes…
+            </div>
           )}
           {detail && <FileChangeList files={detail.files} onViewDiff={onViewDiff} />}
         </div>

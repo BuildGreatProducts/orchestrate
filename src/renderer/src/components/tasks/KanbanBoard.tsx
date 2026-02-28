@@ -133,7 +133,27 @@ export default function KanbanBoard(): React.JSX.Element {
 
   if (!board) return <div />
 
+  const totalTasks = Object.keys(board.tasks).length
   const activeTask = activeId ? board.tasks[activeId] : null
+
+  if (totalTasks === 0) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3 p-4">
+        <div className="rounded-full bg-zinc-800 p-4">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" className="text-zinc-500">
+            <rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.5" />
+            <rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.5" />
+            <rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.5" />
+            <rect x="14" y="14" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.5" />
+          </svg>
+        </div>
+        <p className="text-lg font-medium text-zinc-300">No tasks yet</p>
+        <p className="max-w-xs text-center text-sm text-zinc-500">
+          Create your first task by clicking the + button on a column, or press Ctrl/Cmd+N.
+        </p>
+      </div>
+    )
+  }
 
   return (
     <DndContext

@@ -43,7 +43,7 @@ export default function DiffViewer(): React.JSX.Element | null {
   const language = detectLanguage(diffModal.filePath)
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black/60">
+    <div className="fixed inset-0 z-50 flex flex-col bg-black/60 animate-in fade-in duration-150">
       <div className="flex items-center justify-between border-b border-zinc-700 bg-zinc-900 px-4 py-2">
         <span className="truncate text-sm font-medium text-zinc-200">
           {diffModal.filePath}

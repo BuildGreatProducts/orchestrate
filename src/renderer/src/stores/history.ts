@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { SavePoint, SavePointDetail, GitStatus } from '@shared/types'
 import { useFilesStore } from './files'
+import { toast } from './toast'
 
 interface HistoryState {
   isGitRepo: boolean | null
@@ -72,6 +73,7 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
       set({ history, hasLoaded: true })
     } catch (err) {
       console.error('[History] Failed to load history:', err)
+      toast.error('Failed to load git history')
       set({ history: [], hasLoaded: true })
     }
   },
@@ -110,8 +112,13 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
   },
 
   createSavePoint: async (message: string) => {
-    await window.orchestrate.createSavePoint(message)
-    await get().refreshAll()
+    try {
+      await window.orchestrate.createSavePoint(message)
+      toast.success('Save point created')
+      await get().refreshAll()
+    } catch (err) {
+      toast.error(`Failed to create save point: ${err instanceof Error ? err.message : String(err)}`)
+    }
   },
 
   toggleDetail: async (hash: string) => {
@@ -163,11 +170,14 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
     try {
       await window.orchestrate.revertSavePoint(confirmRevert)
       set({ confirmRevert: null })
+      toast.success('Revert completed')
       await get().refreshAll()
     } catch (err) {
-      const message = err instanceof Error ? err.message : ''
+      const message = err instanceof Error ? err.message : String(err) || 'Unknown error'
       if (message.includes('REVERT_CONFLICT')) {
-        console.error('[History] Revert failed due to conflict')
+        toast.error('Revert failed due to a conflict')
+      } else {
+        toast.error(`Revert failed: ${message}`)
       }
       set({ confirmRevert: null })
     }
@@ -195,9 +205,11 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
     try {
       await window.orchestrate.restoreToSavePoint(confirmRestore)
       set({ confirmRestore: null })
+      toast.success('Restore completed')
       await get().refreshAll()
     } catch (err) {
       console.error('[History] Failed to restore:', err)
+      toast.error(`Restore failed: ${err instanceof Error ? err.message : String(err)}`)
       set({ confirmRestore: null })
     }
   },

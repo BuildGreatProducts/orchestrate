@@ -10,7 +10,7 @@ interface AppState {
 }
 
 export const useAppStore = create<AppState>((set) => ({
-  activeTab: 'manage',
+  activeTab: 'orchestrate',
   currentFolder: null,
   setActiveTab: (tab) => set({ activeTab: tab }),
   setCurrentFolder: (folder) => set({ currentFolder: folder }),

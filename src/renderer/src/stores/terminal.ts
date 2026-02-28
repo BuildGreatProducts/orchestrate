@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { toast } from './toast'
 
 interface TerminalTab {
   id: string
@@ -104,6 +105,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
           activeTabId: state.activeTabId === id ? (newTabs.at(-1)?.id ?? null) : state.activeTabId
         }
       })
+      toast.error(`Failed to create terminal: ${err instanceof Error ? err.message : String(err)}`)
       throw err
     }
   },

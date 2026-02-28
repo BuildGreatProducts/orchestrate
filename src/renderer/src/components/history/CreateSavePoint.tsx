@@ -56,6 +56,7 @@ export default function CreateSavePoint(): React.JSX.Element {
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Describe what changed..."
+          data-save-point-input
           className="flex-1 rounded bg-zinc-800 px-3 py-1.5 text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:ring-1 focus:ring-blue-500"
         />
         <button
