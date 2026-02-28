@@ -4,7 +4,7 @@ import { useAppStore } from '@renderer/stores/app'
 export default function FolderSelector(): React.JSX.Element {
   const { currentFolder, setCurrentFolder } = useAppStore()
 
-  const folderName = currentFolder ? currentFolder.split('/').pop() : 'Select a folder…'
+  const folderName = currentFolder ? currentFolder.split(/[/\\]/).pop() : 'Select a folder…'
 
   const handleClick = async (): Promise<void> => {
     const folder = await window.orchestrate.selectFolder()

@@ -6,6 +6,8 @@ export default function Spinner({ className = '' }: { className?: string }): Rea
       height="20"
       viewBox="0 0 20 20"
       fill="none"
+      aria-hidden="true"
+      focusable="false"
     >
       <circle cx="10" cy="10" r="8" stroke="currentColor" strokeWidth="2" opacity="0.25" />
       <path

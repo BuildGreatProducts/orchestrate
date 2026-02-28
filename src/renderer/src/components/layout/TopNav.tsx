@@ -14,7 +14,7 @@ const TAB_ICONS: Record<TabId, React.ComponentType<{ size?: number }>> = {
 
 function Logo(): React.JSX.Element {
   return (
-    <svg width="18" height="21" viewBox="0 0 114 133" fill="none" className="shrink-0">
+    <svg width="18" height="21" viewBox="0 0 114 133" fill="none" aria-hidden="true" focusable="false" className="shrink-0">
       <path
         d="M48.8492 73.9895L6.98324 116.601C1.32928 122.356 5.41345 132.065 13.4881 132.065H97.22C105.295 132.065 109.379 122.356 103.725 116.601L61.8589 73.9895C58.287 70.3539 52.4211 70.3539 48.8492 73.9895Z"
         fill="white"

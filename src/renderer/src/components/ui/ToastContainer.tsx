@@ -22,6 +22,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
       <p className={`flex-1 text-sm ${textColor}`}>{toast.message}</p>
       <button
         onClick={onDismiss}
+        aria-label="Dismiss notification"
         className="shrink-0 text-zinc-400 transition-colors hover:text-zinc-200"
       >
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none">

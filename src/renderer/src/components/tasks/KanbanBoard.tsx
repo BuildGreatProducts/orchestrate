@@ -149,7 +149,7 @@ export default function KanbanBoard(): React.JSX.Element {
         </div>
         <p className="text-lg font-medium text-zinc-300">No tasks yet</p>
         <p className="max-w-xs text-center text-sm text-zinc-500">
-          Create your first task by clicking the + button in the Draft column, or use Cmd+N.
+          Create your first task by clicking the + button on a column, or press Ctrl/Cmd+N.
         </p>
       </div>
     )

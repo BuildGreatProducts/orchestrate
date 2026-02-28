@@ -173,7 +173,7 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
       toast.success('Revert completed')
       await get().refreshAll()
     } catch (err) {
-      const message = err instanceof Error ? err.message : ''
+      const message = err instanceof Error ? err.message : String(err) || 'Unknown error'
       if (message.includes('REVERT_CONFLICT')) {
         toast.error('Revert failed due to a conflict')
       } else {

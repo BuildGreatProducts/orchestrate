@@ -20,7 +20,7 @@ function SettingsIcon(): React.JSX.Element {
   )
 }
 
-export default function ManageTab(): React.JSX.Element {
+export default function OrchestrateTab(): React.JSX.Element {
   const currentFolder = useAppStore((s) => s.currentFolder)
   const messages = useAgentStore((s) => s.messages)
   const isStreaming = useAgentStore((s) => s.isStreaming)

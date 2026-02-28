@@ -11,6 +11,7 @@ import type { PtyManager } from '../pty-manager'
 let agentInstance: Agent | null = null
 
 export function clearAgentConversation(): void {
+  agentInstance?.cancel()
   agentInstance?.clearHistory()
 }
 

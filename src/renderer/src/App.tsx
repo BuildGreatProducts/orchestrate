@@ -6,14 +6,14 @@ import { useFilesStore } from '@renderer/stores/files'
 import { useTerminalStore } from '@renderer/stores/terminal'
 import { useTasksStore } from '@renderer/stores/tasks'
 import type { TabId } from '@shared/types'
-import ManageTab from '@renderer/components/manage/ManageTab'
+import OrchestrateTab from '@renderer/components/manage/ManageTab'
 import AgentsTab from '@renderer/components/agents/AgentsTab'
 import TasksTab from '@renderer/components/tasks/TasksTab'
 import FilesTab from '@renderer/components/files/FilesTab'
 import HistoryTab from '@renderer/components/history/HistoryTab'
 
 const TABS: { id: TabId; Component: React.ComponentType }[] = [
-  { id: 'orchestrate', Component: ManageTab },
+  { id: 'orchestrate', Component: OrchestrateTab },
   { id: 'agents', Component: AgentsTab },
   { id: 'tasks', Component: TasksTab },
   { id: 'files', Component: FilesTab },
@@ -49,7 +49,9 @@ function App(): React.JSX.Element {
         e.preventDefault()
         const tab = useAppStore.getState().activeTab
         if (tab === 'files') {
-          useFilesStore.getState().saveActiveFile()
+          useFilesStore.getState().saveActiveFile().catch((err) => {
+            console.error('[Shortcut] Failed to save file:', err)
+          })
         } else if (tab === 'history') {
           const input = document.querySelector<HTMLInputElement>('[data-save-point-input]')
           input?.focus()
@@ -68,6 +70,9 @@ function App(): React.JSX.Element {
             .then(() => {
               useAppStore.getState().setActiveTab('agents')
             })
+            .catch((err) => {
+              console.error('[Shortcut] Failed to create terminal:', err)
+            })
         }
         return
       }
@@ -76,7 +81,9 @@ function App(): React.JSX.Element {
       if (e.key === 'n') {
         e.preventDefault()
         useAppStore.getState().setActiveTab('tasks')
-        useTasksStore.getState().createTask('draft', 'New task')
+        useTasksStore.getState().createTask('draft', 'New task').catch((err) => {
+          console.error('[Shortcut] Failed to create task:', err)
+        })
         return
       }
     }
