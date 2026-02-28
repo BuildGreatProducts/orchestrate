@@ -122,3 +122,139 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Markdown preview styles */
+.markdown-preview {
+  color: #d4d4d8;
+  line-height: 1.7;
+  font-size: 0.9375rem;
+}
+.markdown-preview h1 {
+  font-size: 2em;
+  font-weight: 700;
+  margin: 1.5em 0 0.6em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid #3f3f46;
+  color: #fafafa;
+}
+.markdown-preview h2 {
+  font-size: 1.5em;
+  font-weight: 600;
+  margin: 1.4em 0 0.5em;
+  padding-bottom: 0.25em;
+  border-bottom: 1px solid #3f3f46;
+  color: #fafafa;
+}
+.markdown-preview h3 {
+  font-size: 1.25em;
+  font-weight: 600;
+  margin: 1.2em 0 0.4em;
+  color: #fafafa;
+}
+.markdown-preview h4,
+.markdown-preview h5,
+.markdown-preview h6 {
+  font-weight: 600;
+  margin: 1em 0 0.4em;
+  color: #e4e4e7;
+}
+.markdown-preview h1:first-child,
+.markdown-preview h2:first-child,
+.markdown-preview h3:first-child {
+  margin-top: 0;
+}
+.markdown-preview p {
+  margin: 0.75em 0;
+}
+.markdown-preview a {
+  color: #60a5fa;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.markdown-preview a:hover {
+  color: #93bbfd;
+}
+.markdown-preview strong {
+  font-weight: 600;
+  color: #e4e4e7;
+}
+.markdown-preview code {
+  font-family: 'SF Mono', Menlo, Monaco, 'Courier New', monospace;
+  font-size: 0.875em;
+  background: #27272a;
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+  color: #e4e4e7;
+}
+.markdown-preview pre {
+  margin: 1em 0;
+  padding: 1em;
+  background: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 6px;
+  overflow-x: auto;
+}
+.markdown-preview pre code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+.markdown-preview blockquote {
+  margin: 1em 0;
+  padding: 0.25em 1em;
+  border-left: 3px solid #3f3f46;
+  color: #a1a1aa;
+}
+.markdown-preview ul {
+  margin: 0.75em 0;
+  padding-left: 1.5em;
+  list-style-type: disc;
+}
+.markdown-preview ol {
+  margin: 0.75em 0;
+  padding-left: 1.5em;
+  list-style-type: decimal;
+}
+.markdown-preview li {
+  margin: 0.25em 0;
+}
+.markdown-preview li > ul,
+.markdown-preview li > ol {
+  margin: 0.15em 0;
+}
+.markdown-preview hr {
+  margin: 1.5em 0;
+  border: none;
+  border-top: 1px solid #3f3f46;
+}
+.markdown-preview table {
+  margin: 1em 0;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875em;
+}
+.markdown-preview th {
+  font-weight: 600;
+  text-align: left;
+  padding: 0.5em 0.75em;
+  border-bottom: 2px solid #3f3f46;
+  color: #e4e4e7;
+}
+.markdown-preview td {
+  padding: 0.5em 0.75em;
+  border-bottom: 1px solid #27272a;
+}
+.markdown-preview tr:last-child td {
+  border-bottom: none;
+}
+.markdown-preview img {
+  max-width: 100%;
+  border-radius: 6px;
+  margin: 1em 0;
+}
+.markdown-preview input[type="checkbox"] {
+  margin-right: 0.4em;
+  accent-color: #60a5fa;
+}

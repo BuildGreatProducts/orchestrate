@@ -13,6 +13,8 @@ interface FilesState {
   openFiles: OpenFile[]
   activeFilePath: string | null
   treeVersion: number
+  /** Paths currently shown in markdown preview mode */
+  markdownPreviewPaths: Record<string, boolean>
 
   openFile: (path: string) => Promise<void>
   closeFile: (path: string) => void
@@ -23,6 +25,7 @@ interface FilesState {
   refreshTree: () => void
   closeAllFiles: () => void
   handleExternalChange: (path: string) => Promise<void>
+  toggleMarkdownPreview: (path: string) => void
 }
 
 const LANG_MAP: Record<string, string> = {
@@ -83,6 +86,7 @@ export const useFilesStore = create<FilesState>((set, get) => ({
   openFiles: [],
   activeFilePath: null,
   treeVersion: 0,
+  markdownPreviewPaths: {},
 
   openFile: async (path: string) => {
     const { openFiles } = get()
@@ -127,7 +131,13 @@ export const useFilesStore = create<FilesState>((set, get) => ({
         newActive = newFiles[closedIndex - 1]?.path ?? newFiles[closedIndex]?.path ?? null
       }
 
-      return { openFiles: newFiles, activeFilePath: newActive }
+      const { [path]: _removed, ...remainingPreviews } = state.markdownPreviewPaths
+      void _removed
+      return {
+        openFiles: newFiles,
+        activeFilePath: newActive,
+        markdownPreviewPaths: remainingPreviews
+      }
     })
   },
 
@@ -166,7 +176,7 @@ export const useFilesStore = create<FilesState>((set, get) => ({
   },
 
   closeAllFiles: () => {
-    set({ openFiles: [], activeFilePath: null })
+    set({ openFiles: [], activeFilePath: null, markdownPreviewPaths: {} })
   },
 
   handleExternalChange: async (changedPath: string) => {
@@ -186,5 +196,14 @@ export const useFilesStore = create<FilesState>((set, get) => ({
         // File may have been deleted — ignore
       }
     }
+  },
+
+  toggleMarkdownPreview: (path: string) => {
+    set((state) => ({
+      markdownPreviewPaths: {
+        ...state.markdownPreviewPaths,
+        [path]: !state.markdownPreviewPaths[path]
+      }
+    }))
   }
 }))
