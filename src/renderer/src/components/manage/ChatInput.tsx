@@ -13,7 +13,6 @@ export default function ChatInput(): React.JSX.Element {
     if (!trimmed || isStreaming) return
     setText('')
     sendMessage(trimmed)
-    // Reset textarea height
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
     }
@@ -28,40 +27,47 @@ export default function ChatInput(): React.JSX.Element {
 
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>): void => {
     setText(e.target.value)
-    // Auto-expand textarea
     const el = e.target
     el.style.height = 'auto'
-    const maxHeight = 5 * 24 // ~5 rows
-    el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`
+    const LINE_HEIGHT = 24
+    const MAX_ROWS = 5
+    el.style.height = `${Math.min(el.scrollHeight, LINE_HEIGHT * MAX_ROWS)}px`
   }
 
   return (
-    <div className="border-t border-zinc-700 bg-zinc-900 px-4 py-3">
-      <div className="flex items-end gap-2">
+    <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center px-4 pb-4 pt-8 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
+      <div className="pointer-events-auto flex w-full max-w-2xl items-end gap-3 rounded-2xl bg-zinc-800/90 backdrop-blur-sm px-4 py-3 shadow-[0_2px_20px_rgba(0,0,0,0.4),0_0_0_1px_rgba(255,255,255,0.05)]">
         <textarea
           ref={textareaRef}
           value={text}
           onChange={handleInput}
           onKeyDown={handleKeyDown}
-          placeholder="Ask your AI project manager..."
+          placeholder="Ask anything..."
           disabled={isStreaming}
           rows={1}
-          className="flex-1 resize-none rounded border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 placeholder-zinc-500 outline-none focus:border-blue-500 disabled:opacity-50"
+          className="flex-1 resize-none bg-transparent py-2 text-sm leading-5 text-zinc-200 placeholder-zinc-500 outline-none disabled:opacity-50"
         />
         {isStreaming ? (
           <button
             onClick={cancelMessage}
-            className="rounded bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-500"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-600 text-white transition-colors hover:bg-red-500"
+            aria-label="Stop"
           >
-            Stop
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <rect x="3" y="3" width="10" height="10" rx="1.5" fill="currentColor" />
+            </svg>
           </button>
         ) : (
           <button
             onClick={handleSend}
             disabled={!text.trim()}
-            className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-zinc-900 transition-all hover:bg-zinc-100 active:scale-95 active:bg-zinc-200 disabled:opacity-30 disabled:cursor-not-allowed"
+            aria-label="Send message"
           >
-            Send
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M5 12h14" />
+              <path d="m12 5 7 7-7 7" />
+            </svg>
           </button>
         )}
       </div>
