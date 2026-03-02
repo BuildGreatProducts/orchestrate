@@ -5,11 +5,16 @@ import { useFilesStore } from './files'
 import { useTerminalStore } from './terminal'
 import { useAppStore } from './app'
 
+export type StreamItem =
+  | { kind: 'text'; content: string }
+  | { kind: 'tool_use'; tool: string; input: Record<string, unknown> }
+
 interface ChatMessage {
   id: string
   role: 'user' | 'assistant' | 'system'
   content: string
   toolUses?: { tool: string; input: Record<string, unknown> }[]
+  items?: StreamItem[]
   timestamp: number
 }
 
@@ -17,8 +22,7 @@ interface AgentState {
   messages: ChatMessage[]
   isStreaming: boolean
   hasApiKey: boolean | null
-  streamingContent: string
-  currentToolUses: { tool: string; input: Record<string, unknown> }[]
+  streamingItems: StreamItem[]
 
   checkApiKey: () => Promise<void>
   setApiKey: (key: string) => Promise<void>
@@ -40,46 +44,66 @@ function ensureGlobalListeners(): void {
     const state = useAgentStore.getState()
 
     if (chunk.type === 'text' && chunk.content) {
-      useAgentStore.setState({
-        streamingContent: state.streamingContent + chunk.content
-      })
+      const items = [...state.streamingItems]
+      const last = items[items.length - 1]
+      if (last && last.kind === 'text') {
+        items[items.length - 1] = { kind: 'text', content: last.content + chunk.content }
+      } else {
+        items.push({ kind: 'text', content: chunk.content })
+      }
+      useAgentStore.setState({ streamingItems: items })
     } else if (chunk.type === 'tool_use' && chunk.tool && chunk.input) {
       useAgentStore.setState({
-        currentToolUses: [
-          ...state.currentToolUses,
-          { tool: chunk.tool, input: chunk.input }
+        streamingItems: [
+          ...state.streamingItems,
+          { kind: 'tool_use', tool: chunk.tool, input: chunk.input }
         ]
       })
     } else if (chunk.type === 'done') {
-      const { streamingContent, currentToolUses, messages } = useAgentStore.getState()
-      if (streamingContent || currentToolUses.length > 0) {
+      const { streamingItems, messages } = useAgentStore.getState()
+      if (streamingItems.length > 0) {
+        const content = streamingItems
+          .filter((i): i is StreamItem & { kind: 'text' } => i.kind === 'text')
+          .map((i) => i.content)
+          .join('')
+        const toolUses = streamingItems
+          .filter((i): i is StreamItem & { kind: 'tool_use' } => i.kind === 'tool_use')
+          .map((i) => ({ tool: i.tool, input: i.input }))
         const msg: ChatMessage = {
           id: `msg-${Date.now()}`,
           role: 'assistant',
-          content: streamingContent,
-          toolUses: currentToolUses.length > 0 ? [...currentToolUses] : undefined,
+          content,
+          toolUses: toolUses.length > 0 ? toolUses : undefined,
+          items: [...streamingItems],
           timestamp: Date.now()
         }
         useAgentStore.setState({
           messages: [...messages, msg],
-          streamingContent: '',
-          currentToolUses: [],
+          streamingItems: [],
           isStreaming: false
         })
       } else {
         useAgentStore.setState({ isStreaming: false })
       }
     } else if (chunk.type === 'error') {
-      const { streamingContent, currentToolUses, messages } = useAgentStore.getState()
+      const { streamingItems, messages } = useAgentStore.getState()
       const newMessages = [...messages]
 
       // Finalize any partial assistant message
-      if (streamingContent || currentToolUses.length > 0) {
+      if (streamingItems.length > 0) {
+        const content = streamingItems
+          .filter((i): i is StreamItem & { kind: 'text' } => i.kind === 'text')
+          .map((i) => i.content)
+          .join('')
+        const toolUses = streamingItems
+          .filter((i): i is StreamItem & { kind: 'tool_use' } => i.kind === 'tool_use')
+          .map((i) => ({ tool: i.tool, input: i.input }))
         newMessages.push({
           id: `msg-${Date.now()}-partial`,
           role: 'assistant',
-          content: streamingContent,
-          toolUses: currentToolUses.length > 0 ? [...currentToolUses] : undefined,
+          content,
+          toolUses: toolUses.length > 0 ? toolUses : undefined,
+          items: [...streamingItems],
           timestamp: Date.now()
         })
       }
@@ -94,8 +118,7 @@ function ensureGlobalListeners(): void {
 
       useAgentStore.setState({
         messages: newMessages,
-        streamingContent: '',
-        currentToolUses: [],
+        streamingItems: [],
         isStreaming: false
       })
     }
@@ -145,8 +168,7 @@ export const useAgentStore = create<AgentState>((set, get) => {
     messages: [],
     isStreaming: false,
     hasApiKey: null,
-    streamingContent: '',
-    currentToolUses: [],
+    streamingItems: [],
 
     checkApiKey: async () => {
       try {
@@ -173,8 +195,7 @@ export const useAgentStore = create<AgentState>((set, get) => {
       set({
         messages: [...messages, userMsg],
         isStreaming: true,
-        streamingContent: '',
-        currentToolUses: []
+        streamingItems: []
       })
       try {
         await window.orchestrate.sendAgentMessage(text)
@@ -191,8 +212,7 @@ export const useAgentStore = create<AgentState>((set, get) => {
             }
           ],
           isStreaming: false,
-          streamingContent: '',
-          currentToolUses: []
+          streamingItems: []
         }))
       }
     },
@@ -203,15 +223,14 @@ export const useAgentStore = create<AgentState>((set, get) => {
 
     clearConversation: async () => {
       await window.orchestrate.clearAgentConversation()
-      set({ messages: [], streamingContent: '', currentToolUses: [] })
+      set({ messages: [], streamingItems: [] })
     },
 
     resetState: () => {
       set({
         messages: [],
         isStreaming: false,
-        streamingContent: '',
-        currentToolUses: [],
+        streamingItems: [],
         hasApiKey: null
       })
     }

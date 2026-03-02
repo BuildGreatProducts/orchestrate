@@ -36,7 +36,7 @@ export default function ChatInput(): React.JSX.Element {
 
   return (
     <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center px-4 pb-4 pt-8 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
-      <div className="pointer-events-auto flex w-full max-w-2xl items-end gap-3 rounded-2xl bg-zinc-800/90 backdrop-blur-sm px-4 py-3 shadow-[0_2px_20px_rgba(0,0,0,0.4),0_0_0_1px_rgba(255,255,255,0.05)]">
+      <div className="pointer-events-auto flex w-full items-end gap-3 rounded-2xl bg-zinc-800/90 backdrop-blur-sm px-4 py-3 shadow-[0_2px_20px_rgba(0,0,0,0.4),0_0_0_1px_rgba(255,255,255,0.05)]" style={{ maxWidth: 600 }}>
         <textarea
           ref={textareaRef}
           value={text}
