@@ -4,8 +4,8 @@ export type TabId = 'orchestrate' | 'agents' | 'tasks' | 'files' | 'history'
 
 export const TAB_LIST: { id: TabId; label: string }[] = [
   { id: 'orchestrate', label: 'Orchestrate' },
-  { id: 'agents', label: 'Agents' },
   { id: 'tasks', label: 'Tasks' },
+  { id: 'agents', label: 'Agents' },
   { id: 'files', label: 'Files' },
   { id: 'history', label: 'History' }
 ]
@@ -94,6 +94,8 @@ export interface OrchestrateAPI {
   writeFile: (path: string, content: string) => Promise<void>
   deleteFile: (path: string) => Promise<void>
   listDirectory: (path: string) => Promise<FileEntry[]>
+  createFile: (path: string) => Promise<void>
+  createFolder: (path: string) => Promise<void>
   watchFolder: (callback: (event: FileChangeEvent) => void) => () => void
 
   // Terminals

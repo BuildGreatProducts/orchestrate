@@ -11,6 +11,8 @@ const api: OrchestrateAPI = {
   writeFile: (path, content) => ipcRenderer.invoke('file:write', path, content),
   deleteFile: (path) => ipcRenderer.invoke('file:delete', path),
   listDirectory: (path) => ipcRenderer.invoke('file:listDir', path),
+  createFile: (path) => ipcRenderer.invoke('file:createFile', path),
+  createFolder: (path) => ipcRenderer.invoke('file:createDir', path),
   watchFolder: (callback: (event: FileChangeEvent) => void) => {
     const handler = (_: Electron.IpcRendererEvent, event: FileChangeEvent): void => {
       callback(event)

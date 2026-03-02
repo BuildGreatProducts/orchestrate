@@ -11,6 +11,8 @@ const stubs: StubDef[] = [
   { channel: 'file:write', returns: undefined },
   { channel: 'file:delete', returns: undefined },
   { channel: 'file:listDir', returns: [] },
+  { channel: 'file:createFile', returns: undefined },
+  { channel: 'file:createDir', returns: undefined },
 
   // Terminals
   { channel: 'terminal:create', returns: undefined },
