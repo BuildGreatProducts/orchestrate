@@ -40,7 +40,6 @@ export function registerAgentHandlers(
   const savedKey = store.get('anthropicApiKey') as string | undefined
   if (savedKey) {
     agent.setApiKey(savedKey)
-    process.env.ANTHROPIC_API_KEY = savedKey
   }
 
   // Build the allowed tools list: built-in + MCP-prefixed orchestrate tools
@@ -65,7 +64,6 @@ export function registerAgentHandlers(
     const trimmed = key.trim()
     store.set('anthropicApiKey', trimmed)
     agent.setApiKey(trimmed)
-    process.env.ANTHROPIC_API_KEY = trimmed
   })
 
   ipcMain.handle('agent:hasApiKey', async () => {

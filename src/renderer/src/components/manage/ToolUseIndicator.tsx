@@ -32,6 +32,10 @@ function getToolLabel(tool: string, input: Record<string, unknown>): string {
     (input.title as string) ||
     (input.message as string) ||
     (input.path as string) ||
+    (input.file_path as string) ||
+    (input.command as string) ||
+    (input.pattern as string) ||
+    (input.query as string) ||
     (input.name as string) ||
     (input.task_id as string) ||
     ''

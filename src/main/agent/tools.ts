@@ -4,8 +4,8 @@ import type { BrowserWindow } from 'electron'
 import type { TaskManager } from '../task-manager'
 import type { GitManager } from '../git-manager'
 import type { PtyManager } from '../pty-manager'
-import { readFile, writeFile, unlink, readdir, stat, mkdir } from 'fs/promises'
-import { dirname, join, resolve, relative, sep } from 'path'
+import { readFile, writeFile, unlink, readdir, stat, mkdir, realpath } from 'fs/promises'
+import { dirname, isAbsolute, join, resolve, relative, parse as pathParse } from 'path'
 import type { ColumnId } from '@shared/types'
 
 const VALID_COLUMNS: ColumnId[] = ['draft', 'planning', 'in-progress', 'review', 'done']
@@ -17,12 +17,39 @@ const IGNORED_NAMES = new Set([
   '.next', '.nuxt', 'dist', 'out', '.cache', '.turbo'
 ])
 
-function validatePath(filePath: string, projectFolder: string): string {
+async function validatePath(filePath: string, projectFolder: string): Promise<string> {
   const resolved = resolve(projectFolder, filePath)
-  const rel = relative(projectFolder, resolved)
-  if (rel.startsWith('..') || rel.startsWith(sep)) {
+
+  // Resolve symlinks to detect escapes via symlinked directories
+  let realResolved: string
+  let realRoot: string
+  try {
+    realResolved = await realpath(resolved)
+  } catch {
+    // Target doesn't exist yet (e.g. write_file creating a new file) —
+    // fall back to the logical path but still validate the parent
+    realResolved = resolved
+  }
+  try {
+    realRoot = await realpath(projectFolder)
+  } catch {
+    realRoot = projectFolder
+  }
+
+  const rel = relative(realRoot, realResolved)
+
+  // Reject paths that escape the project root:
+  // - starts with '..' (traversal)
+  // - is absolute (cross-drive on Windows, e.g. D:\ vs C:\)
+  if (rel.startsWith('..') || isAbsolute(rel)) {
     throw new Error('Path outside project folder')
   }
+
+  // Extra guard: different drive roots on Windows
+  if (pathParse(realResolved).root !== pathParse(realRoot).root) {
+    throw new Error('Path outside project folder')
+  }
+
   return resolved
 }
 
@@ -300,7 +327,7 @@ export function createOrchestrateServer(deps: ToolExecutorDeps) {
           notify('read_file', args as Record<string, unknown>)
           try {
             const folder = requireFolder()
-            const absPath = validatePath(args.path, folder)
+            const absPath = await validatePath(args.path, folder)
             const content = await readFile(absPath, 'utf-8')
             return ok({ path: args.path, content })
           } catch (err) {
@@ -320,7 +347,7 @@ export function createOrchestrateServer(deps: ToolExecutorDeps) {
           notify('write_file', args as Record<string, unknown>)
           try {
             const folder = requireFolder()
-            const absPath = validatePath(args.path, folder)
+            const absPath = await validatePath(args.path, folder)
             await mkdir(dirname(absPath), { recursive: true })
             await writeFile(absPath, args.content, 'utf-8')
             notifyStateChanged('files')
@@ -342,7 +369,7 @@ export function createOrchestrateServer(deps: ToolExecutorDeps) {
           try {
             const folder = requireFolder()
             const dirPath = args.path || '.'
-            const absPath = validatePath(dirPath, folder)
+            const absPath = await validatePath(dirPath, folder)
             const entries = await readdir(absPath, { withFileTypes: true })
             const files: { name: string; isDirectory: boolean; size?: number }[] = []
             for (const entry of entries) {
@@ -382,7 +409,7 @@ export function createOrchestrateServer(deps: ToolExecutorDeps) {
           notify('delete_file', args as Record<string, unknown>)
           try {
             const folder = requireFolder()
-            const absPath = validatePath(args.path, folder)
+            const absPath = await validatePath(args.path, folder)
             await unlink(absPath)
             notifyStateChanged('files')
             return ok({ path: args.path })

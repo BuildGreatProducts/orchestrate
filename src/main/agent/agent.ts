@@ -90,7 +90,7 @@ export class Agent {
 
       const errMsg = err instanceof Error ? err.message : String(err)
 
-      if (errMsg.includes('authentication') || errMsg.includes('401') || errMsg.includes('invalid.*api.*key')) {
+      if (errMsg.includes('authentication') || errMsg.includes('401') || /invalid.*api.*key/i.test(errMsg)) {
         yield { type: 'error', content: 'Invalid API key. Please check your Anthropic API key.' }
       } else if (errMsg.includes('rate') && errMsg.includes('limit')) {
         yield { type: 'error', content: 'Rate limit exceeded. Please wait a moment and try again.' }
