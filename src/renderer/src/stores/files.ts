@@ -7,6 +7,7 @@ interface OpenFile {
   content: string
   savedContent: string
   language: string
+  viewMode?: 'raw' | 'pretty'
 }
 
 interface FilesState {
@@ -21,8 +22,11 @@ interface FilesState {
   saveFile: (path: string) => Promise<void>
   saveActiveFile: () => Promise<void>
   refreshTree: () => void
+  setViewMode: (path: string, mode: 'raw' | 'pretty') => void
   closeAllFiles: () => void
   handleExternalChange: (path: string) => Promise<void>
+  createFile: (parentDir: string, name: string) => Promise<void>
+  createFolder: (parentDir: string, name: string) => Promise<void>
 }
 
 const LANG_MAP: Record<string, string> = {
@@ -165,8 +169,35 @@ export const useFilesStore = create<FilesState>((set, get) => ({
     set((state) => ({ treeVersion: state.treeVersion + 1 }))
   },
 
+  setViewMode: (path: string, mode: 'raw' | 'pretty') => {
+    set((state) => ({
+      openFiles: state.openFiles.map((f) => (f.path === path ? { ...f, viewMode: mode } : f))
+    }))
+  },
+
   closeAllFiles: () => {
     set({ openFiles: [], activeFilePath: null })
+  },
+
+  createFile: async (parentDir: string, name: string) => {
+    const fullPath = `${parentDir}/${name}`
+    try {
+      await window.orchestrate.createFile(fullPath)
+      get().refreshTree()
+      await get().openFile(fullPath)
+    } catch (err) {
+      toast.error(`Failed to create file: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  },
+
+  createFolder: async (parentDir: string, name: string) => {
+    const fullPath = `${parentDir}/${name}`
+    try {
+      await window.orchestrate.createFolder(fullPath)
+      get().refreshTree()
+    } catch (err) {
+      toast.error(`Failed to create folder: ${err instanceof Error ? err.message : String(err)}`)
+    }
   },
 
   handleExternalChange: async (changedPath: string) => {

@@ -2,12 +2,15 @@ import Editor, { type OnMount } from '@monaco-editor/react'
 import { useFilesStore } from '@renderer/stores/files'
 import { useRef } from 'react'
 import type { editor } from 'monaco-editor'
+import MarkdownPreview from './MarkdownPreview'
+import MarkdownToggle from './MarkdownToggle'
 
 export default function FileEditor(): React.JSX.Element {
   const activeFilePath = useFilesStore((s) => s.activeFilePath)
   const openFiles = useFilesStore((s) => s.openFiles)
   const updateContent = useFilesStore((s) => s.updateContent)
   const saveActiveFile = useFilesStore((s) => s.saveActiveFile)
+  const setViewMode = useFilesStore((s) => s.setViewMode)
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
 
   const activeFile = openFiles.find((f) => f.path === activeFilePath)
@@ -36,30 +39,45 @@ export default function FileEditor(): React.JSX.Element {
     )
   }
 
+  const isMarkdown = activeFile.language === 'markdown'
+  const viewMode = activeFile.viewMode ?? 'raw'
+
   return (
-    <Editor
-      key={activeFile.path}
-      height="100%"
-      language={activeFile.language}
-      value={activeFile.content}
-      theme="vs-dark"
-      onChange={(value) => {
-        if (value !== undefined) {
-          updateContent(activeFile.path, value)
-        }
-      }}
-      onMount={handleEditorMount}
-      options={{
-        fontSize: 13,
-        fontFamily: "'SF Mono', Menlo, Monaco, 'Courier New', monospace",
-        minimap: { enabled: true },
-        scrollBeyondLastLine: false,
-        wordWrap: 'off',
-        tabSize: 2,
-        renderWhitespace: 'selection',
-        bracketPairColorization: { enabled: true },
-        padding: { top: 12 }
-      }}
-    />
+    <div className="relative h-full min-h-0 overflow-hidden">
+      {isMarkdown && (
+        <MarkdownToggle
+          viewMode={viewMode}
+          onToggle={(mode) => setViewMode(activeFile.path, mode)}
+        />
+      )}
+      {isMarkdown && viewMode === 'pretty' ? (
+        <MarkdownPreview content={activeFile.content} />
+      ) : (
+        <Editor
+          key={activeFile.path}
+          height="100%"
+          language={activeFile.language}
+          value={activeFile.content}
+          theme="vs-dark"
+          onChange={(value) => {
+            if (value !== undefined) {
+              updateContent(activeFile.path, value)
+            }
+          }}
+          onMount={handleEditorMount}
+          options={{
+            fontSize: 13,
+            fontFamily: "'SF Mono', Menlo, Monaco, 'Courier New', monospace",
+            minimap: { enabled: true },
+            scrollBeyondLastLine: false,
+            wordWrap: 'off',
+            tabSize: 2,
+            renderWhitespace: 'selection',
+            bracketPairColorization: { enabled: true },
+            padding: { top: 12 }
+          }}
+        />
+      )}
+    </div>
   )
 }

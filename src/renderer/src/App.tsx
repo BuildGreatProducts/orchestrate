@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import TopNav from '@renderer/components/layout/TopNav'
 import ToastContainer from '@renderer/components/ui/ToastContainer'
+import ApiKeyPrompt from '@renderer/components/manage/ApiKeyPrompt'
 import { useAppStore } from '@renderer/stores/app'
 import { useFilesStore } from '@renderer/stores/files'
 import { useTerminalStore } from '@renderer/stores/terminal'
@@ -22,6 +23,8 @@ const TABS: { id: TabId; Component: React.ComponentType }[] = [
 
 function App(): React.JSX.Element {
   const activeTab = useAppStore((s) => s.activeTab)
+  const showSettings = useAppStore((s) => s.showSettings)
+  const setShowSettings = useAppStore((s) => s.setShowSettings)
   const loadLastFolder = useAppStore((s) => s.loadLastFolder)
 
   useEffect(() => {
@@ -33,6 +36,9 @@ function App(): React.JSX.Element {
     const handleKeyDown = (e: KeyboardEvent): void => {
       const mod = e.metaKey || e.ctrlKey
       if (!mod) return
+
+      // Don't fire app shortcuts when the settings overlay is visible
+      if (useAppStore.getState().showSettings) return
 
       // Cmd/Ctrl+1–5: Switch tabs
       if (e.key >= '1' && e.key <= '5') {
@@ -109,6 +115,11 @@ function App(): React.JSX.Element {
           </div>
         ))}
       </main>
+      {showSettings && (
+        <div role="dialog" aria-modal="true" aria-label="API Key Settings" className="absolute inset-0 top-12 z-50 bg-zinc-950">
+          <ApiKeyPrompt onDone={() => setShowSettings(false)} />
+        </div>
+      )}
       <ToastContainer />
     </div>
   )

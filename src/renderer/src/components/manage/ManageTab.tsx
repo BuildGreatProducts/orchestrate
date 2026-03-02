@@ -1,24 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { useAppStore } from '../../stores/app'
 import { useAgentStore } from '../../stores/agent'
 import Spinner from '@renderer/components/ui/Spinner'
 import ApiKeyPrompt from './ApiKeyPrompt'
 import ChatMessage from './ChatMessage'
 import ChatInput from './ChatInput'
-
-function SettingsIcon(): React.JSX.Element {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-      <path
-        d="M6.6 2.4a1.4 1.4 0 0 1 2.8 0v.3a1.1 1.1 0 0 0 1.6.95l.26-.15a1.4 1.4 0 0 1 1.4 2.43l-.26.15a1.1 1.1 0 0 0 0 1.9l.26.15a1.4 1.4 0 1 1-1.4 2.43l-.26-.15a1.1 1.1 0 0 0-1.6.94v.31a1.4 1.4 0 0 1-2.8 0v-.3a1.1 1.1 0 0 0-1.6-.95l-.26.15a1.4 1.4 0 1 1-1.4-2.43l.26-.15a1.1 1.1 0 0 0 0-1.9l-.26-.15a1.4 1.4 0 0 1 1.4-2.43l.26.15A1.1 1.1 0 0 0 6.6 2.7zM8 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"
-        stroke="currentColor"
-        strokeWidth="1.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
 
 export default function OrchestrateTab(): React.JSX.Element {
   const currentFolder = useAppStore((s) => s.currentFolder)
@@ -31,7 +17,6 @@ export default function OrchestrateTab(): React.JSX.Element {
   const clearConversation = useAgentStore((s) => s.clearConversation)
   const resetState = useAgentStore((s) => s.resetState)
 
-  const [showSettings, setShowSettings] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const prevFolderRef = useRef(currentFolder)
 
@@ -84,33 +69,9 @@ export default function OrchestrateTab(): React.JSX.Element {
     )
   }
 
-  // Settings view (editing API key)
-  if (showSettings) {
-    return (
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <ApiKeyPrompt onDone={() => setShowSettings(false)} />
-      </div>
-    )
-  }
-
   // Chat interface
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      {/* Header bar */}
-      <div className="flex items-center justify-between border-b border-zinc-700 px-4 py-2">
-        <span className="text-xs font-medium uppercase tracking-wider text-zinc-500">
-          AI Project Manager
-        </span>
-        <button
-          onClick={() => setShowSettings(true)}
-          className="rounded p-1 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-300"
-          title="Settings"
-          aria-label="Settings"
-        >
-          <SettingsIcon />
-        </button>
-      </div>
-
       <div className="flex-1 overflow-y-auto py-4">
         {messages.length === 0 && !isStreaming && (
           <div className="flex flex-col items-center justify-center gap-2 pt-20 text-center">

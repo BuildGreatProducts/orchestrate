@@ -1,6 +1,6 @@
 import { ipcMain, BrowserWindow } from 'electron'
-import { readFile, writeFile, unlink, readdir, stat } from 'fs/promises'
-import { join, resolve, relative, sep } from 'path'
+import { readFile, writeFile, unlink, readdir, stat, mkdir } from 'fs/promises'
+import { join, resolve, relative, sep, dirname } from 'path'
 import { markChannelRegistered } from './stubs'
 import type { FileEntry } from '@shared/types'
 
@@ -109,6 +109,8 @@ export function registerFileHandlers(
   markChannelRegistered('file:write')
   markChannelRegistered('file:delete')
   markChannelRegistered('file:listDir')
+  markChannelRegistered('file:createFile')
+  markChannelRegistered('file:createDir')
 
   ipcMain.handle('file:read', async (_, filePath: string) => {
     const folder = getCurrentFolder()
@@ -150,5 +152,22 @@ export function registerFileHandlers(
 
     const absPath = validatePath(dirPath, folder)
     return buildFileTree(absPath)
+  })
+
+  ipcMain.handle('file:createFile', async (_, filePath: string) => {
+    const folder = getCurrentFolder()
+    if (!folder) throw new Error('No project folder selected')
+
+    const absPath = validatePath(filePath, folder)
+    await mkdir(dirname(absPath), { recursive: true })
+    await writeFile(absPath, '', 'utf-8')
+  })
+
+  ipcMain.handle('file:createDir', async (_, dirPath: string) => {
+    const folder = getCurrentFolder()
+    if (!folder) throw new Error('No project folder selected')
+
+    const absPath = validatePath(dirPath, folder)
+    await mkdir(absPath, { recursive: true })
   })
 }

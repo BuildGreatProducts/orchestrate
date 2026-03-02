@@ -5,6 +5,7 @@ import { useFilesStore } from '@renderer/stores/files'
 import { useHistoryStore } from '@renderer/stores/history'
 import { useFileTree } from '@renderer/hooks/useFileTree'
 import type { FileEntry } from '@shared/types'
+import type { CreatingState } from './FilesTab'
 
 const STATUS_COLORS: Record<string, string> = {
   M: 'text-amber-400',
@@ -13,13 +14,88 @@ const STATUS_COLORS: Record<string, string> = {
   '?': 'text-zinc-500'
 }
 
+function InlineCreateInput({
+  type,
+  depth,
+  parentDir,
+  onDone
+}: {
+  type: 'file' | 'folder'
+  depth: number
+  parentDir: string
+  onDone: () => void
+}): React.JSX.Element {
+  const [name, setName] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+  const createFile = useFilesStore((s) => s.createFile)
+  const createFolder = useFilesStore((s) => s.createFolder)
+  const doneRef = useRef(false)
+
+  useEffect(() => {
+    inputRef.current?.focus()
+  }, [])
+
+  function finish(): void {
+    if (doneRef.current) return
+    doneRef.current = true
+    onDone()
+  }
+
+  async function handleSubmit(): Promise<void> {
+    const trimmed = name.trim()
+    if (!trimmed || trimmed.includes('..') || trimmed.includes('/') || trimmed.includes('\\')) {
+      finish()
+      return
+    }
+    if (type === 'file') {
+      await createFile(parentDir, trimmed)
+    } else {
+      await createFolder(parentDir, trimmed)
+    }
+    finish()
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent): void {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleSubmit()
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      finish()
+    }
+  }
+
+  const Icon = type === 'folder' ? VscFolder : VscFile
+
+  return (
+    <div
+      style={{ paddingLeft: depth * 16 + 8 }}
+      className="flex items-center gap-1 py-0.5 pr-2"
+    >
+      <span className="flex w-4 shrink-0 items-center justify-center" />
+      <Icon className="shrink-0 text-zinc-500" size={16} />
+      <input
+        ref={inputRef}
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onBlur={() => finish()}
+        className="min-w-0 flex-1 bg-zinc-800 px-1 text-sm text-zinc-200 outline-none ring-1 ring-zinc-600 focus:ring-blue-500"
+        placeholder={type === 'file' ? 'filename' : 'folder name'}
+      />
+    </div>
+  )
+}
+
 function FileNode({
   entry,
   depth,
   loadChildren,
   treeVersion,
   fileStatusMap,
-  currentFolder
+  currentFolder,
+  creating,
+  onCreateDone
 }: {
   entry: FileEntry
   depth: number
@@ -27,6 +103,8 @@ function FileNode({
   treeVersion: number
   fileStatusMap: Record<string, 'M' | 'A' | 'D' | '?'>
   currentFolder: string
+  creating: CreatingState | null
+  onCreateDone: () => void
 }): React.JSX.Element {
   const openFile = useFilesStore((s) => s.openFile)
   const activeFilePath = useFilesStore((s) => s.activeFilePath)
@@ -35,6 +113,17 @@ function FileNode({
   const [loading, setLoading] = useState(false)
 
   const isActive = !entry.isDirectory && entry.path === activeFilePath
+  const isCreateTarget = creating !== null && entry.isDirectory && entry.path === creating.parentDir
+
+  // Auto-expand directory when it's the target for creation
+  useEffect(() => {
+    if (isCreateTarget && !isOpen) {
+      setIsOpen(true)
+      if (children === null) {
+        loadChildren(entry.path).then(setChildren)
+      }
+    }
+  }, [isCreateTarget]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Invalidate cached children when the tree is refreshed externally
   const prevTreeVersionRef = useRef(treeVersion)
@@ -124,6 +213,14 @@ function FileNode({
       </div>
       {isOpen && entry.isDirectory && (
         <div role="group">
+          {isCreateTarget && creating && (
+            <InlineCreateInput
+              type={creating.type}
+              depth={depth + 1}
+              parentDir={creating.parentDir}
+              onDone={onCreateDone}
+            />
+          )}
           {loading && (
             <div
               style={{ paddingLeft: (depth + 1) * 16 + 8 }}
@@ -141,6 +238,8 @@ function FileNode({
               treeVersion={treeVersion}
               fileStatusMap={fileStatusMap}
               currentFolder={currentFolder}
+              creating={creating}
+              onCreateDone={onCreateDone}
             />
           ))}
         </div>
@@ -149,11 +248,19 @@ function FileNode({
   )
 }
 
-export default function FileTree(): React.JSX.Element {
+export default function FileTree({
+  creating,
+  onCreateDone
+}: {
+  creating: CreatingState | null
+  onCreateDone: () => void
+}): React.JSX.Element {
   const currentFolder = useAppStore((s) => s.currentFolder)
   const treeVersion = useFilesStore((s) => s.treeVersion)
   const fileStatusMap = useHistoryStore((s) => s.fileStatusMap)
   const { treeData, isLoading, error, loadChildren } = useFileTree()
+
+  const isRootTarget = creating !== null && currentFolder !== null && creating.parentDir === currentFolder
 
   if (!currentFolder) {
     return (
@@ -179,7 +286,7 @@ export default function FileTree(): React.JSX.Element {
     )
   }
 
-  if (treeData.length === 0) {
+  if (treeData.length === 0 && !isRootTarget) {
     return (
       <div className="flex h-full items-center justify-center p-4 text-sm text-zinc-500">
         No files found
@@ -189,6 +296,14 @@ export default function FileTree(): React.JSX.Element {
 
   return (
     <div role="tree" className="h-full overflow-y-auto">
+      {isRootTarget && creating && (
+        <InlineCreateInput
+          type={creating.type}
+          depth={0}
+          parentDir={creating.parentDir}
+          onDone={onCreateDone}
+        />
+      )}
       {treeData.map((entry) => (
         <FileNode
           key={entry.path}
@@ -198,6 +313,8 @@ export default function FileTree(): React.JSX.Element {
           treeVersion={treeVersion}
           fileStatusMap={fileStatusMap}
           currentFolder={currentFolder}
+          creating={creating}
+          onCreateDone={onCreateDone}
         />
       ))}
     </div>
