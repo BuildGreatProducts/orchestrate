@@ -76,7 +76,7 @@ app.whenReady().then(() => {
   }
 
   // Set dock icon for macOS dev mode
-  if (process.platform === 'darwin' && app.dock) {
+  if (is.dev && process.platform === 'darwin' && app.dock) {
     app.dock.setIcon(icon)
   }
 

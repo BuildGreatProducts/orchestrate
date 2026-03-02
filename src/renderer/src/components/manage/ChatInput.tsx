@@ -29,8 +29,9 @@ export default function ChatInput(): React.JSX.Element {
     setText(e.target.value)
     const el = e.target
     el.style.height = 'auto'
-    const maxHeight = 5 * 24
-    el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`
+    const LINE_HEIGHT = 24
+    const MAX_ROWS = 5
+    el.style.height = `${Math.min(el.scrollHeight, LINE_HEIGHT * MAX_ROWS)}px`
   }
 
   return (

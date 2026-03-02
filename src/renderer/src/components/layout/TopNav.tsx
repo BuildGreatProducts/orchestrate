@@ -27,12 +27,14 @@ function Logo(): React.JSX.Element {
   )
 }
 
+const isMac = navigator?.userAgent?.includes('Mac')
+
 export default function TopNav(): React.JSX.Element {
   const { activeTab, setActiveTab, showSettings, setShowSettings } = useAppStore()
 
   return (
     <nav
-      className="flex h-12 items-center border-b border-zinc-800 bg-zinc-900 pl-[96px] pr-4"
+      className={`flex h-12 items-center border-b border-zinc-800 bg-zinc-900 pr-4 ${isMac ? 'pl-[96px]' : 'pl-4'}`}
       style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
     >
       <div style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
