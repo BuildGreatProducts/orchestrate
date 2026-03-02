@@ -73,7 +73,7 @@ export default function OrchestrateTab(): React.JSX.Element {
   return (
     <div className="relative flex flex-1 flex-col overflow-hidden">
       <div className="flex-1 overflow-y-auto dark-scrollbar">
-        <div className="mx-auto w-full py-4 pb-24" style={{ maxWidth: 900 }}>
+        <div className="mx-auto w-full max-w-[900px] py-4 pb-24">
           {messages.length === 0 && !isStreaming && (
             <div className="flex flex-col items-center justify-center gap-4 pt-20 text-center">
               <h2 className="font-ovo text-6xl tracking-tight text-zinc-200">Orchestrate</h2>
