@@ -1,4 +1,5 @@
-import type { Tool } from '@anthropic-ai/sdk/resources/messages'
+import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk'
+import { z } from 'zod'
 import type { BrowserWindow } from 'electron'
 import type { TaskManager } from '../task-manager'
 import type { GitManager } from '../git-manager'
@@ -8,215 +9,6 @@ import { dirname, join, resolve, relative, sep } from 'path'
 import type { ColumnId } from '@shared/types'
 
 const VALID_COLUMNS: ColumnId[] = ['draft', 'planning', 'in-progress', 'review', 'done']
-
-export const AGENT_TOOLS: Tool[] = [
-  // Task tools
-  {
-    name: 'create_task',
-    description: 'Create a new task on the kanban board in the specified column.',
-    input_schema: {
-      type: 'object' as const,
-      properties: {
-        title: { type: 'string', description: 'The title of the task' },
-        column: {
-          type: 'string',
-          enum: VALID_COLUMNS,
-          description: 'The column to place the task in (default: draft)'
-        },
-        markdown: { type: 'string', description: 'Optional markdown content for the task' }
-      },
-      required: ['title']
-    }
-  },
-  {
-    name: 'edit_task',
-    description: 'Edit an existing task title.',
-    input_schema: {
-      type: 'object' as const,
-      properties: {
-        task_id: { type: 'string', description: 'The ID of the task to edit' },
-        title: { type: 'string', description: 'The new title for the task' }
-      },
-      required: ['task_id', 'title']
-    }
-  },
-  {
-    name: 'delete_task',
-    description: 'Delete a task from the board.',
-    input_schema: {
-      type: 'object' as const,
-      properties: {
-        task_id: { type: 'string', description: 'The ID of the task to delete' }
-      },
-      required: ['task_id']
-    }
-  },
-  {
-    name: 'move_task',
-    description: 'Move a task to a different column on the kanban board.',
-    input_schema: {
-      type: 'object' as const,
-      properties: {
-        task_id: { type: 'string', description: 'The ID of the task to move' },
-        column: {
-          type: 'string',
-          enum: VALID_COLUMNS,
-          description: 'The target column'
-        }
-      },
-      required: ['task_id', 'column']
-    }
-  },
-  {
-    name: 'list_tasks',
-    description: 'List all tasks on the kanban board, grouped by column.',
-    input_schema: {
-      type: 'object' as const,
-      properties: {},
-      required: []
-    }
-  },
-  {
-    name: 'read_task',
-    description: 'Read the markdown content of a task.',
-    input_schema: {
-      type: 'object' as const,
-      properties: {
-        task_id: { type: 'string', description: 'The ID of the task to read' }
-      },
-      required: ['task_id']
-    }
-  },
-  // Terminal tools
-  {
-    name: 'spawn_terminal',
-    description: 'Open a new terminal tab in the Agents panel.',
-    input_schema: {
-      type: 'object' as const,
-      properties: {
-        name: { type: 'string', description: 'Name for the terminal tab' },
-        command: { type: 'string', description: 'Optional command to run in the terminal' }
-      },
-      required: []
-    }
-  },
-  {
-    name: 'send_to_agent',
-    description: 'Send a task to an AI coding agent (Claude Code or Codex) in a new terminal.',
-    input_schema: {
-      type: 'object' as const,
-      properties: {
-        task_id: { type: 'string', description: 'The task ID to send' },
-        agent: {
-          type: 'string',
-          enum: ['claude-code', 'codex'],
-          description: 'Which AI agent to use (default: claude-code)'
-        }
-      },
-      required: ['task_id']
-    }
-  },
-  // File tools
-  {
-    name: 'read_file',
-    description: 'Read the contents of a file. Path is relative to the project root.',
-    input_schema: {
-      type: 'object' as const,
-      properties: {
-        path: { type: 'string', description: 'Relative file path from project root' }
-      },
-      required: ['path']
-    }
-  },
-  {
-    name: 'write_file',
-    description: 'Write content to a file. Creates parent directories if needed. Path is relative to the project root.',
-    input_schema: {
-      type: 'object' as const,
-      properties: {
-        path: { type: 'string', description: 'Relative file path from project root' },
-        content: { type: 'string', description: 'The content to write' }
-      },
-      required: ['path', 'content']
-    }
-  },
-  {
-    name: 'list_files',
-    description: 'List files in a directory. Path is relative to the project root. Defaults to root if no path given.',
-    input_schema: {
-      type: 'object' as const,
-      properties: {
-        path: { type: 'string', description: 'Relative directory path (default: project root)' }
-      },
-      required: []
-    }
-  },
-  {
-    name: 'delete_file',
-    description: 'Delete a file. Path is relative to the project root.',
-    input_schema: {
-      type: 'object' as const,
-      properties: {
-        path: { type: 'string', description: 'Relative file path from project root' }
-      },
-      required: ['path']
-    }
-  },
-  // Git tools
-  {
-    name: 'create_save_point',
-    description: 'Create a git save point (commit) with a message.',
-    input_schema: {
-      type: 'object' as const,
-      properties: {
-        message: { type: 'string', description: 'The save point message' }
-      },
-      required: ['message']
-    }
-  },
-  {
-    name: 'list_save_points',
-    description: 'List recent git save points (commits).',
-    input_schema: {
-      type: 'object' as const,
-      properties: {
-        limit: { type: 'number', description: 'Maximum number of save points to return (default: 10)' }
-      },
-      required: []
-    }
-  },
-  {
-    name: 'restore_save_point',
-    description: 'Restore the project to a specific save point. This is destructive — all uncommitted changes will be lost.',
-    input_schema: {
-      type: 'object' as const,
-      properties: {
-        hash: { type: 'string', description: 'The save point hash to restore to' }
-      },
-      required: ['hash']
-    }
-  },
-  {
-    name: 'revert_save_point',
-    description: 'Revert a specific save point, undoing its changes while keeping history.',
-    input_schema: {
-      type: 'object' as const,
-      properties: {
-        hash: { type: 'string', description: 'The save point hash to revert' }
-      },
-      required: ['hash']
-    }
-  },
-  {
-    name: 'get_changes',
-    description: 'Get the current uncommitted changes (git status).',
-    input_schema: {
-      type: 'object' as const,
-      properties: {},
-      required: []
-    }
-  }
-]
 
 // ── Path validation ──
 
@@ -234,9 +26,9 @@ function validatePath(filePath: string, projectFolder: string): string {
   return resolved
 }
 
-// ── Tool executor factory ──
+// ── Deps interface (unchanged) ──
 
-interface ToolExecutorDeps {
+export interface ToolExecutorDeps {
   getCurrentFolder: () => string | null
   getTaskManager: () => TaskManager | null
   getGitManager: () => GitManager | null
@@ -246,7 +38,26 @@ interface ToolExecutorDeps {
   notifyStateChanged: (domain: string, data?: unknown) => void
 }
 
-export function createToolExecutor(deps: ToolExecutorDeps): (name: string, input: Record<string, unknown>) => Promise<unknown> {
+// ── Helpers ──
+
+function ok(data: unknown): { content: [{ type: 'text'; text: string }] } {
+  return { content: [{ type: 'text' as const, text: JSON.stringify({ success: true, data }) }] }
+}
+
+function fail(error: string): { content: [{ type: 'text'; text: string }] } {
+  return { content: [{ type: 'text' as const, text: JSON.stringify({ success: false, error }) }] }
+}
+
+// ── MCP server factory ──
+
+export const ORCHESTRATE_TOOL_NAMES = [
+  'create_task', 'edit_task', 'delete_task', 'move_task', 'list_tasks', 'read_task',
+  'spawn_terminal', 'send_to_agent',
+  'read_file', 'write_file', 'list_files', 'delete_file',
+  'create_save_point', 'list_save_points', 'restore_save_point', 'revert_save_point', 'get_changes'
+] as const
+
+export function createOrchestrateServer(deps: ToolExecutorDeps) {
   const {
     getCurrentFolder,
     getTaskManager,
@@ -273,254 +84,413 @@ export function createToolExecutor(deps: ToolExecutorDeps): (name: string, input
     return mgr
   }
 
-  return async (name: string, input: Record<string, unknown>): Promise<unknown> => {
-    notifyToolUse(name, input)
-
-    try {
-      switch (name) {
-        // ── Task tools ──
-        case 'create_task': {
-          const mgr = requireTaskManager()
-          const title = input.title as string
-          const column = (input.column as ColumnId) || 'draft'
-          const markdown = input.markdown as string | undefined
-          if (!VALID_COLUMNS.includes(column)) {
-            return { success: false, error: `Invalid column: ${column}` }
-          }
-          const board = await mgr.loadBoard()
-          const id = mgr.generateId()
-          board.columns[column].push(id)
-          board.tasks[id] = { title, createdAt: new Date().toISOString() }
-          await mgr.saveBoard(board)
-          await mgr.writeMarkdown(id, markdown || `# ${title}\n\n`)
-          notifyStateChanged('tasks')
-          return { success: true, data: { id, title, column } }
-        }
-
-        case 'edit_task': {
-          const mgr = requireTaskManager()
-          const taskId = input.task_id as string
-          const title = input.title as string
-          const board = await mgr.loadBoard()
-          if (!board.tasks[taskId]) {
-            return { success: false, error: `Task ${taskId} not found` }
-          }
-          board.tasks[taskId].title = title
-          await mgr.saveBoard(board)
-          notifyStateChanged('tasks')
-          return { success: true, data: { id: taskId, title } }
-        }
-
-        case 'delete_task': {
-          const mgr = requireTaskManager()
-          const taskId = input.task_id as string
-          const board = await mgr.loadBoard()
-          if (!board.tasks[taskId]) {
-            return { success: false, error: `Task ${taskId} not found` }
-          }
-          // Remove from columns
-          for (const col of VALID_COLUMNS) {
-            board.columns[col] = board.columns[col].filter((id) => id !== taskId)
-          }
-          delete board.tasks[taskId]
-          await mgr.saveBoard(board)
-          await mgr.deleteMarkdown(taskId)
-          notifyStateChanged('tasks')
-          return { success: true, data: { id: taskId } }
-        }
-
-        case 'move_task': {
-          const mgr = requireTaskManager()
-          const taskId = input.task_id as string
-          const column = input.column as ColumnId
-          if (!VALID_COLUMNS.includes(column)) {
-            return { success: false, error: `Invalid column: ${column}` }
-          }
-          const board = await mgr.loadBoard()
-          if (!board.tasks[taskId]) {
-            return { success: false, error: `Task ${taskId} not found` }
-          }
-          // Remove from current column
-          for (const col of VALID_COLUMNS) {
-            board.columns[col] = board.columns[col].filter((id) => id !== taskId)
-          }
-          board.columns[column].push(taskId)
-          await mgr.saveBoard(board)
-          notifyStateChanged('tasks')
-          return { success: true, data: { id: taskId, column } }
-        }
-
-        case 'list_tasks': {
-          const mgr = requireTaskManager()
-          const board = await mgr.loadBoard()
-          const result: Record<string, { id: string; title: string }[]> = {}
-          for (const col of VALID_COLUMNS) {
-            result[col] = board.columns[col]
-              .filter((id) => board.tasks[id])
-              .map((id) => ({ id, title: board.tasks[id].title }))
-          }
-          return { success: true, data: result }
-        }
-
-        case 'read_task': {
-          const mgr = requireTaskManager()
-          const taskId = input.task_id as string
-          const board = await mgr.loadBoard()
-          if (!board.tasks[taskId]) {
-            return { success: false, error: `Task ${taskId} not found` }
-          }
-          const markdown = await mgr.readMarkdown(taskId)
-          return { success: true, data: { id: taskId, title: board.tasks[taskId].title, markdown } }
-        }
-
-        // ── Terminal tools ──
-        case 'spawn_terminal': {
-          const terminalName = (input.name as string) || 'Terminal'
-          const command = input.command as string | undefined
-          notifyStateChanged('terminal', { name: terminalName, command })
-          return { success: true, data: { name: terminalName, command: command || null } }
-        }
-
-        case 'send_to_agent': {
-          const mgr = requireTaskManager()
-          const taskId = input.task_id as string
-          if (!/^[A-Za-z0-9_-]{1,64}$/.test(taskId)) {
-            return { success: false, error: `Invalid task ID: ${taskId}` }
-          }
-          const agent = (input.agent as string) || 'claude-code'
-          const board = await mgr.loadBoard()
-          if (!board.tasks[taskId]) {
-            return { success: false, error: `Task ${taskId} not found` }
-          }
-          const taskTitle = board.tasks[taskId].title
-          const markdown = await mgr.readMarkdown(taskId)
-          const escaped = markdown.replace(/'/g, "'\\''")
-          const cmd =
-            agent === 'claude-code'
-              ? `claude -p '${escaped}'`
-              : `codex -q '${escaped}'`
-          const tabName = `${agent === 'claude-code' ? 'Claude' : 'Codex'}: ${taskTitle}`
-          notifyStateChanged('terminal', { name: tabName, command: cmd })
-          return { success: true, data: { taskId, agent, tabName } }
-        }
-
-        // ── File tools ──
-        case 'read_file': {
-          const folder = requireFolder()
-          const filePath = input.path as string
-          const absPath = validatePath(filePath, folder)
-          const content = await readFile(absPath, 'utf-8')
-          return { success: true, data: { path: filePath, content } }
-        }
-
-        case 'write_file': {
-          const folder = requireFolder()
-          const filePath = input.path as string
-          const content = input.content as string
-          const absPath = validatePath(filePath, folder)
-          // Ensure parent directory exists
-          await mkdir(dirname(absPath), { recursive: true })
-          await writeFile(absPath, content, 'utf-8')
-          notifyStateChanged('files')
-          return { success: true, data: { path: filePath } }
-        }
-
-        case 'list_files': {
-          const folder = requireFolder()
-          const dirPath = (input.path as string) || '.'
-          const absPath = validatePath(dirPath, folder)
-          const entries = await readdir(absPath, { withFileTypes: true })
-          const files: { name: string; isDirectory: boolean; size?: number }[] = []
-          for (const entry of entries) {
-            if (IGNORED_NAMES.has(entry.name)) continue
-            if (entry.name.startsWith('.') && entry.name !== '.env' && entry.name !== '.gitignore') continue
-            const entryPath = join(absPath, entry.name)
-            const isDir = entry.isDirectory()
-            let size: number | undefined
-            if (!isDir) {
-              try {
-                const s = await stat(entryPath)
-                size = s.size
-              } catch {
-                // skip
-              }
-            }
-            files.push({ name: entry.name, isDirectory: isDir, size })
-          }
-          files.sort((a, b) => {
-            if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1
-            return a.name.localeCompare(b.name)
-          })
-          return { success: true, data: { path: dirPath, files } }
-        }
-
-        case 'delete_file': {
-          const folder = requireFolder()
-          const filePath = input.path as string
-          const absPath = validatePath(filePath, folder)
-          await unlink(absPath)
-          notifyStateChanged('files')
-          return { success: true, data: { path: filePath } }
-        }
-
-        // ── Git tools ──
-        case 'create_save_point': {
-          const git = requireGitManager()
-          const message = input.message as string
-          const isRepo = await git.isRepo()
-          if (!isRepo) {
-            return { success: false, error: 'Not a git repository. Initialize one first from the History tab.' }
-          }
-          const hash = await git.createSavePoint(message)
-          notifyStateChanged('history')
-          return { success: true, data: { hash: hash || '(no changes to commit)' } }
-        }
-
-        case 'list_save_points': {
-          const git = requireGitManager()
-          const isRepo = await git.isRepo()
-          if (!isRepo) {
-            return { success: false, error: 'Not a git repository' }
-          }
-          const limit = (input.limit as number) || 10
-          const history = await git.getHistory(limit)
-          return { success: true, data: history }
-        }
-
-        case 'restore_save_point': {
-          const git = requireGitManager()
-          const hash = input.hash as string
-          await git.restore(hash)
-          notifyStateChanged('history')
-          notifyStateChanged('files')
-          return { success: true, data: { hash } }
-        }
-
-        case 'revert_save_point': {
-          const git = requireGitManager()
-          const hash = input.hash as string
-          await git.revert(hash)
-          notifyStateChanged('history')
-          notifyStateChanged('files')
-          return { success: true, data: { hash } }
-        }
-
-        case 'get_changes': {
-          const git = requireGitManager()
-          const isRepo = await git.isRepo()
-          if (!isRepo) {
-            return { success: false, error: 'Not a git repository' }
-          }
-          const status = await git.getStatus()
-          return { success: true, data: status }
-        }
-
-        default:
-          return { success: false, error: `Unknown tool: ${name}` }
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      return { success: false, error: message }
-    }
+  function notify(toolName: string, args: Record<string, unknown>): void {
+    notifyToolUse(toolName, args)
   }
+
+  const columnEnum = z.enum(['draft', 'planning', 'in-progress', 'review', 'done'])
+
+  return createSdkMcpServer({
+    name: 'orchestrate',
+    version: '1.0.0',
+    tools: [
+      // ── Task tools ──
+      tool(
+        'create_task',
+        'Create a new task on the kanban board in the specified column.',
+        {
+          title: z.string().describe('The title of the task'),
+          column: columnEnum.optional().describe('The column to place the task in (default: draft)'),
+          markdown: z.string().optional().describe('Optional markdown content for the task')
+        },
+        async (args) => {
+          notify('create_task', args as Record<string, unknown>)
+          try {
+            const mgr = requireTaskManager()
+            const column = (args.column as ColumnId) || 'draft'
+            const board = await mgr.loadBoard()
+            const id = mgr.generateId()
+            board.columns[column].push(id)
+            board.tasks[id] = { title: args.title, createdAt: new Date().toISOString() }
+            await mgr.saveBoard(board)
+            await mgr.writeMarkdown(id, args.markdown || `# ${args.title}\n\n`)
+            notifyStateChanged('tasks')
+            return ok({ id, title: args.title, column })
+          } catch (err) {
+            return fail(err instanceof Error ? err.message : String(err))
+          }
+        }
+      ),
+
+      tool(
+        'edit_task',
+        'Edit an existing task title.',
+        {
+          task_id: z.string().describe('The ID of the task to edit'),
+          title: z.string().describe('The new title for the task')
+        },
+        async (args) => {
+          notify('edit_task', args as Record<string, unknown>)
+          try {
+            const mgr = requireTaskManager()
+            const board = await mgr.loadBoard()
+            if (!board.tasks[args.task_id]) return fail(`Task ${args.task_id} not found`)
+            board.tasks[args.task_id].title = args.title
+            await mgr.saveBoard(board)
+            notifyStateChanged('tasks')
+            return ok({ id: args.task_id, title: args.title })
+          } catch (err) {
+            return fail(err instanceof Error ? err.message : String(err))
+          }
+        }
+      ),
+
+      tool(
+        'delete_task',
+        'Delete a task from the board.',
+        {
+          task_id: z.string().describe('The ID of the task to delete')
+        },
+        async (args) => {
+          notify('delete_task', args as Record<string, unknown>)
+          try {
+            const mgr = requireTaskManager()
+            const board = await mgr.loadBoard()
+            if (!board.tasks[args.task_id]) return fail(`Task ${args.task_id} not found`)
+            for (const col of VALID_COLUMNS) {
+              board.columns[col] = board.columns[col].filter((id) => id !== args.task_id)
+            }
+            delete board.tasks[args.task_id]
+            await mgr.saveBoard(board)
+            await mgr.deleteMarkdown(args.task_id)
+            notifyStateChanged('tasks')
+            return ok({ id: args.task_id })
+          } catch (err) {
+            return fail(err instanceof Error ? err.message : String(err))
+          }
+        }
+      ),
+
+      tool(
+        'move_task',
+        'Move a task to a different column on the kanban board.',
+        {
+          task_id: z.string().describe('The ID of the task to move'),
+          column: columnEnum.describe('The target column')
+        },
+        async (args) => {
+          notify('move_task', args as Record<string, unknown>)
+          try {
+            const mgr = requireTaskManager()
+            const column = args.column as ColumnId
+            const board = await mgr.loadBoard()
+            if (!board.tasks[args.task_id]) return fail(`Task ${args.task_id} not found`)
+            for (const col of VALID_COLUMNS) {
+              board.columns[col] = board.columns[col].filter((id) => id !== args.task_id)
+            }
+            board.columns[column].push(args.task_id)
+            await mgr.saveBoard(board)
+            notifyStateChanged('tasks')
+            return ok({ id: args.task_id, column })
+          } catch (err) {
+            return fail(err instanceof Error ? err.message : String(err))
+          }
+        }
+      ),
+
+      tool(
+        'list_tasks',
+        'List all tasks on the kanban board, grouped by column.',
+        {},
+        async () => {
+          notify('list_tasks', {})
+          try {
+            const mgr = requireTaskManager()
+            const board = await mgr.loadBoard()
+            const result: Record<string, { id: string; title: string }[]> = {}
+            for (const col of VALID_COLUMNS) {
+              result[col] = board.columns[col]
+                .filter((id) => board.tasks[id])
+                .map((id) => ({ id, title: board.tasks[id].title }))
+            }
+            return ok(result)
+          } catch (err) {
+            return fail(err instanceof Error ? err.message : String(err))
+          }
+        }
+      ),
+
+      tool(
+        'read_task',
+        'Read the markdown content of a task.',
+        {
+          task_id: z.string().describe('The ID of the task to read')
+        },
+        async (args) => {
+          notify('read_task', args as Record<string, unknown>)
+          try {
+            const mgr = requireTaskManager()
+            const board = await mgr.loadBoard()
+            if (!board.tasks[args.task_id]) return fail(`Task ${args.task_id} not found`)
+            const markdown = await mgr.readMarkdown(args.task_id)
+            return ok({ id: args.task_id, title: board.tasks[args.task_id].title, markdown })
+          } catch (err) {
+            return fail(err instanceof Error ? err.message : String(err))
+          }
+        }
+      ),
+
+      // ── Terminal tools ──
+      tool(
+        'spawn_terminal',
+        'Open a new terminal tab in the Agents panel.',
+        {
+          name: z.string().optional().describe('Name for the terminal tab'),
+          command: z.string().optional().describe('Optional command to run in the terminal')
+        },
+        async (args) => {
+          notify('spawn_terminal', args as Record<string, unknown>)
+          const terminalName = args.name || 'Terminal'
+          notifyStateChanged('terminal', { name: terminalName, command: args.command || null })
+          return ok({ name: terminalName, command: args.command || null })
+        }
+      ),
+
+      tool(
+        'send_to_agent',
+        'Send a task to an AI coding agent (Claude Code or Codex) in a new terminal.',
+        {
+          task_id: z.string().describe('The task ID to send'),
+          agent: z.enum(['claude-code', 'codex']).optional().describe('Which AI agent to use (default: claude-code)')
+        },
+        async (args) => {
+          notify('send_to_agent', args as Record<string, unknown>)
+          try {
+            const mgr = requireTaskManager()
+            if (!/^[A-Za-z0-9_-]{1,64}$/.test(args.task_id)) {
+              return fail(`Invalid task ID: ${args.task_id}`)
+            }
+            const agent = args.agent || 'claude-code'
+            const board = await mgr.loadBoard()
+            if (!board.tasks[args.task_id]) return fail(`Task ${args.task_id} not found`)
+            const taskTitle = board.tasks[args.task_id].title
+            const markdown = await mgr.readMarkdown(args.task_id)
+            const escaped = markdown.replace(/'/g, "'\\''")
+            const cmd =
+              agent === 'claude-code'
+                ? `claude -p '${escaped}'`
+                : `codex -q '${escaped}'`
+            const tabName = `${agent === 'claude-code' ? 'Claude' : 'Codex'}: ${taskTitle}`
+            notifyStateChanged('terminal', { name: tabName, command: cmd })
+            return ok({ taskId: args.task_id, agent, tabName })
+          } catch (err) {
+            return fail(err instanceof Error ? err.message : String(err))
+          }
+        }
+      ),
+
+      // ── File tools ──
+      tool(
+        'read_file',
+        'Read the contents of a file. Path is relative to the project root.',
+        {
+          path: z.string().describe('Relative file path from project root')
+        },
+        async (args) => {
+          notify('read_file', args as Record<string, unknown>)
+          try {
+            const folder = requireFolder()
+            const absPath = validatePath(args.path, folder)
+            const content = await readFile(absPath, 'utf-8')
+            return ok({ path: args.path, content })
+          } catch (err) {
+            return fail(err instanceof Error ? err.message : String(err))
+          }
+        }
+      ),
+
+      tool(
+        'write_file',
+        'Write content to a file. Creates parent directories if needed. Path is relative to the project root.',
+        {
+          path: z.string().describe('Relative file path from project root'),
+          content: z.string().describe('The content to write')
+        },
+        async (args) => {
+          notify('write_file', args as Record<string, unknown>)
+          try {
+            const folder = requireFolder()
+            const absPath = validatePath(args.path, folder)
+            await mkdir(dirname(absPath), { recursive: true })
+            await writeFile(absPath, args.content, 'utf-8')
+            notifyStateChanged('files')
+            return ok({ path: args.path })
+          } catch (err) {
+            return fail(err instanceof Error ? err.message : String(err))
+          }
+        }
+      ),
+
+      tool(
+        'list_files',
+        'List files in a directory. Path is relative to the project root. Defaults to root if no path given.',
+        {
+          path: z.string().optional().describe('Relative directory path (default: project root)')
+        },
+        async (args) => {
+          notify('list_files', args as Record<string, unknown>)
+          try {
+            const folder = requireFolder()
+            const dirPath = args.path || '.'
+            const absPath = validatePath(dirPath, folder)
+            const entries = await readdir(absPath, { withFileTypes: true })
+            const files: { name: string; isDirectory: boolean; size?: number }[] = []
+            for (const entry of entries) {
+              if (IGNORED_NAMES.has(entry.name)) continue
+              if (entry.name.startsWith('.') && entry.name !== '.env' && entry.name !== '.gitignore') continue
+              const entryPath = join(absPath, entry.name)
+              const isDir = entry.isDirectory()
+              let size: number | undefined
+              if (!isDir) {
+                try {
+                  const s = await stat(entryPath)
+                  size = s.size
+                } catch {
+                  // skip
+                }
+              }
+              files.push({ name: entry.name, isDirectory: isDir, size })
+            }
+            files.sort((a, b) => {
+              if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1
+              return a.name.localeCompare(b.name)
+            })
+            return ok({ path: dirPath, files })
+          } catch (err) {
+            return fail(err instanceof Error ? err.message : String(err))
+          }
+        }
+      ),
+
+      tool(
+        'delete_file',
+        'Delete a file. Path is relative to the project root.',
+        {
+          path: z.string().describe('Relative file path from project root')
+        },
+        async (args) => {
+          notify('delete_file', args as Record<string, unknown>)
+          try {
+            const folder = requireFolder()
+            const absPath = validatePath(args.path, folder)
+            await unlink(absPath)
+            notifyStateChanged('files')
+            return ok({ path: args.path })
+          } catch (err) {
+            return fail(err instanceof Error ? err.message : String(err))
+          }
+        }
+      ),
+
+      // ── Git tools ──
+      tool(
+        'create_save_point',
+        'Create a git save point (commit) with a message.',
+        {
+          message: z.string().describe('The save point message')
+        },
+        async (args) => {
+          notify('create_save_point', args as Record<string, unknown>)
+          try {
+            const git = requireGitManager()
+            const isRepo = await git.isRepo()
+            if (!isRepo) return fail('Not a git repository. Initialize one first from the History tab.')
+            const hash = await git.createSavePoint(args.message)
+            notifyStateChanged('history')
+            return ok({ hash: hash || '(no changes to commit)' })
+          } catch (err) {
+            return fail(err instanceof Error ? err.message : String(err))
+          }
+        }
+      ),
+
+      tool(
+        'list_save_points',
+        'List recent git save points (commits).',
+        {
+          limit: z.number().optional().describe('Maximum number of save points to return (default: 10)')
+        },
+        async (args) => {
+          notify('list_save_points', args as Record<string, unknown>)
+          try {
+            const git = requireGitManager()
+            const isRepo = await git.isRepo()
+            if (!isRepo) return fail('Not a git repository')
+            const history = await git.getHistory(args.limit || 10)
+            return ok(history)
+          } catch (err) {
+            return fail(err instanceof Error ? err.message : String(err))
+          }
+        }
+      ),
+
+      tool(
+        'restore_save_point',
+        'Restore the project to a specific save point. This is destructive — all uncommitted changes will be lost.',
+        {
+          hash: z.string().describe('The save point hash to restore to')
+        },
+        async (args) => {
+          notify('restore_save_point', args as Record<string, unknown>)
+          try {
+            const git = requireGitManager()
+            await git.restore(args.hash)
+            notifyStateChanged('history')
+            notifyStateChanged('files')
+            return ok({ hash: args.hash })
+          } catch (err) {
+            return fail(err instanceof Error ? err.message : String(err))
+          }
+        }
+      ),
+
+      tool(
+        'revert_save_point',
+        'Revert a specific save point, undoing its changes while keeping history.',
+        {
+          hash: z.string().describe('The save point hash to revert')
+        },
+        async (args) => {
+          notify('revert_save_point', args as Record<string, unknown>)
+          try {
+            const git = requireGitManager()
+            await git.revert(args.hash)
+            notifyStateChanged('history')
+            notifyStateChanged('files')
+            return ok({ hash: args.hash })
+          } catch (err) {
+            return fail(err instanceof Error ? err.message : String(err))
+          }
+        }
+      ),
+
+      tool(
+        'get_changes',
+        'Get the current uncommitted changes (git status).',
+        {},
+        async () => {
+          notify('get_changes', {})
+          try {
+            const git = requireGitManager()
+            const isRepo = await git.isRepo()
+            if (!isRepo) return fail('Not a git repository')
+            const status = await git.getStatus()
+            return ok(status)
+          } catch (err) {
+            return fail(err instanceof Error ? err.message : String(err))
+          }
+        }
+      )
+    ]
+  })
 }
