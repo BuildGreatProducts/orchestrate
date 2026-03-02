@@ -37,6 +37,9 @@ function App(): React.JSX.Element {
       const mod = e.metaKey || e.ctrlKey
       if (!mod) return
 
+      // Don't fire app shortcuts when the settings overlay is visible
+      if (useAppStore.getState().showSettings) return
+
       // Cmd/Ctrl+1–5: Switch tabs
       if (e.key >= '1' && e.key <= '5') {
         e.preventDefault()
@@ -113,7 +116,7 @@ function App(): React.JSX.Element {
         ))}
       </main>
       {showSettings && (
-        <div className="absolute inset-0 top-12 z-50 bg-zinc-950">
+        <div role="dialog" aria-modal="true" aria-label="API Key Settings" className="absolute inset-0 top-12 z-50 bg-zinc-950">
           <ApiKeyPrompt onDone={() => setShowSettings(false)} />
         </div>
       )}

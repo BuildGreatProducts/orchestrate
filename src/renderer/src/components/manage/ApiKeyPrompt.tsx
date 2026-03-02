@@ -58,6 +58,7 @@ export default function ApiKeyPrompt({ onDone }: ApiKeyPromptProps): React.JSX.E
           onChange={(e) => setKey(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') handleConnect()
+            if (e.metaKey || e.ctrlKey) e.stopPropagation()
           }}
           placeholder="sk-ant-..."
           className="rounded border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 placeholder-zinc-500 outline-none focus:border-blue-500"
