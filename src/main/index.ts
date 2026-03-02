@@ -19,8 +19,10 @@ function createWindow(): void {
     height: 800,
     show: false,
     autoHideMenuBar: true,
-    backgroundColor: '#09090b',
+    backgroundColor: '#000000',
     title: 'Orchestrate',
+    titleBarStyle: 'hiddenInset',
+    trafficLightPosition: { x: 16, y: 18 },
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -71,6 +73,11 @@ app.whenReady().then(() => {
   const lastFolder = getCurrentFolder()
   if (lastFolder) {
     startWatching(lastFolder, () => mainWindow)
+  }
+
+  // Set dock icon for macOS dev mode
+  if (process.platform === 'darwin' && app.dock) {
+    app.dock.setIcon(icon)
   }
 
   createWindow()

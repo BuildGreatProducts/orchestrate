@@ -71,14 +71,15 @@ export default function OrchestrateTab(): React.JSX.Element {
 
   // Chat interface
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
-      <div className="flex-1 overflow-y-auto py-4">
+    <div className="relative flex flex-1 flex-col overflow-hidden">
+      <div className="flex-1 overflow-y-auto py-4 pb-24">
         {messages.length === 0 && !isStreaming && (
-          <div className="flex flex-col items-center justify-center gap-2 pt-20 text-center">
-            <h2 className="text-lg font-semibold text-zinc-300">AI Project Manager</h2>
-            <p className="max-w-md text-sm text-zinc-500">
-              Ask me to create tasks, manage files, review changes, spawn terminals, or manage save
-              points. I can help you orchestrate your entire project.
+          <div className="flex flex-col items-center justify-center gap-4 pt-20 text-center">
+            <h2 className="font-ovo text-6xl tracking-tight text-zinc-200">Orchestrate</h2>
+            <p className="max-w-xs text-sm leading-relaxed text-zinc-500">
+              Create tasks, manage files, review changes,
+              <br />
+              and orchestrate your entire project.
             </p>
           </div>
         )}
