@@ -11,8 +11,7 @@ export default function OrchestrateTab(): React.JSX.Element {
   const messages = useAgentStore((s) => s.messages)
   const isStreaming = useAgentStore((s) => s.isStreaming)
   const hasApiKey = useAgentStore((s) => s.hasApiKey)
-  const streamingContent = useAgentStore((s) => s.streamingContent)
-  const currentToolUses = useAgentStore((s) => s.currentToolUses)
+  const streamingItems = useAgentStore((s) => s.streamingItems)
   const checkApiKey = useAgentStore((s) => s.checkApiKey)
   const clearConversation = useAgentStore((s) => s.clearConversation)
   const resetState = useAgentStore((s) => s.resetState)
@@ -35,10 +34,11 @@ export default function OrchestrateTab(): React.JSX.Element {
     }
   }, [currentFolder, clearConversation, resetState, checkApiKey])
 
-  // Auto-scroll to bottom
+  // Auto-scroll to bottom — use 'auto' during streaming to avoid jitter
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, streamingContent])
+    const behavior = streamingItems.length > 0 ? 'auto' : 'smooth'
+    messagesEndRef.current?.scrollIntoView({ behavior })
+  }, [messages, streamingItems])
 
   // No folder selected
   if (!currentFolder) {
@@ -72,7 +72,7 @@ export default function OrchestrateTab(): React.JSX.Element {
   // Chat interface
   return (
     <div className="relative flex flex-1 flex-col overflow-hidden">
-      <div className="flex-1 overflow-y-auto py-4 pb-24">
+      <div className="mx-auto flex-1 overflow-y-auto py-4 pb-24" style={{ maxWidth: 900 }}>
         {messages.length === 0 && !isStreaming && (
           <div className="flex flex-col items-center justify-center gap-4 pt-20 text-center">
             <h2 className="font-ovo text-6xl tracking-tight text-zinc-200">Orchestrate</h2>
@@ -90,16 +90,27 @@ export default function OrchestrateTab(): React.JSX.Element {
             role={msg.role}
             content={msg.content}
             toolUses={msg.toolUses}
+            items={msg.items}
           />
         ))}
 
         {/* Streaming message */}
-        {isStreaming && (streamingContent || currentToolUses.length > 0) && (
-          <ChatMessage
-            role="assistant"
-            content={streamingContent}
-            toolUses={currentToolUses.length > 0 ? currentToolUses : undefined}
-          />
+        {isStreaming && streamingItems.length > 0 && (
+          <ChatMessage role="assistant" content="" items={streamingItems} />
+        )}
+
+        {/* Streaming indicator */}
+        {isStreaming && (
+          <div className="flex items-center gap-2 px-4 py-2">
+            <div className="flex items-center gap-1">
+              <div className="stream-dot h-1.5 w-1.5 rounded-full bg-zinc-400" />
+              <div className="stream-dot h-1.5 w-1.5 rounded-full bg-zinc-400" />
+              <div className="stream-dot h-1.5 w-1.5 rounded-full bg-zinc-400" />
+            </div>
+            {streamingItems.length === 0 && (
+              <span className="text-xs text-zinc-500">Agent is thinking…</span>
+            )}
+          </div>
         )}
 
         <div ref={messagesEndRef} />
