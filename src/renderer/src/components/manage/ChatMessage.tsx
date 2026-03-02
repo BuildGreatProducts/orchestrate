@@ -88,20 +88,19 @@ function getToolLabel(tool: string): string {
   return TOOL_PAST_LABELS[tool] || tool
 }
 
+function coerceToString(val: unknown): string | null {
+  if (typeof val === 'string') return val || null
+  if (typeof val === 'number' || typeof val === 'boolean') return String(val)
+  return null
+}
+
 function getToolDetail(input: Record<string, unknown>): string | null {
-  const detail =
-    (input.title as string) ||
-    (input.file_path as string) ||
-    (input.path as string) ||
-    (input.command as string) ||
-    (input.pattern as string) ||
-    (input.query as string) ||
-    (input.name as string) ||
-    (input.task_id as string) ||
-    (input.message as string) ||
-    null
-  if (!detail) return null
-  return detail.length > 50 ? detail.slice(0, 50) + '…' : detail
+  const keys = ['title', 'file_path', 'path', 'command', 'pattern', 'query', 'name', 'task_id', 'message']
+  for (const key of keys) {
+    const detail = coerceToString(input[key])
+    if (detail) return detail.length > 50 ? detail.slice(0, 50) + '…' : detail
+  }
+  return null
 }
 
 // --- Build items from legacy messages (backward compat) ---
@@ -147,8 +146,17 @@ function renderInline(text: string): React.ReactNode[] {
         </code>
       )
     } else if (match[8] && match[9]) {
+      let href = '#'
+      try {
+        const url = new URL(match[9])
+        if (['http:', 'https:', 'mailto:'].includes(url.protocol)) {
+          href = url.href
+        }
+      } catch {
+        // invalid URL — keep href as '#'
+      }
       nodes.push(
-        <a key={key++} className="text-blue-400 underline decoration-blue-400/30 hover:decoration-blue-400" href={match[9]}>
+        <a key={key++} className="text-blue-400 underline decoration-blue-400/30 hover:decoration-blue-400" href={href} rel="noopener noreferrer" target="_blank">
           {match[8]}
         </a>
       )

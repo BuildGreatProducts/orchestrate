@@ -34,9 +34,10 @@ export default function OrchestrateTab(): React.JSX.Element {
     }
   }, [currentFolder, clearConversation, resetState, checkApiKey])
 
-  // Auto-scroll to bottom
+  // Auto-scroll to bottom — use 'auto' during streaming to avoid jitter
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const behavior = streamingItems.length > 0 ? 'auto' : 'smooth'
+    messagesEndRef.current?.scrollIntoView({ behavior })
   }, [messages, streamingItems])
 
   // No folder selected

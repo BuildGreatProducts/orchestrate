@@ -223,7 +223,7 @@ export const useAgentStore = create<AgentState>((set, get) => {
 
     clearConversation: async () => {
       await window.orchestrate.clearAgentConversation()
-      set({ messages: [], streamingItems: [] })
+      set({ messages: [], streamingItems: [], isStreaming: false })
     },
 
     resetState: () => {
