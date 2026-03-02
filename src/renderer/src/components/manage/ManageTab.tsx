@@ -72,48 +72,50 @@ export default function OrchestrateTab(): React.JSX.Element {
   // Chat interface
   return (
     <div className="relative flex flex-1 flex-col overflow-hidden">
-      <div className="mx-auto flex-1 overflow-y-auto py-4 pb-24" style={{ maxWidth: 900 }}>
-        {messages.length === 0 && !isStreaming && (
-          <div className="flex flex-col items-center justify-center gap-4 pt-20 text-center">
-            <h2 className="font-ovo text-6xl tracking-tight text-zinc-200">Orchestrate</h2>
-            <p className="max-w-xs text-sm leading-relaxed text-zinc-500">
-              Create tasks, manage files, review changes,
-              <br />
-              and orchestrate your entire project.
-            </p>
-          </div>
-        )}
-
-        {messages.map((msg) => (
-          <ChatMessage
-            key={msg.id}
-            role={msg.role}
-            content={msg.content}
-            toolUses={msg.toolUses}
-            items={msg.items}
-          />
-        ))}
-
-        {/* Streaming message */}
-        {isStreaming && streamingItems.length > 0 && (
-          <ChatMessage role="assistant" content="" items={streamingItems} />
-        )}
-
-        {/* Streaming indicator */}
-        {isStreaming && (
-          <div className="flex items-center gap-2 px-4 py-2">
-            <div className="flex items-center gap-1">
-              <div className="stream-dot h-1.5 w-1.5 rounded-full bg-zinc-400" />
-              <div className="stream-dot h-1.5 w-1.5 rounded-full bg-zinc-400" />
-              <div className="stream-dot h-1.5 w-1.5 rounded-full bg-zinc-400" />
+      <div className="flex-1 overflow-y-auto dark-scrollbar">
+        <div className="mx-auto w-full py-4 pb-24" style={{ maxWidth: 900 }}>
+          {messages.length === 0 && !isStreaming && (
+            <div className="flex flex-col items-center justify-center gap-4 pt-20 text-center">
+              <h2 className="font-ovo text-6xl tracking-tight text-zinc-200">Orchestrate</h2>
+              <p className="max-w-xs text-sm leading-relaxed text-zinc-500">
+                Create tasks, manage files, review changes,
+                <br />
+                and orchestrate your entire project.
+              </p>
             </div>
-            {streamingItems.length === 0 && (
-              <span className="text-xs text-zinc-500">Agent is thinking…</span>
-            )}
-          </div>
-        )}
+          )}
 
-        <div ref={messagesEndRef} />
+          {messages.map((msg) => (
+            <ChatMessage
+              key={msg.id}
+              role={msg.role}
+              content={msg.content}
+              toolUses={msg.toolUses}
+              items={msg.items}
+            />
+          ))}
+
+          {/* Streaming message */}
+          {isStreaming && streamingItems.length > 0 && (
+            <ChatMessage role="assistant" content="" items={streamingItems} />
+          )}
+
+          {/* Streaming indicator */}
+          {isStreaming && (
+            <div className="flex items-center gap-2 px-4 py-2">
+              <div className="flex items-center gap-1">
+                <div className="stream-dot h-1.5 w-1.5 rounded-full bg-zinc-400" />
+                <div className="stream-dot h-1.5 w-1.5 rounded-full bg-zinc-400" />
+                <div className="stream-dot h-1.5 w-1.5 rounded-full bg-zinc-400" />
+              </div>
+              {streamingItems.length === 0 && (
+                <span className="text-xs text-zinc-500">Agent is thinking…</span>
+              )}
+            </div>
+          )}
+
+          <div ref={messagesEndRef} />
+        </div>
       </div>
 
       <ChatInput />

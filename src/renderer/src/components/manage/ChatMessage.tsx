@@ -350,7 +350,7 @@ export default function ChatMessage({
 
   return (
     <div className="px-4 py-2 animate-in fade-in slide-in-from-bottom-1 duration-150">
-      <div className="max-w-[85%] space-y-0.5">
+      <div className="space-y-0.5">
         {streamItems.map((item, idx) =>
           item.kind === 'tool_use' ? (
             <ToolActionRow key={idx} tool={item.tool} input={item.input} />
