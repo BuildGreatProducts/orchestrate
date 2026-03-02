@@ -1,4 +1,4 @@
-import { MessageSquare, Terminal, LayoutList, FolderOpen, History } from 'lucide-react'
+import { MessageSquare, Terminal, LayoutList, FolderOpen, History, Settings } from 'lucide-react'
 import { useAppStore } from '@renderer/stores/app'
 import { TAB_LIST } from '@shared/types'
 import type { TabId } from '@shared/types'
@@ -28,7 +28,7 @@ function Logo(): React.JSX.Element {
 }
 
 export default function TopNav(): React.JSX.Element {
-  const { activeTab, setActiveTab } = useAppStore()
+  const { activeTab, setActiveTab, showSettings, setShowSettings } = useAppStore()
 
   return (
     <nav className="flex h-12 items-center border-b border-zinc-700 bg-zinc-900 px-4">
@@ -58,6 +58,21 @@ export default function TopNav(): React.JSX.Element {
             </button>
           )
         })}
+      </div>
+
+      <div className="ml-auto">
+        <button
+          onClick={() => setShowSettings(!showSettings)}
+          className={`rounded p-1.5 transition-colors ${
+            showSettings
+              ? 'bg-zinc-700 text-white'
+              : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200'
+          }`}
+          title="Settings"
+          aria-label="Settings"
+        >
+          <Settings size={16} />
+        </button>
       </div>
     </nav>
   )
