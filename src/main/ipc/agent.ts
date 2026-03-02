@@ -2,11 +2,13 @@ import { ipcMain, BrowserWindow } from 'electron'
 import Store from 'electron-store'
 import { markChannelRegistered } from './stubs'
 import { Agent } from '../agent/agent'
-import { AGENT_TOOLS, createToolExecutor } from '../agent/tools'
+import { createOrchestrateServer, ORCHESTRATE_TOOL_NAMES } from '../agent/tools'
 import { SYSTEM_PROMPT } from '../agent/system-prompt'
 import type { TaskManager } from '../task-manager'
 import type { GitManager } from '../git-manager'
 import type { PtyManager } from '../pty-manager'
+
+const BUILTIN_TOOLS = ['Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep']
 
 let agentInstance: Agent | null = null
 
@@ -40,10 +42,15 @@ export function registerAgentHandlers(
     agent.setApiKey(savedKey)
   }
 
+  // Build the allowed tools list: built-in + MCP-prefixed orchestrate tools
+  const allowedTools = [
+    ...BUILTIN_TOOLS,
+    ...ORCHESTRATE_TOOL_NAMES.map((name) => `mcp__orchestrate__${name}`)
+  ]
+
   let isProcessing = false
 
   // Remove any existing handlers to prevent duplicate accumulation
-  // (matches the defensive pattern used by terminal.ts)
   ipcMain.removeHandler('agent:setApiKey')
   ipcMain.removeHandler('agent:hasApiKey')
   ipcMain.removeHandler('agent:clearConversation')
@@ -54,8 +61,9 @@ export function registerAgentHandlers(
     if (typeof key !== 'string' || key.trim().length === 0) {
       throw new Error('API key is required')
     }
-    store.set('anthropicApiKey', key.trim())
-    agent.setApiKey(key.trim())
+    const trimmed = key.trim()
+    store.set('anthropicApiKey', trimmed)
+    agent.setApiKey(trimmed)
   })
 
   ipcMain.handle('agent:hasApiKey', async () => {
@@ -119,7 +127,7 @@ export function registerAgentHandlers(
         }
       }
 
-      const executeTool = createToolExecutor({
+      const mcpServer = createOrchestrateServer({
         getCurrentFolder,
         getTaskManager,
         getGitManager,
@@ -129,7 +137,7 @@ export function registerAgentHandlers(
         notifyStateChanged
       })
 
-      const generator = agent.sendMessage(message, AGENT_TOOLS, systemPrompt, executeTool)
+      const generator = agent.sendMessage(message, systemPrompt, mcpServer, folder, allowedTools)
 
       for await (const chunk of generator) {
         if (win.isDestroyed()) break

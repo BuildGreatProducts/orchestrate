@@ -1,4 +1,5 @@
 const TOOL_LABELS: Record<string, string> = {
+  // Orchestrate tools
   create_task: 'Creating task',
   edit_task: 'Editing task',
   delete_task: 'Deleting task',
@@ -15,7 +16,14 @@ const TOOL_LABELS: Record<string, string> = {
   list_save_points: 'Listing save points',
   restore_save_point: 'Restoring save point',
   revert_save_point: 'Reverting save point',
-  get_changes: 'Getting changes'
+  get_changes: 'Getting changes',
+  // Built-in coding tools
+  Read: 'Reading file',
+  Write: 'Writing file',
+  Edit: 'Editing file',
+  Bash: 'Running command',
+  Glob: 'Finding files',
+  Grep: 'Searching files'
 }
 
 function getToolLabel(tool: string, input: Record<string, unknown>): string {
@@ -24,6 +32,10 @@ function getToolLabel(tool: string, input: Record<string, unknown>): string {
     (input.title as string) ||
     (input.message as string) ||
     (input.path as string) ||
+    (input.file_path as string) ||
+    (input.command as string) ||
+    (input.pattern as string) ||
+    (input.query as string) ||
     (input.name as string) ||
     (input.task_id as string) ||
     ''
