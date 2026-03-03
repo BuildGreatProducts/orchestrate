@@ -14,13 +14,15 @@ function SkillItem({
   return (
     <div className="flex items-center gap-3 rounded border border-zinc-800 bg-zinc-900 px-3 py-2">
       <button
+        type="button"
         onClick={onToggle}
+        aria-label={skill.enabled ? `Disable ${skill.name}` : `Enable ${skill.name}`}
+        aria-pressed={skill.enabled}
         className="flex h-4 w-4 shrink-0 items-center justify-center rounded border border-zinc-600 transition-colors hover:border-zinc-400"
         style={{ backgroundColor: skill.enabled ? '#fff' : 'transparent' }}
-        title={skill.enabled ? 'Disable skill' : 'Enable skill'}
       >
         {skill.enabled && (
-          <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
             <path
               d="M2 5l2 2 4-4"
               stroke="#18181b"
@@ -38,11 +40,12 @@ function SkillItem({
         )}
       </div>
       <button
+        type="button"
         onClick={onRemove}
+        aria-label="Remove skill"
         className="shrink-0 rounded p-1 text-zinc-600 transition-colors hover:bg-zinc-800 hover:text-zinc-400"
-        title="Remove skill"
       >
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
           <path
             d="M3 4h8M5.5 4V3a1 1 0 011-1h1a1 1 0 011 1v1M6 6.5v3M8 6.5v3M4 4l.5 7a1 1 0 001 1h3a1 1 0 001-1L10 4"
             stroke="currentColor"

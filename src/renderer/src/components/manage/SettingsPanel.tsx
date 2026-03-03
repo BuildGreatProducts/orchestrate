@@ -38,9 +38,10 @@ export default function SettingsPanel({ onDone }: SettingsPanelProps): React.JSX
         <div className="flex-1" />
         <button
           onClick={onDone}
+          aria-label="Close"
           className="mr-3 rounded p-1 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-300"
         >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
             <path
               d="M4 4l8 8M12 4l-8 8"
               stroke="currentColor"

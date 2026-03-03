@@ -560,8 +560,12 @@ export function createOrchestrateServer(deps: ToolExecutorDeps) {
             if (!mgr) return fail('Skill manager not available')
             const folder = getCurrentFolder()
             const skills = await mgr.discoverSkills(folder || undefined)
-            const skill = skills.find((s) => s.name === args.name && s.enabled)
-            if (!skill) return fail(`Skill "${args.name}" not found or disabled`)
+            const matches = skills.filter((s) => s.name === args.name && s.enabled)
+            if (matches.length === 0) return fail(`Skill "${args.name}" not found or disabled`)
+            const skill =
+              matches.length === 1
+                ? matches[0]
+                : matches.find((s) => s.source === 'project') || matches[0]
             const content = await mgr.getSkillContent(skill.path)
             return ok({ name: skill.name, content })
           } catch (err) {

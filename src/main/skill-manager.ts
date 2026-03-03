@@ -4,11 +4,8 @@ import { homedir, tmpdir } from 'os'
 import matter from 'gray-matter'
 import Store from 'electron-store'
 import simpleGit from 'simple-git'
+import extractZip from 'extract-zip'
 import type { SkillMeta } from '@shared/types'
-import { execFile } from 'child_process'
-import { promisify } from 'util'
-
-const execFileAsync = promisify(execFile)
 
 export const GLOBAL_SKILLS_DIR = join(homedir(), '.orchestrate', 'skills')
 
@@ -129,6 +126,9 @@ export class SkillManager {
       throw new Error('Selected folder does not contain a SKILL.md file')
     }
 
+    if (target === 'project' && !projectFolder) {
+      throw new Error('No project folder selected')
+    }
     const destDir = target === 'global' ? GLOBAL_SKILLS_DIR : getProjectSkillsDir(projectFolder!)
     await mkdir(destDir, { recursive: true })
 
@@ -147,13 +147,16 @@ export class SkillManager {
     target: 'global' | 'project',
     projectFolder?: string
   ): Promise<SkillMeta> {
+    if (target === 'project' && !projectFolder) {
+      throw new Error('No project folder selected')
+    }
+
     // Extract to temp directory first
     const tempDir = join(tmpdir(), `orchestrate-skill-${Date.now()}`)
     await mkdir(tempDir, { recursive: true })
 
     try {
-      // Use system unzip command
-      await execFileAsync('unzip', ['-o', zipPath, '-d', tempDir])
+      await extractZip(zipPath, { dir: tempDir })
 
       // Find the directory containing SKILL.md
       const skillDir = await this.findSkillRoot(tempDir)
@@ -173,6 +176,9 @@ export class SkillManager {
     target: 'global' | 'project',
     projectFolder?: string
   ): Promise<SkillMeta> {
+    if (target === 'project' && !projectFolder) {
+      throw new Error('No project folder selected')
+    }
     const destDir = target === 'global' ? GLOBAL_SKILLS_DIR : getProjectSkillsDir(projectFolder!)
     await mkdir(destDir, { recursive: true })
 

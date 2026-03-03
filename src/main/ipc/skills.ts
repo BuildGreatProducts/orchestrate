@@ -76,24 +76,39 @@ export function registerSkillHandlers(
     return mgr.importFromGit(repoUrl, target, folder || undefined)
   })
 
+  async function validateSkillPath(mgr: SkillManager, skillPath: string): Promise<void> {
+    const folder = getCurrentFolder()
+    const skills = await mgr.discoverSkills(folder || undefined)
+    if (!skills.some((s) => s.path === skillPath)) {
+      throw new Error('Unknown skill path')
+    }
+  }
+
   ipcMain.handle('skill:remove', async (_, skillPath: string) => {
     const mgr = getSkillManager()
+    await validateSkillPath(mgr, skillPath)
     await mgr.removeSkill(skillPath)
   })
 
   ipcMain.handle('skill:setEnabled', async (_, skillPath: string, enabled: boolean) => {
     const mgr = getSkillManager()
+    await validateSkillPath(mgr, skillPath)
     mgr.setSkillEnabled(skillPath, enabled)
   })
 
   ipcMain.handle('skill:getContent', async (_, skillPath: string) => {
     const mgr = getSkillManager()
+    await validateSkillPath(mgr, skillPath)
     return mgr.getSkillContent(skillPath)
   })
 
   ipcMain.handle('skill:openFolder', async (_, target: 'global' | 'project') => {
-    const folder = getCurrentFolder()
-    const dir = target === 'global' ? GLOBAL_SKILLS_DIR : getProjectSkillsDir(folder!)
-    await shell.openPath(dir)
+    if (target === 'project') {
+      const folder = getCurrentFolder()
+      if (!folder) throw new Error('No project folder selected')
+      await shell.openPath(getProjectSkillsDir(folder))
+    } else {
+      await shell.openPath(GLOBAL_SKILLS_DIR)
+    }
   })
 }

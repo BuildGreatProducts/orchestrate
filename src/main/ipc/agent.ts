@@ -9,6 +9,15 @@ import type { GitManager } from '../git-manager'
 import type { PtyManager } from '../pty-manager'
 import type { SkillManager } from '../skill-manager'
 
+function escapeXml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;')
+}
+
 const BUILTIN_TOOLS = ['Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep']
 
 let agentInstance: Agent | null = null
@@ -126,7 +135,7 @@ export function registerAgentHandlers(
             const skillsXml = enabledSkills
               .map(
                 (s) =>
-                  `  <skill>\n    <name>${s.name}</name>\n    <description>${s.description}</description>\n  </skill>`
+                  `  <skill>\n    <name>${escapeXml(s.name)}</name>\n    <description>${escapeXml(s.description)}</description>\n  </skill>`
               )
               .join('\n')
             skillsSection = `## Agent Skills
