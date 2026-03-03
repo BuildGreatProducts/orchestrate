@@ -82,6 +82,19 @@ export interface FileDiff {
   deletions: number
 }
 
+// ── Agent Skills ──
+
+export interface SkillMeta {
+  name: string
+  description: string
+  path: string // absolute path to skill directory
+  source: 'global' | 'project'
+  enabled: boolean
+  license?: string
+  compatibility?: string
+  metadata?: Record<string, string>
+}
+
 // ── IPC API Contract ──
 
 export interface OrchestrateAPI {
@@ -135,4 +148,14 @@ export interface OrchestrateAPI {
   revertSavePoint: (hash: string) => Promise<void>
   restoreToSavePoint: (hash: string) => Promise<void>
   hasUncommittedChanges: () => Promise<boolean>
+
+  // Skills
+  getSkills: () => Promise<SkillMeta[]>
+  addSkillFromFolder: (sourcePath: string, target: 'global' | 'project') => Promise<SkillMeta>
+  addSkillFromZip: (zipPath: string, target: 'global' | 'project') => Promise<SkillMeta>
+  addSkillFromGit: (repoUrl: string, target: 'global' | 'project') => Promise<SkillMeta>
+  removeSkill: (skillPath: string) => Promise<void>
+  setSkillEnabled: (skillPath: string, enabled: boolean) => Promise<void>
+  getSkillContent: (skillPath: string) => Promise<string>
+  openSkillsFolder: (target: 'global' | 'project') => Promise<void>
 }

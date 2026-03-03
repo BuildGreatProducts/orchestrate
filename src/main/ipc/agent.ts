@@ -7,6 +7,7 @@ import { SYSTEM_PROMPT } from '../agent/system-prompt'
 import type { TaskManager } from '../task-manager'
 import type { GitManager } from '../git-manager'
 import type { PtyManager } from '../pty-manager'
+import type { SkillManager } from '../skill-manager'
 
 const BUILTIN_TOOLS = ['Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep']
 
@@ -22,7 +23,8 @@ export function registerAgentHandlers(
   getCurrentFolder: () => string | null,
   getTaskManager: () => TaskManager | null,
   getGitManager: () => GitManager | null,
-  _getPtyManager: () => PtyManager | null
+  _getPtyManager: () => PtyManager | null,
+  getSkillManager: () => SkillManager | null
 ): void {
   markChannelRegistered('agent:message')
   markChannelRegistered('agent:setApiKey')
@@ -113,7 +115,36 @@ export function registerAgentHandlers(
     isProcessing = true
 
     try {
-      const systemPrompt = SYSTEM_PROMPT.replace('{{PROJECT_FOLDER}}', folder)
+      // Build skills section for system prompt
+      let skillsSection = ''
+      const skillMgr = getSkillManager()
+      if (skillMgr) {
+        try {
+          const skills = await skillMgr.discoverSkills(folder)
+          const enabledSkills = skills.filter((s) => s.enabled)
+          if (enabledSkills.length > 0) {
+            const skillsXml = enabledSkills
+              .map(
+                (s) =>
+                  `  <skill>\n    <name>${s.name}</name>\n    <description>${s.description}</description>\n  </skill>`
+              )
+              .join('\n')
+            skillsSection = `## Agent Skills
+You have access to specialized skills. To use a skill, call activate_skill with the skill name.
+
+<available_skills>
+${skillsXml}
+</available_skills>`
+          }
+        } catch (err) {
+          console.error('[Agent] Failed to discover skills:', err)
+        }
+      }
+
+      const systemPrompt = SYSTEM_PROMPT.replace('{{PROJECT_FOLDER}}', folder).replace(
+        '{{AVAILABLE_SKILLS}}',
+        skillsSection
+      )
 
       const notifyToolUse = (tool: string, input: Record<string, unknown>): void => {
         if (win && !win.isDestroyed()) {
@@ -132,6 +163,7 @@ export function registerAgentHandlers(
         getTaskManager,
         getGitManager,
         getPtyManager: _getPtyManager,
+        getSkillManager: () => getSkillManager(),
         getWindow,
         notifyToolUse,
         notifyStateChanged

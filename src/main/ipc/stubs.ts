@@ -43,7 +43,17 @@ const stubs: StubDef[] = [
   { channel: 'git:diff', returns: '' },
   { channel: 'git:revert', returns: undefined },
   { channel: 'git:restore', returns: undefined },
-  { channel: 'git:hasChanges', returns: false }
+  { channel: 'git:hasChanges', returns: false },
+
+  // Skills
+  { channel: 'skill:list', returns: [] },
+  { channel: 'skill:addFromFolder', returns: null },
+  { channel: 'skill:addFromZip', returns: null },
+  { channel: 'skill:addFromGit', returns: null },
+  { channel: 'skill:remove', returns: undefined },
+  { channel: 'skill:setEnabled', returns: undefined },
+  { channel: 'skill:getContent', returns: '' },
+  { channel: 'skill:openFolder', returns: undefined }
 ]
 
 // Track which channels have real handlers registered

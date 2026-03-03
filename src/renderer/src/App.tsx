@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import TopNav from '@renderer/components/layout/TopNav'
 import ToastContainer from '@renderer/components/ui/ToastContainer'
-import ApiKeyPrompt from '@renderer/components/manage/ApiKeyPrompt'
+import SettingsPanel from '@renderer/components/manage/SettingsPanel'
 import { useAppStore } from '@renderer/stores/app'
 import { useFilesStore } from '@renderer/stores/files'
 import { useTerminalStore } from '@renderer/stores/terminal'
@@ -55,9 +55,12 @@ function App(): React.JSX.Element {
         e.preventDefault()
         const tab = useAppStore.getState().activeTab
         if (tab === 'files') {
-          useFilesStore.getState().saveActiveFile().catch((err) => {
-            console.error('[Shortcut] Failed to save file:', err)
-          })
+          useFilesStore
+            .getState()
+            .saveActiveFile()
+            .catch((err) => {
+              console.error('[Shortcut] Failed to save file:', err)
+            })
         } else if (tab === 'history') {
           const input = document.querySelector<HTMLInputElement>('[data-save-point-input]')
           input?.focus()
@@ -87,9 +90,12 @@ function App(): React.JSX.Element {
       if (e.key === 'n') {
         e.preventDefault()
         useAppStore.getState().setActiveTab('tasks')
-        useTasksStore.getState().createTask('draft', 'New task').catch((err) => {
-          console.error('[Shortcut] Failed to create task:', err)
-        })
+        useTasksStore
+          .getState()
+          .createTask('draft', 'New task')
+          .catch((err) => {
+            console.error('[Shortcut] Failed to create task:', err)
+          })
         return
       }
     }
@@ -99,16 +105,14 @@ function App(): React.JSX.Element {
   }, [])
 
   return (
-    <div className="flex h-screen flex-col bg-zinc-950 text-white">
+    <div className="flex h-screen flex-col bg-black text-white">
       <TopNav />
       <main className="relative flex-1 overflow-hidden">
         {TABS.map(({ id, Component }) => (
           <div
             key={id}
             className={
-              id === activeTab
-                ? 'flex h-full w-full animate-in fade-in duration-150'
-                : 'hidden'
+              id === activeTab ? 'flex h-full w-full animate-in fade-in duration-150' : 'hidden'
             }
           >
             <Component />
@@ -116,8 +120,13 @@ function App(): React.JSX.Element {
         ))}
       </main>
       {showSettings && (
-        <div role="dialog" aria-modal="true" aria-label="API Key Settings" className="absolute inset-0 top-12 z-50 bg-zinc-950">
-          <ApiKeyPrompt onDone={() => setShowSettings(false)} />
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Settings"
+          className="absolute inset-0 top-12 z-50 bg-black"
+        >
+          <SettingsPanel onDone={() => setShowSettings(false)} />
         </div>
       )}
       <ToastContainer />
