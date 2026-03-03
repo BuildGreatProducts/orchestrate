@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { VscRepo } from 'react-icons/vsc'
 import { useHistoryStore } from '@renderer/stores/history'
+import { Button } from '@renderer/components/ui/button'
 
 export default function EmptyState(): React.JSX.Element {
   const initRepo = useHistoryStore((s) => s.initRepo)
@@ -16,17 +16,14 @@ export default function EmptyState(): React.JSX.Element {
   }
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-4">
-      <VscRepo size={48} className="text-zinc-600" />
-      <h2 className="text-xl font-semibold text-zinc-200">No Version History</h2>
-      <p className="text-sm text-zinc-500">Initialize to start creating save points</p>
-      <button
-        onClick={handleInit}
-        disabled={isInitializing}
-        className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
-      >
+    <div className="flex flex-1 flex-col items-center justify-center gap-4 p-4 text-center">
+      <h2 className="font-ovo text-6xl tracking-tight text-zinc-200">History</h2>
+      <p className="max-w-xs text-sm text-zinc-500">
+        Track changes and create save points to restore your project at any time.
+      </p>
+      <Button variant="solid" onClick={handleInit} disabled={isInitializing} className="mt-2">
         {isInitializing ? 'Initializing...' : 'Initialize'}
-      </button>
+      </Button>
     </div>
   )
 }
