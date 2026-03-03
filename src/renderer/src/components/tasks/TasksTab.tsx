@@ -65,7 +65,7 @@ export default function TasksTab(): React.JSX.Element {
   }
 
   return (
-    <div className="flex flex-1 overflow-hidden">
+    <div className="relative flex flex-1 overflow-hidden">
       <div className="flex-1 overflow-hidden">
         <KanbanBoard />
       </div>

@@ -1,7 +1,9 @@
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { TaskMeta } from '@shared/types'
 import { useTasksStore } from '@renderer/stores/tasks'
+import ConfirmDialog from '@renderer/components/history/ConfirmDialog'
 
 interface TaskCardProps {
   id: string
@@ -12,6 +14,21 @@ interface TaskCardProps {
 export default function TaskCard({ id, task, isDragOverlay }: TaskCardProps): React.JSX.Element {
   const selectTask = useTasksStore((s) => s.selectTask)
   const selectedTaskId = useTasksStore((s) => s.selectedTaskId)
+  const updateTaskTitle = useTasksStore((s) => s.updateTaskTitle)
+  const deleteTask = useTasksStore((s) => s.deleteTask)
+  const renamingTaskId = useTasksStore((s) => s.renamingTaskId)
+  const setRenamingTaskId = useTasksStore((s) => s.setRenamingTaskId)
+
+  const readMarkdown = useTasksStore((s) => s.readMarkdown)
+  const markdownRevision = useTasksStore((s) => s.markdownRevision)
+
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [isRenaming, setIsRenaming] = useState(false)
+  const [renameValue, setRenameValue] = useState(task.title)
+  const [preview, setPreview] = useState('')
+  const menuRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id
@@ -30,21 +47,162 @@ export default function TaskCard({ id, task, isDragOverlay }: TaskCardProps): Re
     day: 'numeric'
   })
 
+  // Load preview text from markdown (re-reads when markdown is saved)
+  useEffect(() => {
+    let cancelled = false
+    readMarkdown(id).then((content) => {
+      if (cancelled) return
+      const line = content
+        .split('\n')
+        .map((l) => l.trim())
+        .find((l) => l && !l.startsWith('#'))
+      setPreview(line ?? '')
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [id, readMarkdown, markdownRevision])
+
+  // Close menu on outside click
+  useEffect(() => {
+    if (!menuOpen) return
+    const handleClick = (e: MouseEvent): void => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [menuOpen])
+
+  // Auto-enter rename mode for newly created tasks
+  useEffect(() => {
+    if (renamingTaskId === id) {
+      setRenameValue(task.title)
+      setIsRenaming(true)
+      setRenamingTaskId(null)
+    }
+  }, [renamingTaskId, id, task.title, setRenamingTaskId])
+
+  // Focus and select input when entering rename mode
+  useEffect(() => {
+    if (isRenaming) {
+      inputRef.current?.focus()
+      inputRef.current?.select()
+    }
+  }, [isRenaming])
+
+  const handleRename = useCallback(() => {
+    setMenuOpen(false)
+    setRenameValue(task.title)
+    setIsRenaming(true)
+  }, [task.title])
+
+  const commitRename = useCallback(() => {
+    const trimmed = renameValue.trim()
+    if (trimmed && trimmed !== task.title) {
+      updateTaskTitle(id, trimmed)
+    }
+    setIsRenaming(false)
+  }, [id, renameValue, task.title, updateTaskTitle])
+
+  const handleDelete = useCallback(() => {
+    setMenuOpen(false)
+    setConfirmingDelete(true)
+  }, [])
+
   return (
     <div
       ref={!isDragOverlay ? setNodeRef : undefined}
       style={!isDragOverlay ? style : undefined}
       {...(!isDragOverlay ? attributes : {})}
       {...(!isDragOverlay ? listeners : {})}
-      onClick={() => selectTask(id)}
-      className={`cursor-grab rounded-lg border p-3 transition-colors active:cursor-grabbing ${
+      onClick={() => !isRenaming && selectTask(id)}
+      className={`group relative cursor-grab rounded-lg border p-3 transition-colors active:cursor-grabbing ${
         isSelected
-          ? 'border-indigo-500 bg-zinc-800'
+          ? 'border-zinc-500 bg-zinc-800'
           : 'border-zinc-700 bg-zinc-800/80 hover:border-zinc-600'
       }`}
     >
-      <p className="line-clamp-2 text-sm text-zinc-200">{task.title}</p>
-      <p className="mt-1.5 text-xs text-zinc-500">{createdDate}</p>
+      {isRenaming ? (
+        <input
+          ref={inputRef}
+          value={renameValue}
+          onChange={(e) => setRenameValue(e.target.value)}
+          onBlur={commitRename}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') commitRename()
+            if (e.key === 'Escape') setIsRenaming(false)
+          }}
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="w-full rounded border border-zinc-600 bg-zinc-900 px-1.5 py-0.5 text-sm text-zinc-200 outline-none focus:border-zinc-400"
+        />
+      ) : (
+        <p className="line-clamp-2 pr-6 text-sm text-zinc-200">{task.title}</p>
+      )}
+      {preview && <p className="mt-1 line-clamp-1 text-xs text-zinc-500">{preview}</p>}
+      <p className="mt-1 text-xs text-zinc-600">{createdDate}</p>
+
+      {/* 3-dot menu */}
+      {!isDragOverlay && !isRenaming && (
+        <div ref={menuRef} className="absolute right-2 top-2.5">
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              setMenuOpen((v) => !v)
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="rounded p-0.5 text-zinc-500 opacity-0 transition-opacity hover:bg-zinc-700 hover:text-zinc-300 group-hover:opacity-100 data-[open=true]:opacity-100"
+            data-open={menuOpen}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <circle cx="8" cy="3.5" r="1.25" />
+              <circle cx="8" cy="8" r="1.25" />
+              <circle cx="8" cy="12.5" r="1.25" />
+            </svg>
+          </button>
+
+          {menuOpen && (
+            <div className="absolute right-0 top-full z-50 mt-1 w-32 overflow-hidden rounded-md border border-zinc-700 bg-zinc-800 py-1 shadow-xl">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleRename()
+                }}
+                onPointerDown={(e) => e.stopPropagation()}
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-zinc-300 hover:bg-zinc-700"
+              >
+                Rename
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleDelete()
+                }}
+                onPointerDown={(e) => e.stopPropagation()}
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-red-400 hover:bg-zinc-700"
+              >
+                Delete
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {confirmingDelete && (
+        <ConfirmDialog
+          title="Delete task"
+          description={`Are you sure you want to delete "${task.title}"? This action cannot be undone.`}
+          confirmLabel="Delete"
+          variant="danger"
+          onConfirm={() => {
+            setConfirmingDelete(false)
+            deleteTask(id)
+          }}
+          onCancel={() => setConfirmingDelete(false)}
+        />
+      )}
     </div>
   )
 }

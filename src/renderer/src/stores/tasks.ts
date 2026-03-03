@@ -30,6 +30,8 @@ const EMPTY_BOARD: BoardState = {
 interface TasksState {
   board: BoardState | null
   selectedTaskId: string | null
+  renamingTaskId: string | null
+  markdownRevision: number
   isLoading: boolean
   hasLoaded: boolean
   loadError: string | null
@@ -37,6 +39,7 @@ interface TasksState {
   loadBoard: () => Promise<void>
   resetBoard: () => void
   createTask: (columnId: ColumnId, title: string) => Promise<void>
+  setRenamingTaskId: (id: string | null) => void
   updateTaskTitle: (id: string, title: string) => Promise<void>
   deleteTask: (id: string) => Promise<void>
   moveTask: (taskId: string, toColumn: ColumnId, toIndex: number) => Promise<void>
@@ -50,6 +53,8 @@ interface TasksState {
 export const useTasksStore = create<TasksState>((set, get) => ({
   board: null,
   selectedTaskId: null,
+  renamingTaskId: null,
+  markdownRevision: 0,
   isLoading: false,
   hasLoaded: false,
   loadError: null,
@@ -99,9 +104,13 @@ export const useTasksStore = create<TasksState>((set, get) => ({
       }
     }
 
-    set({ board: newBoard })
+    set({ board: newBoard, renamingTaskId: id })
     await window.orchestrate.saveBoard(newBoard)
     await window.orchestrate.writeTaskMarkdown(id, `# ${title}\n\n`)
+  },
+
+  setRenamingTaskId: (id: string | null) => {
+    set({ renamingTaskId: id })
   },
 
   updateTaskTitle: async (id: string, title: string) => {
@@ -201,6 +210,7 @@ export const useTasksStore = create<TasksState>((set, get) => ({
 
   writeMarkdown: async (id: string, content: string) => {
     await window.orchestrate.writeTaskMarkdown(id, content)
+    set({ markdownRevision: get().markdownRevision + 1 })
   },
 
   sendToAgent: async (id: string, agent: AgentType) => {
