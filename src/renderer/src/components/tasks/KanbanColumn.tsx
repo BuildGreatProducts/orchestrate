@@ -31,12 +31,16 @@ export default function KanbanColumn({
   }
 
   return (
-    <div className="flex w-64 flex-shrink-0 flex-col rounded-lg bg-zinc-900">
+    <div className="flex min-w-64 flex-1 flex-col rounded-lg bg-zinc-900">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2">
         <div className="flex items-center gap-2">
           <h3 className="text-sm font-medium text-zinc-300">{COLUMN_LABELS[columnId]}</h3>
-          <span className="rounded-full bg-zinc-800 px-1.5 py-0.5 text-xs text-zinc-500">
+          <span className={`rounded-full px-1.5 py-0.5 text-xs ${
+            taskIds.length > 0
+              ? 'bg-white text-zinc-900'
+              : 'bg-zinc-800 text-zinc-500'
+          }`}>
             {taskIds.length}
           </span>
         </div>

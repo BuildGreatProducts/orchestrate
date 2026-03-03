@@ -136,21 +136,21 @@ export default function KanbanBoard(): React.JSX.Element {
   const totalTasks = Object.keys(board.tasks).length
   const activeTask = activeId ? board.tasks[activeId] : null
 
+  const createTask = useTasksStore((s) => s.createTask)
+
   if (totalTasks === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 p-4">
-        <div className="rounded-full bg-zinc-800 p-4">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" className="text-zinc-500">
-            <rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.5" />
-            <rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.5" />
-            <rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.5" />
-            <rect x="14" y="14" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.5" />
-          </svg>
-        </div>
-        <p className="text-lg font-medium text-zinc-300">No tasks yet</p>
-        <p className="max-w-xs text-center text-sm text-zinc-500">
-          Create your first task by clicking the + button on a column, or press Ctrl/Cmd+N.
+      <div className="flex h-full flex-col items-center justify-center gap-4 p-4 text-center">
+        <h2 className="font-ovo text-6xl tracking-tight text-zinc-200">Tasks</h2>
+        <p className="max-w-xs text-sm text-zinc-500">
+          Plan and track work across your project with a drag-and-drop board.
         </p>
+        <button
+          onClick={() => createTask('draft', 'New task')}
+          className="mt-2 rounded bg-white px-4 py-2 text-sm font-medium text-zinc-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_1px_3px_rgba(0,0,0,0.4),0_0px_1px_rgba(0,0,0,0.3)] transition-colors hover:bg-zinc-100 active:bg-zinc-200 active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.2)]"
+        >
+          Create task
+        </button>
       </div>
     )
   }
