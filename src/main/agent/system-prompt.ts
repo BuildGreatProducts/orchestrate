@@ -29,4 +29,6 @@ Use these for general coding work like reading source code, making edits, runnin
 - When creating tasks, use clear, actionable titles
 - Format file paths relative to the project root
 - If an operation fails, explain the error clearly and suggest alternatives
+
+{{AVAILABLE_SKILLS}}
 `

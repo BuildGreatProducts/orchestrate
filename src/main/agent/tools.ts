@@ -7,14 +7,24 @@ import type { PtyManager } from '../pty-manager'
 import { readFile, writeFile, unlink, readdir, stat, mkdir, realpath } from 'fs/promises'
 import { dirname, isAbsolute, join, resolve, relative, parse as pathParse } from 'path'
 import type { ColumnId } from '@shared/types'
+import type { SkillManager } from '../skill-manager'
 
 const VALID_COLUMNS: ColumnId[] = ['draft', 'planning', 'in-progress', 'review', 'done']
 
 // ── Path validation ──
 
 const IGNORED_NAMES = new Set([
-  'node_modules', '.git', '.DS_Store', '.Trash', 'thumbs.db',
-  '.next', '.nuxt', 'dist', 'out', '.cache', '.turbo'
+  'node_modules',
+  '.git',
+  '.DS_Store',
+  '.Trash',
+  'thumbs.db',
+  '.next',
+  '.nuxt',
+  'dist',
+  'out',
+  '.cache',
+  '.turbo'
 ])
 
 async function validatePath(filePath: string, projectFolder: string): Promise<string> {
@@ -60,6 +70,7 @@ export interface ToolExecutorDeps {
   getTaskManager: () => TaskManager | null
   getGitManager: () => GitManager | null
   getPtyManager: () => PtyManager | null
+  getSkillManager: () => SkillManager | null
   getWindow: () => BrowserWindow | null
   notifyToolUse: (tool: string, input: Record<string, unknown>) => void
   notifyStateChanged: (domain: string, data?: unknown) => void
@@ -78,10 +89,24 @@ function fail(error: string): { content: [{ type: 'text'; text: string }] } {
 // ── MCP server factory ──
 
 export const ORCHESTRATE_TOOL_NAMES = [
-  'create_task', 'edit_task', 'delete_task', 'move_task', 'list_tasks', 'read_task',
-  'spawn_terminal', 'send_to_agent',
-  'read_file', 'write_file', 'list_files', 'delete_file',
-  'create_save_point', 'list_save_points', 'restore_save_point', 'revert_save_point', 'get_changes'
+  'create_task',
+  'edit_task',
+  'delete_task',
+  'move_task',
+  'list_tasks',
+  'read_task',
+  'spawn_terminal',
+  'send_to_agent',
+  'read_file',
+  'write_file',
+  'list_files',
+  'delete_file',
+  'create_save_point',
+  'list_save_points',
+  'restore_save_point',
+  'revert_save_point',
+  'get_changes',
+  'activate_skill'
 ] as const
 
 export function createOrchestrateServer(deps: ToolExecutorDeps) {
@@ -89,6 +114,7 @@ export function createOrchestrateServer(deps: ToolExecutorDeps) {
     getCurrentFolder,
     getTaskManager,
     getGitManager,
+    getSkillManager,
     notifyToolUse,
     notifyStateChanged
   } = deps
@@ -127,7 +153,9 @@ export function createOrchestrateServer(deps: ToolExecutorDeps) {
         'Create a new task on the kanban board in the specified column.',
         {
           title: z.string().describe('The title of the task'),
-          column: columnEnum.optional().describe('The column to place the task in (default: draft)'),
+          column: columnEnum
+            .optional()
+            .describe('The column to place the task in (default: draft)'),
           markdown: z.string().optional().describe('Optional markdown content for the task')
         },
         async (args) => {
@@ -225,27 +253,22 @@ export function createOrchestrateServer(deps: ToolExecutorDeps) {
         }
       ),
 
-      tool(
-        'list_tasks',
-        'List all tasks on the kanban board, grouped by column.',
-        {},
-        async () => {
-          notify('list_tasks', {})
-          try {
-            const mgr = requireTaskManager()
-            const board = await mgr.loadBoard()
-            const result: Record<string, { id: string; title: string }[]> = {}
-            for (const col of VALID_COLUMNS) {
-              result[col] = board.columns[col]
-                .filter((id) => board.tasks[id])
-                .map((id) => ({ id, title: board.tasks[id].title }))
-            }
-            return ok(result)
-          } catch (err) {
-            return fail(err instanceof Error ? err.message : String(err))
+      tool('list_tasks', 'List all tasks on the kanban board, grouped by column.', {}, async () => {
+        notify('list_tasks', {})
+        try {
+          const mgr = requireTaskManager()
+          const board = await mgr.loadBoard()
+          const result: Record<string, { id: string; title: string }[]> = {}
+          for (const col of VALID_COLUMNS) {
+            result[col] = board.columns[col]
+              .filter((id) => board.tasks[id])
+              .map((id) => ({ id, title: board.tasks[id].title }))
           }
+          return ok(result)
+        } catch (err) {
+          return fail(err instanceof Error ? err.message : String(err))
         }
-      ),
+      }),
 
       tool(
         'read_task',
@@ -288,7 +311,10 @@ export function createOrchestrateServer(deps: ToolExecutorDeps) {
         'Send a task to an AI coding agent (Claude Code or Codex) in a new terminal.',
         {
           task_id: z.string().describe('The task ID to send'),
-          agent: z.enum(['claude-code', 'codex']).optional().describe('Which AI agent to use (default: claude-code)')
+          agent: z
+            .enum(['claude-code', 'codex'])
+            .optional()
+            .describe('Which AI agent to use (default: claude-code)')
         },
         async (args) => {
           notify('send_to_agent', args as Record<string, unknown>)
@@ -303,10 +329,7 @@ export function createOrchestrateServer(deps: ToolExecutorDeps) {
             const taskTitle = board.tasks[args.task_id].title
             const markdown = await mgr.readMarkdown(args.task_id)
             const escaped = markdown.replace(/'/g, "'\\''")
-            const cmd =
-              agent === 'claude-code'
-                ? `claude -p '${escaped}'`
-                : `codex -q '${escaped}'`
+            const cmd = agent === 'claude-code' ? `claude -p '${escaped}'` : `codex -q '${escaped}'`
             const tabName = `${agent === 'claude-code' ? 'Claude' : 'Codex'}: ${taskTitle}`
             notifyStateChanged('terminal', { name: tabName, command: cmd })
             return ok({ taskId: args.task_id, agent, tabName })
@@ -374,7 +397,12 @@ export function createOrchestrateServer(deps: ToolExecutorDeps) {
             const files: { name: string; isDirectory: boolean; size?: number }[] = []
             for (const entry of entries) {
               if (IGNORED_NAMES.has(entry.name)) continue
-              if (entry.name.startsWith('.') && entry.name !== '.env' && entry.name !== '.gitignore') continue
+              if (
+                entry.name.startsWith('.') &&
+                entry.name !== '.env' &&
+                entry.name !== '.gitignore'
+              )
+                continue
               const entryPath = join(absPath, entry.name)
               const isDir = entry.isDirectory()
               let size: number | undefined
@@ -431,7 +459,8 @@ export function createOrchestrateServer(deps: ToolExecutorDeps) {
           try {
             const git = requireGitManager()
             const isRepo = await git.isRepo()
-            if (!isRepo) return fail('Not a git repository. Initialize one first from the History tab.')
+            if (!isRepo)
+              return fail('Not a git repository. Initialize one first from the History tab.')
             const hash = await git.createSavePoint(args.message)
             notifyStateChanged('history')
             return ok({ hash: hash || '(no changes to commit)' })
@@ -445,7 +474,10 @@ export function createOrchestrateServer(deps: ToolExecutorDeps) {
         'list_save_points',
         'List recent git save points (commits).',
         {
-          limit: z.number().optional().describe('Maximum number of save points to return (default: 10)')
+          limit: z
+            .number()
+            .optional()
+            .describe('Maximum number of save points to return (default: 10)')
         },
         async (args) => {
           notify('list_save_points', args as Record<string, unknown>)
@@ -501,18 +533,41 @@ export function createOrchestrateServer(deps: ToolExecutorDeps) {
         }
       ),
 
+      tool('get_changes', 'Get the current uncommitted changes (git status).', {}, async () => {
+        notify('get_changes', {})
+        try {
+          const git = requireGitManager()
+          const isRepo = await git.isRepo()
+          if (!isRepo) return fail('Not a git repository')
+          const status = await git.getStatus()
+          return ok(status)
+        } catch (err) {
+          return fail(err instanceof Error ? err.message : String(err))
+        }
+      }),
+
+      // ── Skill tools ──
       tool(
-        'get_changes',
-        'Get the current uncommitted changes (git status).',
-        {},
-        async () => {
-          notify('get_changes', {})
+        'activate_skill',
+        'Load the full instructions of an agent skill by name. Use this when a task matches an available skill.',
+        {
+          name: z.string().describe('The skill name to activate')
+        },
+        async (args) => {
+          notify('activate_skill', args as Record<string, unknown>)
           try {
-            const git = requireGitManager()
-            const isRepo = await git.isRepo()
-            if (!isRepo) return fail('Not a git repository')
-            const status = await git.getStatus()
-            return ok(status)
+            const mgr = getSkillManager()
+            if (!mgr) return fail('Skill manager not available')
+            const folder = getCurrentFolder()
+            const skills = await mgr.discoverSkills(folder || undefined)
+            const matches = skills.filter((s) => s.name === args.name && s.enabled)
+            if (matches.length === 0) return fail(`Skill "${args.name}" not found or disabled`)
+            const skill =
+              matches.length === 1
+                ? matches[0]
+                : matches.find((s) => s.source === 'project') || matches[0]
+            const content = await mgr.getSkillContent(skill.path)
+            return ok({ name: skill.name, content })
           } catch (err) {
             return fail(err instanceof Error ? err.message : String(err))
           }

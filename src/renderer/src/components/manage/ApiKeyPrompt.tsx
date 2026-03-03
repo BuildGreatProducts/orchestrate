@@ -29,23 +29,11 @@ export default function ApiKeyPrompt({ onDone }: ApiKeyPromptProps): React.JSX.E
   }
 
   return (
-    <div className="flex flex-1 items-center justify-center">
-      <div className="flex w-full max-w-md flex-col gap-4 rounded-lg border border-zinc-700 bg-zinc-900 p-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-zinc-200">
-            {isEditing ? 'Update API Key' : 'Connect to Claude'}
-          </h2>
-          {isEditing && onDone && (
-            <button
-              onClick={onDone}
-              className="rounded p-1 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-300"
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-              </svg>
-            </button>
-          )}
-        </div>
+    <div className="flex flex-1 items-start justify-center overflow-y-auto p-6">
+      <div className="w-full max-w-md space-y-4">
+        <h2 className="text-lg font-semibold text-zinc-200">
+          {isEditing ? 'Update API Key' : 'Connect to Claude'}
+        </h2>
         <p className="text-sm text-zinc-400">
           {isEditing
             ? 'Enter a new API key to replace the current one.'
@@ -61,28 +49,22 @@ export default function ApiKeyPrompt({ onDone }: ApiKeyPromptProps): React.JSX.E
             if (e.metaKey || e.ctrlKey) e.stopPropagation()
           }}
           placeholder="sk-ant-..."
-          className="rounded border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 placeholder-zinc-500 outline-none focus:border-blue-500"
+          className="w-full rounded border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 placeholder-zinc-500 outline-none focus:border-zinc-500"
         />
 
-        {error && <p className="text-sm text-red-400">{error}</p>}
+        {error && (
+          <p className="rounded border border-red-900 bg-red-950 px-3 py-2 text-xs text-red-400">
+            {error}
+          </p>
+        )}
 
-        <div className="flex gap-2">
-          {isEditing && onDone && (
-            <button
-              onClick={onDone}
-              className="flex-1 rounded bg-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-600"
-            >
-              Cancel
-            </button>
-          )}
-          <button
-            onClick={handleConnect}
-            disabled={!key.trim() || isConnecting}
-            className="flex-1 rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isConnecting ? 'Saving...' : isEditing ? 'Update Key' : 'Connect'}
-          </button>
-        </div>
+        <button
+          onClick={handleConnect}
+          disabled={!key.trim() || isConnecting}
+          className="rounded bg-white px-4 py-2 text-sm font-medium text-zinc-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_1px_3px_rgba(0,0,0,0.4),0_0px_1px_rgba(0,0,0,0.3)] transition-colors hover:bg-zinc-100 active:bg-zinc-200 active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.2)] disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {isConnecting ? 'Saving...' : isEditing ? 'Update Key' : 'Connect'}
+        </button>
 
         <p className="text-xs text-zinc-500">
           Get an API key at{' '}

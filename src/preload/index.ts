@@ -67,9 +67,7 @@ const api: OrchestrateAPI = {
       ipcRenderer.removeListener('agent:response', handler)
     }
   },
-  onAgentToolUse: (
-    callback: (tool: string, input: Record<string, unknown>) => void
-  ) => {
+  onAgentToolUse: (callback: (tool: string, input: Record<string, unknown>) => void) => {
     const handler = (
       _: Electron.IpcRendererEvent,
       tool: string,
@@ -87,11 +85,7 @@ const api: OrchestrateAPI = {
   clearAgentConversation: () => ipcRenderer.invoke('agent:clearConversation'),
   cancelAgentMessage: () => ipcRenderer.invoke('agent:cancel'),
   onAgentStateChanged: (callback: (domain: string, data?: unknown) => void) => {
-    const handler = (
-      _: Electron.IpcRendererEvent,
-      domain: string,
-      data?: unknown
-    ): void => {
+    const handler = (_: Electron.IpcRendererEvent, domain: string, data?: unknown): void => {
       callback(domain, data)
     }
     ipcRenderer.on('agent:stateChanged', handler)
@@ -99,6 +93,18 @@ const api: OrchestrateAPI = {
       ipcRenderer.removeListener('agent:stateChanged', handler)
     }
   },
+
+  // Skills
+  getSkills: () => ipcRenderer.invoke('skill:list'),
+  addSkillFromFolder: (sourcePath, target) =>
+    ipcRenderer.invoke('skill:addFromFolder', sourcePath, target),
+  addSkillFromZip: (zipPath, target) => ipcRenderer.invoke('skill:addFromZip', zipPath, target),
+  addSkillFromGit: (repoUrl, target) => ipcRenderer.invoke('skill:addFromGit', repoUrl, target),
+  removeSkill: (skillPath) => ipcRenderer.invoke('skill:remove', skillPath),
+  setSkillEnabled: (skillPath, enabled) =>
+    ipcRenderer.invoke('skill:setEnabled', skillPath, enabled),
+  getSkillContent: (skillPath) => ipcRenderer.invoke('skill:getContent', skillPath),
+  openSkillsFolder: (target) => ipcRenderer.invoke('skill:openFolder', target),
 
   // Git / History
   isGitRepo: () => ipcRenderer.invoke('git:isRepo'),

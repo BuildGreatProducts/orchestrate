@@ -8,10 +8,16 @@ import { registerTerminalHandlers, closeAllTerminals, getPtyManager } from './ip
 import { registerTaskHandlers, getTaskManager } from './ipc/tasks'
 import { registerGitHandlers, getGitManager } from './ipc/git'
 import { registerAgentHandlers, clearAgentConversation } from './ipc/agent'
+import { registerSkillHandlers } from './ipc/skills'
 import { registerStubHandlers } from './ipc/stubs'
 import { startWatching, stopWatching } from './file-watcher'
+import { SkillManager } from './skill-manager'
+import Store from 'electron-store'
 
 let mainWindow: BrowserWindow | null = null
+const skillStore = new Store()
+const skillManager = new SkillManager(skillStore)
+const getSkillManager = (): SkillManager => skillManager
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -54,20 +60,36 @@ app.whenReady().then(() => {
   })
 
   // Register real handlers first, then stubs for everything else
-  registerFolderHandlers(() => mainWindow, (folder) => {
-    closeAllTerminals()
-    clearAgentConversation()
-    startWatching(folder, () => mainWindow)
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.setTitle(`Orchestrate — ${basename(folder)}`)
+  registerFolderHandlers(
+    () => mainWindow,
+    (folder) => {
+      closeAllTerminals()
+      clearAgentConversation()
+      startWatching(folder, () => mainWindow)
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.setTitle(`Orchestrate — ${basename(folder)}`)
+      }
     }
-  })
+  )
   registerFileHandlers(() => mainWindow, getCurrentFolder)
   registerTerminalHandlers(() => mainWindow, getCurrentFolder)
   registerTaskHandlers(() => mainWindow, getCurrentFolder, getPtyManager)
   registerGitHandlers(() => mainWindow, getCurrentFolder)
-  registerAgentHandlers(() => mainWindow, getCurrentFolder, getTaskManager, getGitManager, getPtyManager)
+  registerAgentHandlers(
+    () => mainWindow,
+    getCurrentFolder,
+    getTaskManager,
+    getGitManager,
+    getPtyManager,
+    getSkillManager
+  )
+  registerSkillHandlers(() => mainWindow, getCurrentFolder, getSkillManager)
   registerStubHandlers()
+
+  // Ensure global skills directory exists
+  skillManager.ensureGlobalDir().catch((err) => {
+    console.error('[Skills] Failed to create global skills directory:', err)
+  })
 
   // Start watching the last-used folder if one exists
   const lastFolder = getCurrentFolder()
