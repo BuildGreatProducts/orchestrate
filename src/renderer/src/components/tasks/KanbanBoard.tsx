@@ -28,6 +28,7 @@ function findColumnForTask(board: BoardState, taskId: string): ColumnId | null {
 export default function KanbanBoard(): React.JSX.Element {
   const board = useTasksStore((s) => s.board)
   const loadBoard = useTasksStore((s) => s.loadBoard)
+  const createTask = useTasksStore((s) => s.createTask)
   const [activeId, setActiveId] = useState<string | null>(null)
 
   const sensors = useSensors(
@@ -135,8 +136,6 @@ export default function KanbanBoard(): React.JSX.Element {
 
   const totalTasks = Object.keys(board.tasks).length
   const activeTask = activeId ? board.tasks[activeId] : null
-
-  const createTask = useTasksStore((s) => s.createTask)
 
   if (totalTasks === 0) {
     return (
