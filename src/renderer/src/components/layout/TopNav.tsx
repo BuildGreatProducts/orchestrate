@@ -1,4 +1,4 @@
-import { MessageSquare, Terminal, LayoutList, FolderOpen, History, Settings } from 'lucide-react'
+import { MessageSquare, Terminal, LayoutList, FolderOpen, History, Globe, Settings } from 'lucide-react'
 import { useAppStore } from '@renderer/stores/app'
 import { TAB_LIST } from '@shared/types'
 import type { TabId } from '@shared/types'
@@ -9,7 +9,8 @@ const TAB_ICONS: Record<TabId, React.ComponentType<{ size?: number }>> = {
   agents: Terminal,
   tasks: LayoutList,
   files: FolderOpen,
-  history: History
+  history: History,
+  browser: Globe
 }
 
 function Logo(): React.JSX.Element {

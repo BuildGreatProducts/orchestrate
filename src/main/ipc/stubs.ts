@@ -45,6 +45,20 @@ const stubs: StubDef[] = [
   { channel: 'git:restore', returns: undefined },
   { channel: 'git:hasChanges', returns: false },
 
+  // Browser
+  { channel: 'browser:create', returns: undefined },
+  { channel: 'browser:close', returns: undefined },
+  { channel: 'browser:navigate', returns: undefined },
+  { channel: 'browser:goBack', returns: undefined },
+  { channel: 'browser:goForward', returns: undefined },
+  { channel: 'browser:reload', returns: undefined },
+  { channel: 'browser:stop', returns: undefined },
+  { channel: 'browser:setBounds', returns: undefined },
+  { channel: 'browser:show', returns: undefined },
+  { channel: 'browser:hideAll', returns: undefined },
+  { channel: 'browser:closeAll', returns: undefined },
+  { channel: 'browser:toggleDevTools', returns: undefined },
+
   // Skills
   { channel: 'skill:list', returns: [] },
   { channel: 'skill:addFromFolder', returns: null },
