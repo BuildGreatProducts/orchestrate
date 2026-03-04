@@ -52,6 +52,22 @@ export interface AgentResponseChunk {
 
 // ── Git / History ──
 
+export interface CommitNode {
+  hash: string
+  parents: string[]
+  refs: string[]
+  message: string
+  date: string
+  author: string
+}
+
+export interface BranchInfo {
+  name: string
+  current: boolean
+  commit: string
+  isRemote: boolean
+}
+
 export interface SavePoint {
   hash: string
   message: string
@@ -167,6 +183,8 @@ export interface OrchestrateAPI {
   revertSavePoint: (hash: string) => Promise<void>
   restoreToSavePoint: (hash: string) => Promise<void>
   hasUncommittedChanges: () => Promise<boolean>
+  getCommitGraph: (limit?: number, branch?: string) => Promise<CommitNode[]>
+  getBranches: () => Promise<BranchInfo[]>
 
   // Browser
   createBrowserTab: (id: string, url: string) => Promise<void>

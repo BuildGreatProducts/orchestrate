@@ -1,7 +1,9 @@
 import { create } from 'zustand'
-import type { SavePoint, SavePointDetail, GitStatus } from '@shared/types'
+import type { SavePoint, SavePointDetail, GitStatus, CommitNode, BranchInfo } from '@shared/types'
 import { useFilesStore } from './files'
 import { toast } from './toast'
+
+export type ViewMode = 'savepoints' | 'graph'
 
 interface HistoryState {
   isGitRepo: boolean | null
@@ -21,6 +23,15 @@ interface HistoryState {
 
   fileStatusMap: Record<string, 'M' | 'A' | 'D' | '?'>
 
+  // Branch graph state
+  viewMode: ViewMode
+  commitGraph: CommitNode[]
+  branches: BranchInfo[]
+  selectedBranch: string | null
+  graphLoading: boolean
+  selectedCommitHash: string | null
+  hoveredCommitHash: string | null
+
   checkIsRepo: () => Promise<void>
   loadHistory: () => Promise<void>
   loadStatus: () => Promise<void>
@@ -38,6 +49,14 @@ interface HistoryState {
   cancelRestore: () => void
   dismissUncommittedDialog: () => void
   resetState: () => void
+
+  // Branch graph actions
+  setViewMode: (mode: ViewMode) => void
+  loadCommitGraph: () => Promise<void>
+  loadBranches: () => Promise<void>
+  setSelectedBranch: (branch: string | null) => void
+  selectCommit: (hash: string | null) => Promise<void>
+  setHoveredCommit: (hash: string | null) => void
 }
 
 export const useHistoryStore = create<HistoryState>((set, get) => ({
@@ -57,6 +76,15 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
   showUncommittedDialog: false,
 
   fileStatusMap: {},
+
+  // Branch graph defaults
+  viewMode: 'savepoints',
+  commitGraph: [],
+  branches: [],
+  selectedBranch: null,
+  graphLoading: false,
+  selectedCommitHash: null,
+  hoveredCommitHash: null,
 
   checkIsRepo: async () => {
     try {
@@ -95,8 +123,12 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
 
   refreshAll: async () => {
     set({ isLoading: true })
-    const { loadHistory, loadStatus } = get()
-    await Promise.all([loadHistory(), loadStatus()])
+    const { loadHistory, loadStatus, viewMode, loadCommitGraph, loadBranches } = get()
+    const fetches: Promise<void>[] = [loadHistory(), loadStatus()]
+    if (viewMode === 'graph') {
+      fetches.push(loadCommitGraph(), loadBranches())
+    }
+    await Promise.all(fetches)
     useFilesStore.getState().refreshTree()
     set({ isLoading: false })
   },
@@ -218,6 +250,71 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
 
   dismissUncommittedDialog: () => set({ showUncommittedDialog: false }),
 
+  // Branch graph actions
+  setViewMode: (mode: ViewMode) => {
+    set({ viewMode: mode })
+    if (mode === 'graph') {
+      const { commitGraph, branches } = get()
+      if (commitGraph.length === 0) {
+        get().loadCommitGraph()
+      }
+      if (branches.length === 0) {
+        get().loadBranches()
+      }
+    }
+  },
+
+  loadCommitGraph: async () => {
+    set({ graphLoading: true })
+    try {
+      const { selectedBranch } = get()
+      const commits = await window.orchestrate.getCommitGraph(
+        100,
+        selectedBranch ?? undefined
+      )
+      set({ commitGraph: commits, graphLoading: false })
+    } catch (err) {
+      console.error('[History] Failed to load commit graph:', err)
+      set({ commitGraph: [], graphLoading: false })
+    }
+  },
+
+  loadBranches: async () => {
+    try {
+      const branches = await window.orchestrate.getBranches()
+      set({ branches })
+    } catch (err) {
+      console.error('[History] Failed to load branches:', err)
+      set({ branches: [] })
+    }
+  },
+
+  setSelectedBranch: (branch: string | null) => {
+    set({ selectedBranch: branch, selectedCommitHash: null })
+    get().loadCommitGraph()
+  },
+
+  selectCommit: async (hash: string | null) => {
+    if (!hash) {
+      set({ selectedCommitHash: null, expandedDetail: null })
+      return
+    }
+    set({ selectedCommitHash: hash, detailLoading: true, expandedDetail: null })
+    try {
+      const detail = await window.orchestrate.getSavePointDetail(hash)
+      if (get().selectedCommitHash === hash) {
+        set({ expandedDetail: detail, detailLoading: false })
+      }
+    } catch (err) {
+      console.error('[History] Failed to load commit detail:', err)
+      if (get().selectedCommitHash === hash) {
+        set({ detailLoading: false })
+      }
+    }
+  },
+
+  setHoveredCommit: (hash: string | null) => set({ hoveredCommitHash: hash }),
+
   resetState: () =>
     set({
       isGitRepo: null,
@@ -232,6 +329,13 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
       confirmRevert: null,
       confirmRestore: null,
       showUncommittedDialog: false,
-      fileStatusMap: {}
+      fileStatusMap: {},
+      viewMode: 'savepoints',
+      commitGraph: [],
+      branches: [],
+      selectedBranch: null,
+      graphLoading: false,
+      selectedCommitHash: null,
+      hoveredCommitHash: null
     })
 }))

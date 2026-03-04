@@ -4,6 +4,9 @@ import { markChannelRegistered } from './stubs'
 import { GitManager } from '../git-manager'
 
 const SAFE_HASH_RE = /^[0-9a-f]{4,40}$/i
+const SAFE_BRANCH_RE = /^[a-zA-Z0-9._\-/]+$/
+const MAX_BRANCH_LEN = 200
+const MAX_COMMIT_LIMIT = 1000
 
 function validateHash(hash: unknown): asserts hash is string {
   if (typeof hash !== 'string' || !SAFE_HASH_RE.test(hash)) {
@@ -52,6 +55,8 @@ export function registerGitHandlers(
   markChannelRegistered('git:revert')
   markChannelRegistered('git:restore')
   markChannelRegistered('git:hasChanges')
+  markChannelRegistered('git:commitGraph')
+  markChannelRegistered('git:branches')
 
   function getManager(): GitManager {
     const folder = getCurrentFolder()
@@ -112,5 +117,23 @@ export function registerGitHandlers(
 
   ipcMain.handle('git:hasChanges', async () => {
     return getManager().hasUncommittedChanges()
+  })
+
+  ipcMain.handle('git:commitGraph', async (_, limit?: number, branch?: string) => {
+    const safeLimit = typeof limit === 'number' && limit > 0
+      ? Math.min(limit, MAX_COMMIT_LIMIT)
+      : 100
+    let safeBranch: string | undefined
+    if (typeof branch === 'string' && branch.length > 0) {
+      if (branch.length > MAX_BRANCH_LEN || !SAFE_BRANCH_RE.test(branch)) {
+        throw new Error('Invalid branch name')
+      }
+      safeBranch = branch
+    }
+    return getManager().getCommitGraph(safeLimit, safeBranch)
+  })
+
+  ipcMain.handle('git:branches', async () => {
+    return getManager().getBranches()
   })
 }
