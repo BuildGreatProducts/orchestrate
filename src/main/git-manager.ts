@@ -1,5 +1,5 @@
 import simpleGit, { type SimpleGit, type DefaultLogFields, type ListLogLine } from 'simple-git'
-import type { SavePoint, SavePointDetail, GitStatus, FileDiff } from '@shared/types'
+import type { SavePoint, SavePointDetail, GitStatus, FileDiff, CommitNode, BranchInfo } from '@shared/types'
 
 export class GitManager {
   private git: SimpleGit
@@ -154,6 +154,57 @@ export class GitManager {
       throw new Error('UNCOMMITTED_CHANGES')
     }
     await this.git.reset(['--hard', hash])
+  }
+
+  async getCommitGraph(limit: number = 100, branch?: string): Promise<CommitNode[]> {
+    try {
+      const format = ['%H', '%P', '%D', '%s', '%aI', '%aN'].join('%x00')
+      const args = ['log', `--format=${format}`, '--topo-order', `--max-count=${limit}`]
+      if (branch) {
+        args.push(branch)
+      } else {
+        args.push('--all')
+      }
+      const raw = await this.git.raw(args)
+      if (!raw.trim()) return []
+
+      return raw
+        .trim()
+        .split('\n')
+        .map((line) => {
+          const [hash, parentStr, refStr, message, date, author] = line.split('\x00')
+          return {
+            hash,
+            parents: parentStr ? parentStr.split(' ') : [],
+            refs: refStr ? refStr.split(', ').filter(Boolean) : [],
+            message,
+            date,
+            author
+          }
+        })
+    } catch {
+      return []
+    }
+  }
+
+  async getBranches(): Promise<BranchInfo[]> {
+    try {
+      const result = await this.git.branch(['-a', '-v', '--no-abbrev'])
+      const branches: BranchInfo[] = []
+      for (const [name, info] of Object.entries(result.branches)) {
+        const isRemote = name.startsWith('remotes/')
+        const displayName = isRemote ? name.replace(/^remotes\//, '') : name
+        branches.push({
+          name: displayName,
+          current: info.current,
+          commit: info.commit,
+          isRemote
+        })
+      }
+      return branches
+    } catch {
+      return []
+    }
   }
 
   // ── Helpers ──

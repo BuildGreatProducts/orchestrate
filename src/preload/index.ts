@@ -155,7 +155,9 @@ const api: OrchestrateAPI = {
   getSavePointDiff: (hash, filePath) => ipcRenderer.invoke('git:diff', hash, filePath),
   revertSavePoint: (hash) => ipcRenderer.invoke('git:revert', hash),
   restoreToSavePoint: (hash) => ipcRenderer.invoke('git:restore', hash),
-  hasUncommittedChanges: () => ipcRenderer.invoke('git:hasChanges')
+  hasUncommittedChanges: () => ipcRenderer.invoke('git:hasChanges'),
+  getCommitGraph: (limit?, branch?) => ipcRenderer.invoke('git:commitGraph', limit, branch),
+  getBranches: () => ipcRenderer.invoke('git:branches')
 }
 
 contextBridge.exposeInMainWorld('orchestrate', api)

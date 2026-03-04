@@ -52,6 +52,8 @@ export function registerGitHandlers(
   markChannelRegistered('git:revert')
   markChannelRegistered('git:restore')
   markChannelRegistered('git:hasChanges')
+  markChannelRegistered('git:commitGraph')
+  markChannelRegistered('git:branches')
 
   function getManager(): GitManager {
     const folder = getCurrentFolder()
@@ -112,5 +114,15 @@ export function registerGitHandlers(
 
   ipcMain.handle('git:hasChanges', async () => {
     return getManager().hasUncommittedChanges()
+  })
+
+  ipcMain.handle('git:commitGraph', async (_, limit?: number, branch?: string) => {
+    const safeLimit = typeof limit === 'number' && limit > 0 ? limit : 100
+    const safeBranch = typeof branch === 'string' && branch.length > 0 ? branch : undefined
+    return getManager().getCommitGraph(safeLimit, safeBranch)
+  })
+
+  ipcMain.handle('git:branches', async () => {
+    return getManager().getBranches()
   })
 }
