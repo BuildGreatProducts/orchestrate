@@ -9,6 +9,7 @@ import { registerTaskHandlers, getTaskManager } from './ipc/tasks'
 import { registerGitHandlers, getGitManager } from './ipc/git'
 import { registerAgentHandlers, clearAgentConversation } from './ipc/agent'
 import { registerSkillHandlers } from './ipc/skills'
+import { registerBrowserHandlers, closeAllBrowserTabs } from './ipc/browser'
 import { registerStubHandlers } from './ipc/stubs'
 import { startWatching, stopWatching } from './file-watcher'
 import { SkillManager } from './skill-manager'
@@ -64,6 +65,7 @@ app.whenReady().then(() => {
     () => mainWindow,
     (folder) => {
       closeAllTerminals()
+      closeAllBrowserTabs()
       clearAgentConversation()
       startWatching(folder, () => mainWindow)
       if (mainWindow && !mainWindow.isDestroyed()) {
@@ -84,6 +86,7 @@ app.whenReady().then(() => {
     getSkillManager
   )
   registerSkillHandlers(() => mainWindow, getCurrentFolder, getSkillManager)
+  registerBrowserHandlers(() => mainWindow)
   registerStubHandlers()
 
   // Ensure global skills directory exists
@@ -116,6 +119,7 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   closeAllTerminals()
+  closeAllBrowserTabs()
   stopWatching()
   if (process.platform !== 'darwin') {
     app.quit()

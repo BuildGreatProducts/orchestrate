@@ -1,5 +1,11 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { OrchestrateAPI, FileChangeEvent, AgentResponseChunk } from '@shared/types'
+import type {
+  OrchestrateAPI,
+  FileChangeEvent,
+  AgentResponseChunk,
+  BrowserTabInfo,
+  BrowserBounds
+} from '@shared/types'
 
 const api: OrchestrateAPI = {
   // Folder
@@ -91,6 +97,39 @@ const api: OrchestrateAPI = {
     ipcRenderer.on('agent:stateChanged', handler)
     return () => {
       ipcRenderer.removeListener('agent:stateChanged', handler)
+    }
+  },
+
+  // Browser
+  createBrowserTab: (id: string, url: string) => ipcRenderer.invoke('browser:create', id, url),
+  closeBrowserTab: (id: string) => ipcRenderer.invoke('browser:close', id),
+  navigateBrowser: (id: string, url: string) => ipcRenderer.invoke('browser:navigate', id, url),
+  browserGoBack: (id: string) => ipcRenderer.invoke('browser:goBack', id),
+  browserGoForward: (id: string) => ipcRenderer.invoke('browser:goForward', id),
+  browserReload: (id: string) => ipcRenderer.invoke('browser:reload', id),
+  browserStop: (id: string) => ipcRenderer.invoke('browser:stop', id),
+  setBrowserBounds: (id: string, bounds: BrowserBounds) =>
+    ipcRenderer.invoke('browser:setBounds', id, bounds),
+  showBrowserTab: (id: string) => ipcRenderer.invoke('browser:show', id),
+  hideAllBrowserTabs: () => ipcRenderer.invoke('browser:hideAll'),
+  closeAllBrowserTabs: () => ipcRenderer.invoke('browser:closeAll'),
+  toggleBrowserDevTools: (id: string) => ipcRenderer.invoke('browser:toggleDevTools', id),
+  onBrowserTabUpdated: (callback: (tab: BrowserTabInfo) => void) => {
+    const handler = (_: Electron.IpcRendererEvent, tab: BrowserTabInfo): void => {
+      callback(tab)
+    }
+    ipcRenderer.on('browser:tabUpdated', handler)
+    return () => {
+      ipcRenderer.removeListener('browser:tabUpdated', handler)
+    }
+  },
+  onBrowserTabClosed: (callback: (id: string) => void) => {
+    const handler = (_: Electron.IpcRendererEvent, id: string): void => {
+      callback(id)
+    }
+    ipcRenderer.on('browser:tabClosed', handler)
+    return () => {
+      ipcRenderer.removeListener('browser:tabClosed', handler)
     }
   },
 

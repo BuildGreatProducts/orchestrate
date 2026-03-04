@@ -12,13 +12,15 @@ import AgentsTab from '@renderer/components/agents/AgentsTab'
 import TasksTab from '@renderer/components/tasks/TasksTab'
 import FilesTab from '@renderer/components/files/FilesTab'
 import HistoryTab from '@renderer/components/history/HistoryTab'
+import BrowserTab from '@renderer/components/browser/BrowserTab'
 
 const TABS: { id: TabId; Component: React.ComponentType }[] = [
   { id: 'orchestrate', Component: OrchestrateTab },
   { id: 'agents', Component: AgentsTab },
   { id: 'tasks', Component: TasksTab },
   { id: 'files', Component: FilesTab },
-  { id: 'history', Component: HistoryTab }
+  { id: 'history', Component: HistoryTab },
+  { id: 'browser', Component: BrowserTab }
 ]
 
 function App(): React.JSX.Element {
@@ -40,8 +42,8 @@ function App(): React.JSX.Element {
       // Don't fire app shortcuts when the settings overlay is visible
       if (useAppStore.getState().showSettings) return
 
-      // Cmd/Ctrl+1–5: Switch tabs
-      if (e.key >= '1' && e.key <= '5') {
+      // Cmd/Ctrl+1–6: Switch tabs
+      if (e.key >= '1' && e.key <= '6') {
         e.preventDefault()
         const idx = parseInt(e.key, 10) - 1
         if (TABS[idx]) {

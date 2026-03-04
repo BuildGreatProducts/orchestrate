@@ -1,13 +1,14 @@
 // ── Tab Navigation ──
 
-export type TabId = 'orchestrate' | 'agents' | 'tasks' | 'files' | 'history'
+export type TabId = 'orchestrate' | 'agents' | 'tasks' | 'files' | 'history' | 'browser'
 
 export const TAB_LIST: { id: TabId; label: string }[] = [
   { id: 'orchestrate', label: 'Orchestrate' },
   { id: 'tasks', label: 'Tasks' },
   { id: 'agents', label: 'Agents' },
   { id: 'files', label: 'Files' },
-  { id: 'history', label: 'History' }
+  { id: 'history', label: 'History' },
+  { id: 'browser', label: 'Browser' }
 ]
 
 // ── File System ──
@@ -95,6 +96,24 @@ export interface SkillMeta {
   metadata?: Record<string, string>
 }
 
+// ── Browser ──
+
+export interface BrowserTabInfo {
+  id: string
+  url: string
+  title: string
+  isLoading: boolean
+  canGoBack: boolean
+  canGoForward: boolean
+}
+
+export interface BrowserBounds {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 // ── IPC API Contract ──
 
 export interface OrchestrateAPI {
@@ -148,6 +167,22 @@ export interface OrchestrateAPI {
   revertSavePoint: (hash: string) => Promise<void>
   restoreToSavePoint: (hash: string) => Promise<void>
   hasUncommittedChanges: () => Promise<boolean>
+
+  // Browser
+  createBrowserTab: (id: string, url: string) => Promise<void>
+  closeBrowserTab: (id: string) => Promise<void>
+  navigateBrowser: (id: string, url: string) => Promise<void>
+  browserGoBack: (id: string) => Promise<void>
+  browserGoForward: (id: string) => Promise<void>
+  browserReload: (id: string) => Promise<void>
+  browserStop: (id: string) => Promise<void>
+  setBrowserBounds: (id: string, bounds: BrowserBounds) => Promise<void>
+  showBrowserTab: (id: string) => Promise<void>
+  hideAllBrowserTabs: () => Promise<void>
+  closeAllBrowserTabs: () => Promise<void>
+  toggleBrowserDevTools: (id: string) => Promise<void>
+  onBrowserTabUpdated: (callback: (tab: BrowserTabInfo) => void) => () => void
+  onBrowserTabClosed: (callback: (id: string) => void) => () => void
 
   // Skills
   getSkills: () => Promise<SkillMeta[]>
