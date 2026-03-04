@@ -5,6 +5,7 @@ import { useTasksStore } from '@renderer/stores/tasks'
 import MarkdownToggle from '@renderer/components/files/MarkdownToggle'
 import MarkdownPreview from '@renderer/components/files/MarkdownPreview'
 import ConfirmDialog from '@renderer/components/history/ConfirmDialog'
+import { Button } from '@renderer/components/ui/button'
 
 const COLUMNS: { id: ColumnId; label: string }[] = [
   { id: 'draft', label: 'Draft' },
@@ -275,15 +276,16 @@ export default function TaskDetailPanel(): React.JSX.Element | null {
       {/* Send to agent */}
       <div className="flex justify-end border-t border-zinc-800 px-4 py-3">
         <div ref={sendMenuRef} className="relative">
-          <button
+          <Button
+            variant="solid"
+            size="sm"
             onClick={() => setSendMenuOpen((v) => !v)}
-            className="flex items-center gap-1.5 rounded bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_1px_3px_rgba(0,0,0,0.4),0_0px_1px_rgba(0,0,0,0.3)] transition-colors hover:bg-zinc-100 active:bg-zinc-200 active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.2)]"
           >
             Send to
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-zinc-500">
               <path d="M3 5l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-          </button>
+          </Button>
 
           {sendMenuOpen && (
             <div className="absolute bottom-full right-0 z-50 mb-1 w-40 overflow-hidden rounded-md border border-zinc-700 bg-zinc-800 py-1 shadow-xl">

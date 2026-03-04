@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useAgentStore } from '../../stores/agent'
+import { Button } from '@renderer/components/ui/button'
 
 interface ApiKeyPromptProps {
   onDone?: () => void
@@ -58,13 +59,9 @@ export default function ApiKeyPrompt({ onDone }: ApiKeyPromptProps): React.JSX.E
           </p>
         )}
 
-        <button
-          onClick={handleConnect}
-          disabled={!key.trim() || isConnecting}
-          className="rounded bg-white px-4 py-2 text-sm font-medium text-zinc-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_1px_3px_rgba(0,0,0,0.4),0_0px_1px_rgba(0,0,0,0.3)] transition-colors hover:bg-zinc-100 active:bg-zinc-200 active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.2)] disabled:cursor-not-allowed disabled:opacity-50"
-        >
+        <Button variant="solid" onClick={handleConnect} disabled={!key.trim() || isConnecting}>
           {isConnecting ? 'Saving...' : isEditing ? 'Update Key' : 'Connect'}
-        </button>
+        </Button>
 
         <p className="text-xs text-zinc-500">
           Get an API key at{' '}
