@@ -24,11 +24,15 @@ export default function BrowserToolbar(): React.JSX.Element {
 
   const handleNavigate = (): void => {
     if (!activeTabId || !urlInput.trim()) return
-    let url = urlInput.trim()
-    if (!/^https?:\/\//i.test(url)) {
-      url = `http://${url}`
+    const raw = urlInput.trim()
+    const withScheme = /^https?:\/\//i.test(raw) ? raw : `http://${raw}`
+    try {
+      const parsed = new URL(withScheme)
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return
+      navigate(activeTabId, parsed.toString())
+    } catch {
+      // Invalid URL — don't navigate
     }
-    navigate(activeTabId, url)
   }
 
   const btnClass =
@@ -41,6 +45,7 @@ export default function BrowserToolbar(): React.JSX.Element {
         disabled={!activeTab?.canGoBack}
         onClick={() => activeTabId && goBack(activeTabId)}
         title="Back"
+        aria-label="Back"
       >
         <ArrowLeft size={16} />
       </button>
@@ -49,6 +54,7 @@ export default function BrowserToolbar(): React.JSX.Element {
         disabled={!activeTab?.canGoForward}
         onClick={() => activeTabId && goForward(activeTabId)}
         title="Forward"
+        aria-label="Forward"
       >
         <ArrowRight size={16} />
       </button>
@@ -56,7 +62,8 @@ export default function BrowserToolbar(): React.JSX.Element {
         <button
           className={btnClass}
           onClick={() => activeTabId && stop(activeTabId)}
-          title="Stop"
+          title="Stop loading"
+          aria-label="Stop loading"
         >
           <X size={16} />
         </button>
@@ -65,6 +72,7 @@ export default function BrowserToolbar(): React.JSX.Element {
           className={btnClass}
           onClick={() => activeTabId && reload(activeTabId)}
           title="Reload"
+          aria-label="Reload"
         >
           <RotateCw size={14} />
         </button>
@@ -82,12 +90,14 @@ export default function BrowserToolbar(): React.JSX.Element {
           }}
           className="flex-1 bg-transparent text-sm text-zinc-200 outline-none placeholder:text-zinc-500"
           placeholder="Enter URL..."
+          aria-label="Address bar"
         />
       </div>
       <button
         className={btnClass}
         onClick={() => activeTabId && toggleDevTools(activeTabId)}
-        title="Toggle DevTools"
+        title="Toggle developer tools"
+        aria-label="Toggle developer tools"
       >
         <Wrench size={14} />
       </button>

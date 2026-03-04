@@ -23,41 +23,44 @@ export default function BrowserTabBar(): React.JSX.Element {
         const isActive = tab.id === activeTabId
 
         return (
-          <button
+          <div
             key={tab.id}
+            role="tab"
+            tabIndex={0}
+            aria-selected={isActive}
             onClick={() => setActiveTab(tab.id)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                setActiveTab(tab.id)
+              }
+            }}
             className={`group flex h-full items-center gap-1.5 border-r border-zinc-800 px-3 text-sm ${
               isActive
                 ? 'bg-zinc-800 text-white'
                 : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200'
-            }`}
+            } cursor-default select-none`}
           >
             {tab.isLoading && <Loader2 size={12} className="shrink-0 animate-spin text-zinc-400" />}
             <span className="max-w-[160px] truncate">{tab.title || tab.url}</span>
-            <span
-              role="button"
-              tabIndex={0}
+            <button
               onClick={(e) => {
                 e.stopPropagation()
                 closeTab(tab.id)
               }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.stopPropagation()
-                  closeTab(tab.id)
-                }
-              }}
+              aria-label={`Close ${tab.title || tab.url}`}
               className="ml-1 shrink-0 rounded p-0.5 opacity-0 hover:bg-zinc-600 group-hover:opacity-100"
             >
               <VscClose size={14} />
-            </span>
-          </button>
+            </button>
+          </div>
         )
       })}
       <button
         onClick={handleNewTab}
         className="flex h-full items-center px-2 text-zinc-400 hover:text-zinc-200"
         title="New browser tab"
+        aria-label="New browser tab"
       >
         <VscAdd size={16} />
       </button>

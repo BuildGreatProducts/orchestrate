@@ -37,6 +37,10 @@ function ensureGlobalListeners(): void {
   })
 }
 
+// Tracks IDs of in-flight createBrowserTab calls so closeAllTabs can
+// invalidate them and prevent stale creations from re-adding tabs.
+const pendingCreations = new Set<string>()
+
 export const useBrowserStore = create<BrowserState>((set, get) => ({
   tabs: [],
   activeTabId: null,
@@ -57,6 +61,8 @@ export const useBrowserStore = create<BrowserState>((set, get) => ({
       canGoForward: false
     }
 
+    pendingCreations.add(id)
+
     set((state) => ({
       tabs: [...state.tabs, tab],
       activeTabId: id,
@@ -73,12 +79,27 @@ export const useBrowserStore = create<BrowserState>((set, get) => ({
           activeTabId: state.activeTabId === id ? (newTabs.at(-1)?.id ?? null) : state.activeTabId
         }
       })
+      pendingCreations.delete(id)
       throw err
     }
+
+    // If closeAllTabs ran while we were awaiting, this creation is stale —
+    // clean up the main-process view and remove from local state.
+    if (!pendingCreations.has(id)) {
+      window.orchestrate.closeBrowserTab(id).catch(() => {})
+      set((state) => ({
+        tabs: state.tabs.filter((t) => t.id !== id),
+        activeTabId: state.activeTabId === id ? null : state.activeTabId
+      }))
+      return
+    }
+    pendingCreations.delete(id)
   },
 
   closeTab: (id: string) => {
-    window.orchestrate.closeBrowserTab(id)
+    window.orchestrate.closeBrowserTab(id).catch((err) => {
+      console.error('[Browser] Failed to close tab:', err)
+    })
     set((state) => {
       const newTabs = state.tabs.filter((t) => t.id !== id)
       let newActive = state.activeTabId
@@ -93,32 +114,48 @@ export const useBrowserStore = create<BrowserState>((set, get) => ({
   setActiveTab: (id: string) => set({ activeTabId: id }),
 
   closeAllTabs: () => {
-    window.orchestrate.closeAllBrowserTabs()
+    // Invalidate any in-flight createTab calls
+    pendingCreations.clear()
+    window.orchestrate.closeAllBrowserTabs().catch((err) => {
+      console.error('[Browser] Failed to close all tabs:', err)
+    })
     set({ tabs: [], activeTabId: null })
   },
 
   navigate: (id: string, url: string) => {
-    window.orchestrate.navigateBrowser(id, url)
+    window.orchestrate.navigateBrowser(id, url).catch((err) => {
+      console.error('[Browser] Failed to navigate:', err)
+    })
   },
 
   goBack: (id: string) => {
-    window.orchestrate.browserGoBack(id)
+    window.orchestrate.browserGoBack(id).catch((err) => {
+      console.error('[Browser] Failed to go back:', err)
+    })
   },
 
   goForward: (id: string) => {
-    window.orchestrate.browserGoForward(id)
+    window.orchestrate.browserGoForward(id).catch((err) => {
+      console.error('[Browser] Failed to go forward:', err)
+    })
   },
 
   reload: (id: string) => {
-    window.orchestrate.browserReload(id)
+    window.orchestrate.browserReload(id).catch((err) => {
+      console.error('[Browser] Failed to reload:', err)
+    })
   },
 
   stop: (id: string) => {
-    window.orchestrate.browserStop(id)
+    window.orchestrate.browserStop(id).catch((err) => {
+      console.error('[Browser] Failed to stop:', err)
+    })
   },
 
   toggleDevTools: (id: string) => {
-    window.orchestrate.toggleBrowserDevTools(id)
+    window.orchestrate.toggleBrowserDevTools(id).catch((err) => {
+      console.error('[Browser] Failed to toggle DevTools:', err)
+    })
   },
 
   updateTab: (info: BrowserTabInfo) => {

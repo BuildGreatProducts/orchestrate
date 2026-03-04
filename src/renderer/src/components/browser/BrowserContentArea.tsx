@@ -1,23 +1,37 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { useBrowserStore } from '@renderer/stores/browser'
 import { useAppStore } from '@renderer/stores/app'
+import type { BrowserBounds } from '@shared/types'
+
+function boundsEqual(a: BrowserBounds | null, b: BrowserBounds): boolean {
+  return a !== null && a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height
+}
 
 export default function BrowserContentArea(): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null)
+  const lastBoundsRef = useRef<BrowserBounds | null>(null)
   const activeTabId = useBrowserStore((s) => s.activeTabId)
   const activeTab = useAppStore((s) => s.activeTab)
   const showSettings = useAppStore((s) => s.showSettings)
 
+  // Reset cached bounds when switching browser sub-tabs
+  const prevTabIdRef = useRef(activeTabId)
+  if (prevTabIdRef.current !== activeTabId) {
+    prevTabIdRef.current = activeTabId
+    lastBoundsRef.current = null
+  }
+
   const reportBounds = useCallback(() => {
     if (!containerRef.current || !activeTabId) return
     const rect = containerRef.current.getBoundingClientRect()
-    const bounds = {
+    const bounds: BrowserBounds = {
       x: Math.round(rect.x),
       y: Math.round(rect.y),
       width: Math.round(rect.width),
       height: Math.round(rect.height)
     }
-    if (bounds.width > 0 && bounds.height > 0) {
+    if (bounds.width > 0 && bounds.height > 0 && !boundsEqual(lastBoundsRef.current, bounds)) {
+      lastBoundsRef.current = bounds
       window.orchestrate.setBrowserBounds(activeTabId, bounds)
     }
   }, [activeTabId])

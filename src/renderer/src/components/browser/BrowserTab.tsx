@@ -11,9 +11,13 @@ export default function BrowserTab(): React.JSX.Element {
   const closeAllTabs = useBrowserStore((s) => s.closeAllTabs)
   const currentFolder = useAppStore((s) => s.currentFolder)
   const autoCreated = useRef(false)
+  // Incremented on every folder change; stale createTab calls check this
+  // to avoid committing after a newer closeAllTabs has run.
+  const folderGenRef = useRef(0)
 
   // Close all browser tabs when project folder changes
   useEffect(() => {
+    folderGenRef.current++
     closeAllTabs()
     autoCreated.current = false
   }, [currentFolder, closeAllTabs])
@@ -22,9 +26,19 @@ export default function BrowserTab(): React.JSX.Element {
   useEffect(() => {
     if (currentFolder && tabs.length === 0 && !autoCreated.current) {
       autoCreated.current = true
-      createTab().catch((err) => {
-        console.error('Failed to auto-create browser tab:', err)
-      })
+      const gen = folderGenRef.current
+      createTab()
+        .then(() => {
+          // If folder changed while we were creating, the store's
+          // pendingCreations mechanism already handles cleanup.
+        })
+        .catch((err) => {
+          // Only reset autoCreated if we're still on the same folder
+          if (folderGenRef.current === gen) {
+            autoCreated.current = false
+          }
+          console.error('Failed to auto-create browser tab:', err)
+        })
     }
   }, [currentFolder, tabs.length, createTab])
 
