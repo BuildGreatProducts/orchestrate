@@ -314,7 +314,7 @@ function ToolActionRow({
 }
 
 function TextBlock({ content }: { content: string }): React.JSX.Element {
-  return <div className="py-1 font-ovo text-base leading-relaxed text-zinc-200">{renderMarkdown(content)}</div>
+  return <div className="py-1 font-ovo text-base leading-relaxed text-zinc-400">{renderMarkdown(content)}</div>
 }
 
 // --- Main component ---
@@ -338,7 +338,7 @@ export default function ChatMessage({
   if (role === 'user') {
     return (
       <div className="flex justify-end px-4 py-2 animate-in fade-in slide-in-from-bottom-1 duration-150">
-        <div className="max-w-[75%] rounded-2xl rounded-br-md bg-zinc-700 px-4 py-2.5 text-sm text-white shadow-sm">
+        <div className="max-w-[75%] rounded-2xl rounded-br-md border border-zinc-600 bg-zinc-800 px-4 py-2.5 text-sm text-white shadow-sm">
           <span className="whitespace-pre-wrap">{content}</span>
         </div>
       </div>

@@ -33,14 +33,19 @@ interface AgentState {
 }
 
 // --- Global IPC listeners (registered once) ---
+// Use a window-level key to survive Vite HMR module reloads.
+// Without this, each HMR update adds another listener, causing duplicates.
 
-let globalListenersRegistered = false
+const CLEANUP_KEY = '__agentIpcCleanup'
 
 function ensureGlobalListeners(): void {
-  if (globalListenersRegistered) return
-  globalListenersRegistered = true
+  // Clean up previous listeners (handles HMR reloads that re-evaluate this module)
+  const prev = (window as Record<string, unknown>)[CLEANUP_KEY]
+  if (typeof prev === 'function') {
+    prev()
+  }
 
-  window.orchestrate.onAgentResponse((chunk) => {
+  const cleanupResponse = window.orchestrate.onAgentResponse((chunk) => {
     const state = useAgentStore.getState()
 
     if (chunk.type === 'text' && chunk.content) {
@@ -124,12 +129,7 @@ function ensureGlobalListeners(): void {
     }
   })
 
-  window.orchestrate.onAgentToolUse(() => {
-    // Tool uses are also handled via agent:response chunks;
-    // this listener is available for additional side effects if needed
-  })
-
-  window.orchestrate.onAgentStateChanged((domain, data) => {
+  const cleanupStateChanged = window.orchestrate.onAgentStateChanged((domain, data) => {
     const folder = useAppStore.getState().currentFolder
     switch (domain) {
       case 'tasks':
@@ -158,6 +158,12 @@ function ensureGlobalListeners(): void {
       }
     }
   })
+
+  // Store cleanup so the next HMR reload can remove these listeners
+  ;(window as Record<string, unknown>)[CLEANUP_KEY] = (): void => {
+    cleanupResponse()
+    cleanupStateChanged()
+  }
 }
 
 export const useAgentStore = create<AgentState>((set, get) => {

@@ -80,7 +80,7 @@ function InlineCreateInput({
         onChange={(e) => setName(e.target.value)}
         onKeyDown={handleKeyDown}
         onBlur={() => finish()}
-        className="min-w-0 flex-1 bg-zinc-800 px-1 text-sm text-zinc-200 outline-none ring-1 ring-zinc-600 focus:ring-blue-500"
+        className="min-w-0 flex-1 bg-zinc-800 px-1 text-sm text-zinc-200 outline-none ring-1 ring-zinc-600 focus:ring-zinc-500"
         placeholder={type === 'file' ? 'filename' : 'folder name'}
       />
     </div>
