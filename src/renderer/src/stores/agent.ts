@@ -40,8 +40,8 @@ const CLEANUP_KEY = '__agentIpcCleanup'
 
 function ensureGlobalListeners(): void {
   // Clean up previous listeners (handles HMR reloads that re-evaluate this module)
-  const prev = (window as Record<string, unknown>)[CLEANUP_KEY] as (() => void) | undefined
-  if (prev) {
+  const prev = (window as Record<string, unknown>)[CLEANUP_KEY]
+  if (typeof prev === 'function') {
     prev()
   }
 
@@ -129,11 +129,6 @@ function ensureGlobalListeners(): void {
     }
   })
 
-  const cleanupToolUse = window.orchestrate.onAgentToolUse(() => {
-    // Tool uses are also handled via agent:response chunks;
-    // this listener is available for additional side effects if needed
-  })
-
   const cleanupStateChanged = window.orchestrate.onAgentStateChanged((domain, data) => {
     const folder = useAppStore.getState().currentFolder
     switch (domain) {
@@ -167,7 +162,6 @@ function ensureGlobalListeners(): void {
   // Store cleanup so the next HMR reload can remove these listeners
   ;(window as Record<string, unknown>)[CLEANUP_KEY] = (): void => {
     cleanupResponse()
-    cleanupToolUse()
     cleanupStateChanged()
   }
 }
