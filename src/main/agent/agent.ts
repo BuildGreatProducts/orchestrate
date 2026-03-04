@@ -114,12 +114,12 @@ export class Agent {
         break
 
       case 'assistant': {
+        // Text is already streamed via stream_event text_delta chunks.
+        // Only yield tool_use blocks here to avoid duplicate text.
         const content = message.message?.content
         if (!Array.isArray(content)) break
         for (const block of content) {
-          if ('text' in block && typeof block.text === 'string' && block.text) {
-            yield { type: 'text', content: block.text }
-          } else if ('type' in block && block.type === 'tool_use') {
+          if ('type' in block && block.type === 'tool_use') {
             const toolBlock = block as { name: string; input: Record<string, unknown> }
             const toolName = toolBlock.name.startsWith(MCP_PREFIX)
               ? toolBlock.name.slice(MCP_PREFIX.length)

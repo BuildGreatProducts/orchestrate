@@ -21,7 +21,7 @@ export default function TerminalTabBar(): React.JSX.Element {
   }
 
   return (
-    <div className="flex h-9 items-center gap-0 overflow-x-auto border-b border-zinc-700 bg-zinc-900">
+    <div className="flex h-9 items-center gap-0 overflow-x-auto border-b border-zinc-800 bg-zinc-900">
       {tabs.map((tab) => {
         const isActive = tab.id === activeTabId
 
@@ -29,7 +29,7 @@ export default function TerminalTabBar(): React.JSX.Element {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`group flex h-full items-center gap-1.5 border-r border-zinc-700 px-3 text-sm ${
+            className={`group flex h-full items-center gap-1.5 border-r border-zinc-800 px-3 text-sm ${
               isActive
                 ? 'bg-zinc-800 text-white'
                 : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200'

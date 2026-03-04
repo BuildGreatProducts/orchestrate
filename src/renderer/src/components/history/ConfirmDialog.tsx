@@ -55,7 +55,7 @@ export default function ConfirmDialog({
   const confirmClass =
     variant === 'danger'
       ? 'bg-red-600 hover:bg-red-500'
-      : 'bg-blue-600 hover:bg-blue-500'
+      : 'bg-white text-zinc-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_1px_3px_rgba(0,0,0,0.4),0_0px_1px_rgba(0,0,0,0.3)] hover:bg-zinc-100 active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.2)] active:bg-zinc-200'
 
   return (
     <div
@@ -66,7 +66,7 @@ export default function ConfirmDialog({
       ref={dialogRef}
       onKeyDown={handleKeyDown}
     >
-      <div className="mx-4 w-full max-w-md rounded-lg border border-zinc-700 bg-zinc-900 p-6 shadow-xl">
+      <div className="mx-4 w-full max-w-md rounded-lg border border-zinc-800 bg-zinc-900 p-6 shadow-xl">
         <h3 id="confirm-dialog-title" className="text-lg font-semibold text-zinc-200">
           {title}
         </h3>
@@ -83,7 +83,7 @@ export default function ConfirmDialog({
           <button
             type="button"
             onClick={onConfirm}
-            className={`rounded px-3 py-1.5 text-sm font-medium text-white ${confirmClass}`}
+            className={`rounded px-3 py-1.5 text-sm font-medium ${variant === 'danger' ? 'text-white' : ''} ${confirmClass}`}
           >
             {confirmLabel}
           </button>

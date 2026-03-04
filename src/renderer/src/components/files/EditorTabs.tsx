@@ -10,7 +10,7 @@ export default function EditorTabs(): React.JSX.Element | null {
   if (openFiles.length === 0) return null
 
   return (
-    <div className="flex h-9 items-center gap-0 overflow-x-auto border-b border-zinc-700 bg-zinc-900">
+    <div className="flex h-9 items-center gap-0 overflow-x-auto border-b border-zinc-800 bg-zinc-900">
       {openFiles.map((file) => {
         const isActive = file.path === activeFilePath
         const isDirty = file.content !== file.savedContent
@@ -19,7 +19,7 @@ export default function EditorTabs(): React.JSX.Element | null {
           <button
             key={file.path}
             onClick={() => setActiveFile(file.path)}
-            className={`group flex h-full items-center gap-1.5 border-r border-zinc-700 px-3 text-sm ${
+            className={`group flex h-full items-center gap-1.5 border-r border-zinc-800 px-3 text-sm ${
               isActive
                 ? 'bg-zinc-800 text-white'
                 : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200'

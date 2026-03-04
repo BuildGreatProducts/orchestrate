@@ -57,12 +57,12 @@ export default function CreateSavePoint(): React.JSX.Element {
           onKeyDown={handleKeyDown}
           placeholder="Describe what changed..."
           data-save-point-input
-          className="flex-1 rounded bg-zinc-800 px-3 py-1.5 text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:ring-1 focus:ring-blue-500"
+          className="flex-1 rounded bg-zinc-800 px-3 py-1.5 text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:ring-1 focus:ring-zinc-500"
         />
         <button
           onClick={handleSubmit}
           disabled={!canSave}
-          className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_1px_3px_rgba(0,0,0,0.4),0_0px_1px_rgba(0,0,0,0.3)] hover:bg-zinc-100 active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.2)] active:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {isSaving ? 'Saving...' : 'Save'}
         </button>

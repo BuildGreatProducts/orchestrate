@@ -78,8 +78,8 @@ export default function FilesTab(): React.JSX.Element {
   return (
     <div className="flex flex-1 overflow-hidden">
       {/* Left panel: File tree */}
-      <div className="flex w-1/4 min-w-[200px] max-w-[400px] flex-col border-r border-zinc-700 bg-zinc-900">
-        <div className="flex h-8 items-center border-b border-zinc-700 px-3 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+      <div className="flex w-1/4 min-w-[200px] max-w-[400px] flex-col border-r border-zinc-800 bg-zinc-900">
+        <div className="flex h-8 items-center border-b border-zinc-800 px-3 text-xs font-semibold uppercase tracking-wider text-zinc-500">
           <span className="flex-1">Explorer</span>
           <button
             onClick={() => handleCreate('file')}
@@ -102,7 +102,7 @@ export default function FilesTab(): React.JSX.Element {
       </div>
 
       {/* Right panel: Editor */}
-      <div className="flex flex-1 flex-col bg-zinc-950">
+      <div className="flex flex-1 flex-col bg-black">
         <EditorTabs />
         <div className="min-h-0 flex-1">
           <FileEditor />
