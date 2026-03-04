@@ -4,6 +4,9 @@ import { markChannelRegistered } from './stubs'
 import { GitManager } from '../git-manager'
 
 const SAFE_HASH_RE = /^[0-9a-f]{4,40}$/i
+const SAFE_BRANCH_RE = /^[a-zA-Z0-9._\-/]+$/
+const MAX_BRANCH_LEN = 200
+const MAX_COMMIT_LIMIT = 1000
 
 function validateHash(hash: unknown): asserts hash is string {
   if (typeof hash !== 'string' || !SAFE_HASH_RE.test(hash)) {
@@ -117,8 +120,16 @@ export function registerGitHandlers(
   })
 
   ipcMain.handle('git:commitGraph', async (_, limit?: number, branch?: string) => {
-    const safeLimit = typeof limit === 'number' && limit > 0 ? limit : 100
-    const safeBranch = typeof branch === 'string' && branch.length > 0 ? branch : undefined
+    const safeLimit = typeof limit === 'number' && limit > 0
+      ? Math.min(limit, MAX_COMMIT_LIMIT)
+      : 100
+    let safeBranch: string | undefined
+    if (typeof branch === 'string' && branch.length > 0) {
+      if (branch.length > MAX_BRANCH_LEN || !SAFE_BRANCH_RE.test(branch)) {
+        throw new Error('Invalid branch name')
+      }
+      safeBranch = branch
+    }
     return getManager().getCommitGraph(safeLimit, safeBranch)
   })
 

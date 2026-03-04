@@ -96,9 +96,20 @@ export default function CommitGraph({
         return (
           <g
             key={commit.hash}
+            tabIndex={0}
+            role="button"
+            aria-label={`Commit ${commit.hash.slice(0, 7)}`}
             onMouseEnter={() => onHover(commit.hash)}
             onMouseLeave={() => onHover(null)}
+            onFocus={() => onHover(commit.hash)}
+            onBlur={() => onHover(null)}
             onClick={() => onSelect(commit.hash)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                onSelect(commit.hash)
+              }
+            }}
             className="cursor-pointer"
           >
             {/* Invisible hover target spanning full row width */}

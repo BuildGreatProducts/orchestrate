@@ -20,6 +20,8 @@ function ViewModeToggle({
   return (
     <div className="flex gap-0.5 rounded-md bg-zinc-800/50 p-0.5">
       <button
+        type="button"
+        aria-pressed={mode === 'savepoints'}
         onClick={() => onChange('savepoints')}
         className={`rounded px-3 py-1 text-xs font-medium transition-colors ${
           mode === 'savepoints'
@@ -30,6 +32,8 @@ function ViewModeToggle({
         Save Points
       </button>
       <button
+        type="button"
+        aria-pressed={mode === 'graph'}
         onClick={() => onChange('graph')}
         className={`rounded px-3 py-1 text-xs font-medium transition-colors ${
           mode === 'graph'

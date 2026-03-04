@@ -90,8 +90,10 @@ export default function CommitRow({
         ))}
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        <div className="flex shrink-0 gap-1 opacity-0 group-hover:opacity-100">
+        <div className="flex shrink-0 gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100">
           <button
+            type="button"
+            aria-label={`Revert commit ${shortHash}`}
             onClick={(e) => {
               e.stopPropagation()
               onRevert()
@@ -101,6 +103,8 @@ export default function CommitRow({
             Revert
           </button>
           <button
+            type="button"
+            aria-label={`Restore to commit ${shortHash}`}
             onClick={(e) => {
               e.stopPropagation()
               onRestore()

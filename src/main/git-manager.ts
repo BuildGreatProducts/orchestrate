@@ -182,7 +182,8 @@ export class GitManager {
             author
           }
         })
-    } catch {
+    } catch (err) {
+      console.error('[GitManager] Failed to load commit graph:', err)
       return []
     }
   }
@@ -202,7 +203,8 @@ export class GitManager {
         })
       }
       return branches
-    } catch {
+    } catch (err) {
+      console.error('[GitManager] Failed to load branches:', err)
       return []
     }
   }
