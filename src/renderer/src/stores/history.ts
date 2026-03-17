@@ -50,6 +50,8 @@ interface HistoryState {
   setHoveredCommit: (hash: string | null) => void
 }
 
+let refreshAllInFlight = false
+
 export const useHistoryStore = create<HistoryState>((set, get) => ({
   isGitRepo: null,
   gitStatus: null,
@@ -99,11 +101,17 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
   },
 
   refreshAll: async () => {
+    if (refreshAllInFlight) return
+    refreshAllInFlight = true
     set({ isLoading: true })
-    const { loadStatus, loadCommitGraph, loadBranches } = get()
-    await Promise.all([loadStatus(), loadCommitGraph(), loadBranches()])
-    useFilesStore.getState().refreshTree()
-    set({ isLoading: false, hasLoaded: true })
+    try {
+      const { loadStatus, loadCommitGraph, loadBranches } = get()
+      await Promise.all([loadStatus(), loadCommitGraph(), loadBranches()])
+      useFilesStore.getState().refreshTree()
+    } finally {
+      refreshAllInFlight = false
+      set({ isLoading: false, hasLoaded: true })
+    }
   },
 
   initRepo: async () => {

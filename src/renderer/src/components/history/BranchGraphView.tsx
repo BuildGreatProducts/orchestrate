@@ -90,13 +90,12 @@ export default function BranchGraphView(): React.JSX.Element {
         <div className="w-80 shrink-0 border-l border-zinc-800 overflow-y-auto">
           {selectedCommitHash ? (
             <div className="px-3 py-3">
-              {detailLoading && (
+              {detailLoading ? (
                 <div className="flex items-center gap-2 py-2 text-xs text-zinc-500">
                   <Spinner className="h-3 w-3" />
                   Loading changes...
                 </div>
-              )}
-              {expandedDetail && (
+              ) : expandedDetail ? (
                 <div>
                   <div className="mb-2 text-xs font-medium text-zinc-400">
                     Files Changed ({expandedDetail.files.length})
@@ -105,6 +104,17 @@ export default function BranchGraphView(): React.JSX.Element {
                     files={expandedDetail.files}
                     onViewDiff={(filePath) => openDiff(selectedCommitHash, filePath)}
                   />
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-2 py-4 text-xs text-zinc-500">
+                  <span>Failed to load commit details</span>
+                  <button
+                    type="button"
+                    onClick={() => selectCommit(selectedCommitHash)}
+                    className="rounded bg-zinc-700 px-2 py-1 text-xs text-zinc-300 hover:bg-zinc-600"
+                  >
+                    Retry
+                  </button>
                 </div>
               )}
             </div>
