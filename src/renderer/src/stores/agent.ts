@@ -4,7 +4,7 @@ import { useHistoryStore } from './history'
 import { useFilesStore } from './files'
 import { useTerminalStore } from './terminal'
 import { useAppStore } from './app'
-import type { ChatMessageData } from '@shared/types'
+import type { ChatMessageData, StreamItemData } from '@shared/types'
 
 export type StreamItem =
   | { kind: 'text'; content: string }
@@ -23,6 +23,13 @@ export interface ChatMessage {
 let _autoSaveFn: (() => Promise<void>) | null = null
 export function registerAutoSave(fn: () => Promise<void>): void {
   _autoSaveFn = fn
+}
+
+// Fix #7: type guard for StreamItemData -> StreamItem conversion
+function isValidStreamItem(item: StreamItemData): item is StreamItem {
+  if (item.kind === 'text') return typeof item.content === 'string'
+  if (item.kind === 'tool_use') return typeof item.tool === 'string' && item.input !== undefined
+  return false
 }
 
 interface AgentState {
@@ -232,6 +239,8 @@ export const useAgentStore = create<AgentState>((set, get) => {
           isStreaming: false,
           streamingItems: []
         }))
+        // Fix #2: auto-save on sendMessage rejection so user turn + error are persisted
+        _autoSaveFn?.()
       }
     },
 
@@ -244,13 +253,14 @@ export const useAgentStore = create<AgentState>((set, get) => {
       set({ messages: [], streamingItems: [], isStreaming: false })
     },
 
+    // Fix #7: validate items with type guard instead of blind cast
     loadMessages: (msgs: ChatMessageData[]) => {
       const mapped: ChatMessage[] = msgs.map((m) => ({
         id: m.id,
         role: m.role,
         content: m.content,
         toolUses: m.toolUses,
-        items: m.items as StreamItem[] | undefined,
+        items: m.items?.filter(isValidStreamItem),
         timestamp: m.timestamp
       }))
       set({ messages: mapped, streamingItems: [], isStreaming: false })

@@ -31,29 +31,34 @@ export default function OrchestrateTab(): React.JSX.Element {
     checkApiKey()
   }, [checkApiKey])
 
-  // Load conversations on mount
+  // Load conversations when folder changes (single source of truth — Fix #13)
   useEffect(() => {
     if (currentFolder) {
       loadConversations()
     }
   }, [currentFolder, loadConversations])
 
-  // Reset conversation when folder changes
+  // Fix #1: await saveCurrentConversation before clearing state on folder change
   useEffect(() => {
     if (prevFolderRef.current !== currentFolder) {
-      // Save current conversation before switching
-      useChatHistoryStore.getState().saveCurrentConversation()
-
+      const prev = prevFolderRef.current
       prevFolderRef.current = currentFolder
-      clearConversation()
-      resetState()
-      checkApiKey()
 
-      // Reset active conversation and load new project's conversations
-      useChatHistoryStore.setState({ activeConversationId: null })
-      if (currentFolder) {
-        useChatHistoryStore.getState().loadConversations()
+      // Only save if switching away from a folder (not initial mount)
+      const doSwitch = async (): Promise<void> => {
+        if (prev) {
+          try {
+            await useChatHistoryStore.getState().saveCurrentConversation()
+          } catch {
+            // Save failed — proceed with switch anyway since folder already changed
+          }
+        }
+        clearConversation()
+        resetState()
+        checkApiKey()
+        useChatHistoryStore.setState({ activeConversationId: null })
       }
+      doSwitch()
     }
   }, [currentFolder, clearConversation, resetState, checkApiKey])
 

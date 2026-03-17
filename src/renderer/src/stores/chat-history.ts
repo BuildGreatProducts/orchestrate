@@ -58,8 +58,13 @@ export const useChatHistoryStore = create<ChatHistoryState>((set, get) => {
       const { activeConversationId } = get()
       if (activeConversationId === id) return
 
-      // Save current conversation before switching
-      await get().saveCurrentConversation()
+      // Fix #4: save can fail — abort switch on failure
+      try {
+        await get().saveCurrentConversation()
+      } catch (err) {
+        console.error('[ChatHistory] Failed to save before switching:', err)
+        return
+      }
 
       set({ isLoading: true })
       try {
@@ -80,8 +85,13 @@ export const useChatHistoryStore = create<ChatHistoryState>((set, get) => {
     },
 
     newConversation: async () => {
-      // Save current conversation first
-      await get().saveCurrentConversation()
+      // Fix #4: save can fail — abort new conversation on failure
+      try {
+        await get().saveCurrentConversation()
+      } catch (err) {
+        console.error('[ChatHistory] Failed to save before new conversation:', err)
+        return
+      }
 
       // Clear agent store and SDK session
       await window.orchestrate.clearAgentConversation()
@@ -113,14 +123,19 @@ export const useChatHistoryStore = create<ChatHistoryState>((set, get) => {
       }
     },
 
+    // Fix #3: reserve ID before async save; Fix #4: rethrow on failure
     saveCurrentConversation: async () => {
       const { messages, isStreaming } = useAgentStore.getState()
       if (messages.length === 0 || isStreaming) return
 
       const { activeConversationId } = get()
 
-      // Build conversation data
+      // Reserve ID immediately to prevent duplicate generation
       const id = activeConversationId || nanoid(8)
+      if (!activeConversationId) {
+        set({ activeConversationId: id })
+      }
+
       const firstUserMsg = messages.find((m) => m.role === 'user')
       const title = firstUserMsg
         ? firstUserMsg.content.slice(0, 60) + (firstUserMsg.content.length > 60 ? '...' : '')
@@ -136,7 +151,7 @@ export const useChatHistoryStore = create<ChatHistoryState>((set, get) => {
         timestamp: m.timestamp
       }))
 
-      const existingConv = get().conversations.find((c) => c.id === activeConversationId)
+      const existingConv = get().conversations.find((c) => c.id === id)
       const conversation: ChatConversation = {
         id,
         title: existingConv?.title || title,
@@ -147,21 +162,34 @@ export const useChatHistoryStore = create<ChatHistoryState>((set, get) => {
 
       try {
         await window.orchestrate.saveConversation(conversation)
-        set({ activeConversationId: id })
         await get().loadConversations()
       } catch (err) {
         console.error('[ChatHistory] Failed to save conversation:', err)
+        // Roll back reserved ID if this was a new conversation
+        if (!activeConversationId) {
+          set({ activeConversationId: null })
+        }
+        throw err
       }
     },
 
+    // Fix #6: guard localStorage.setItem with try/catch
     setPanelOpen: (open: boolean) => {
-      localStorage.setItem(PANEL_KEY, String(open))
+      try {
+        localStorage.setItem(PANEL_KEY, String(open))
+      } catch {
+        // Storage full or unavailable — proceed with state update
+      }
       set({ panelOpen: open })
     },
 
     togglePanel: () => {
       const next = !get().panelOpen
-      localStorage.setItem(PANEL_KEY, String(next))
+      try {
+        localStorage.setItem(PANEL_KEY, String(next))
+      } catch {
+        // Storage full or unavailable — proceed with state update
+      }
       set({ panelOpen: next })
     }
   }

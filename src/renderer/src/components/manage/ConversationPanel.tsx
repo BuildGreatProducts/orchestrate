@@ -2,9 +2,11 @@ import { Plus, Trash2, MessageSquare } from 'lucide-react'
 import { useChatHistoryStore } from '../../stores/chat-history'
 import type { ChatConversationSummary } from '@shared/types'
 
+// Fix #12: guard against malformed dates
 function relativeTime(dateStr: string): string {
-  const now = Date.now()
   const then = new Date(dateStr).getTime()
+  if (isNaN(then)) return ''
+  const now = Date.now()
   const diff = now - then
   const minutes = Math.floor(diff / 60000)
   if (minutes < 1) return 'just now'
@@ -36,10 +38,13 @@ function ConversationItem({
     >
       <div className="flex items-start justify-between gap-1">
         <span className="truncate text-sm text-zinc-200">{conversation.title}</span>
+        {/* Fix #11: confirm before deleting */}
         <button
           onClick={(e) => {
             e.stopPropagation()
-            onDelete()
+            if (window.confirm('Delete this conversation?')) {
+              onDelete()
+            }
           }}
           className="mt-0.5 flex-shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
           aria-label="Delete conversation"

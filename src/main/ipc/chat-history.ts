@@ -1,19 +1,12 @@
 import { ipcMain, BrowserWindow } from 'electron'
 import { markChannelRegistered } from './stubs'
-import { ChatHistoryManager } from '../chat-history-manager'
+import { ChatHistoryManager, validateConversationId } from '../chat-history-manager'
 import type { ChatConversation } from '@shared/types'
-
-const SAFE_ID_RE = /^[A-Za-z0-9_-]{1,64}$/
-
-function validateId(id: unknown): asserts id is string {
-  if (typeof id !== 'string' || !SAFE_ID_RE.test(id)) {
-    throw new Error(`Invalid conversation ID: ${String(id)}`)
-  }
-}
 
 let chatHistoryManager: ChatHistoryManager | null = null
 let getCurrentFolderFn: (() => string | null) | null = null
 
+// Fix #9: single source of truth for manager creation/sync
 export function getChatHistoryManager(): ChatHistoryManager | null {
   if (!getCurrentFolderFn) return null
   const folder = getCurrentFolderFn()
@@ -24,6 +17,12 @@ export function getChatHistoryManager(): ChatHistoryManager | null {
     chatHistoryManager.setProjectFolder(folder)
   }
   return chatHistoryManager
+}
+
+function getManager(): ChatHistoryManager {
+  const mgr = getChatHistoryManager()
+  if (!mgr) throw new Error('No project folder selected')
+  return mgr
 }
 
 export function registerChatHistoryHandlers(
@@ -38,25 +37,13 @@ export function registerChatHistoryHandlers(
   markChannelRegistered('chatHistory:delete')
   markChannelRegistered('chatHistory:rename')
 
-  function getManager(): ChatHistoryManager {
-    const folder = getCurrentFolder()
-    if (!folder) throw new Error('No project folder selected')
-
-    if (!chatHistoryManager) {
-      chatHistoryManager = new ChatHistoryManager(folder)
-    } else {
-      chatHistoryManager.setProjectFolder(folder)
-    }
-    return chatHistoryManager
-  }
-
   ipcMain.handle('chatHistory:list', async () => {
     const mgr = getManager()
     return mgr.listConversations()
   })
 
   ipcMain.handle('chatHistory:load', async (_, id: string) => {
-    validateId(id)
+    validateConversationId(id)
     const mgr = getManager()
     return mgr.loadConversation(id)
   })
@@ -67,13 +54,13 @@ export function registerChatHistoryHandlers(
   })
 
   ipcMain.handle('chatHistory:delete', async (_, id: string) => {
-    validateId(id)
+    validateConversationId(id)
     const mgr = getManager()
     await mgr.deleteConversation(id)
   })
 
   ipcMain.handle('chatHistory:rename', async (_, id: string, title: string) => {
-    validateId(id)
+    validateConversationId(id)
     const mgr = getManager()
     await mgr.renameConversation(id, title)
   })

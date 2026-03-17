@@ -69,12 +69,10 @@ export interface ChatMessageData {
   timestamp: number
 }
 
-export interface StreamItemData {
-  kind: 'text' | 'tool_use'
-  content?: string
-  tool?: string
-  input?: Record<string, unknown>
-}
+// Fix #7: discriminated union matching runtime StreamItem
+export type StreamItemData =
+  | { kind: 'text'; content: string }
+  | { kind: 'tool_use'; tool: string; input: Record<string, unknown> }
 
 export interface ChatConversationSummary {
   id: string

@@ -3,7 +3,14 @@ import { join, resolve, relative, sep } from 'path'
 import { nanoid } from 'nanoid'
 import type { ChatConversation, ChatConversationSummary } from '@shared/types'
 
-const SAFE_ID_RE = /^[A-Za-z0-9_-]{1,64}$/
+// Fix #10: export for reuse in IPC handler
+export const SAFE_ID_RE = /^[A-Za-z0-9_-]{1,64}$/
+
+export function validateConversationId(id: unknown): asserts id is string {
+  if (typeof id !== 'string' || !SAFE_ID_RE.test(id)) {
+    throw new Error(`Invalid conversation ID: ${String(id)}`)
+  }
+}
 
 function isNodeError(err: unknown): err is NodeJS.ErrnoException {
   return err instanceof Error && 'code' in err
@@ -35,8 +42,8 @@ export class ChatHistoryManager {
     await mkdir(this.chatsDir, { recursive: true })
   }
 
+  // Fix #8: no ensureDir on read path — ENOENT returns []
   async listConversations(): Promise<ChatConversationSummary[]> {
-    await this.ensureDir()
     let files: string[]
     try {
       files = await readdir(this.chatsDir)
