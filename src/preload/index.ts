@@ -149,6 +149,13 @@ const api: OrchestrateAPI = {
   getSkillContent: (skillPath) => ipcRenderer.invoke('skill:getContent', skillPath),
   openSkillsFolder: (target) => ipcRenderer.invoke('skill:openFolder', target),
 
+  // Chat History
+  listConversations: () => ipcRenderer.invoke('chatHistory:list'),
+  loadConversation: (id: string) => ipcRenderer.invoke('chatHistory:load', id),
+  saveConversation: (conversation) => ipcRenderer.invoke('chatHistory:save', conversation),
+  deleteConversation: (id: string) => ipcRenderer.invoke('chatHistory:delete', id),
+  renameConversation: (id: string, title: string) => ipcRenderer.invoke('chatHistory:rename', id, title),
+
   // Git / History
   isGitRepo: () => ipcRenderer.invoke('git:isRepo'),
   initRepo: () => ipcRenderer.invoke('git:init'),

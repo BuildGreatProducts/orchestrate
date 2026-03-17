@@ -1,10 +1,13 @@
 import { useEffect, useRef } from 'react'
+import { PanelLeft, PanelLeftClose } from 'lucide-react'
 import { useAppStore } from '../../stores/app'
 import { useAgentStore } from '../../stores/agent'
+import { useChatHistoryStore } from '../../stores/chat-history'
 import Spinner from '@renderer/components/ui/Spinner'
 import ApiKeyPrompt from './ApiKeyPrompt'
 import ChatMessage from './ChatMessage'
 import ChatInput from './ChatInput'
+import ConversationPanel from './ConversationPanel'
 
 export default function OrchestrateTab(): React.JSX.Element {
   const currentFolder = useAppStore((s) => s.currentFolder)
@@ -16,6 +19,10 @@ export default function OrchestrateTab(): React.JSX.Element {
   const clearConversation = useAgentStore((s) => s.clearConversation)
   const resetState = useAgentStore((s) => s.resetState)
 
+  const panelOpen = useChatHistoryStore((s) => s.panelOpen)
+  const togglePanel = useChatHistoryStore((s) => s.togglePanel)
+  const loadConversations = useChatHistoryStore((s) => s.loadConversations)
+
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const prevFolderRef = useRef(currentFolder)
 
@@ -24,13 +31,34 @@ export default function OrchestrateTab(): React.JSX.Element {
     checkApiKey()
   }, [checkApiKey])
 
-  // Reset conversation when folder changes
+  // Load conversations when folder changes (single source of truth — Fix #13)
+  useEffect(() => {
+    if (currentFolder) {
+      loadConversations()
+    }
+  }, [currentFolder, loadConversations])
+
+  // Fix #1: await saveCurrentConversation before clearing state on folder change
   useEffect(() => {
     if (prevFolderRef.current !== currentFolder) {
+      const prev = prevFolderRef.current
       prevFolderRef.current = currentFolder
-      clearConversation()
-      resetState()
-      checkApiKey()
+
+      // Only save if switching away from a folder (not initial mount)
+      const doSwitch = async (): Promise<void> => {
+        if (prev) {
+          try {
+            await useChatHistoryStore.getState().saveCurrentConversation()
+          } catch {
+            // Save failed — proceed with switch anyway since folder already changed
+          }
+        }
+        clearConversation()
+        resetState()
+        checkApiKey()
+        useChatHistoryStore.setState({ activeConversationId: null })
+      }
+      doSwitch()
     }
   }, [currentFolder, clearConversation, resetState, checkApiKey])
 
@@ -71,54 +99,66 @@ export default function OrchestrateTab(): React.JSX.Element {
 
   // Chat interface
   return (
-    <div className="relative flex flex-1 flex-col overflow-hidden">
-      <div className="flex-1 overflow-y-auto dark-scrollbar">
-        <div className="mx-auto w-full max-w-[900px] py-4 pb-24">
-          {messages.length === 0 && !isStreaming && (
-            <div className="flex flex-col items-center justify-center gap-4 pt-20 text-center">
-              <h2 className="font-ovo text-6xl tracking-tight text-zinc-200">Orchestrate</h2>
-              <p className="max-w-xs text-sm leading-relaxed text-zinc-500">
-                Create tasks, manage files, review changes,
-                <br />
-                and orchestrate your entire project.
-              </p>
-            </div>
-          )}
+    <div className="flex flex-1 overflow-hidden">
+      {panelOpen && <ConversationPanel />}
+      <div className="relative flex flex-1 flex-col overflow-hidden">
+        {/* Toggle panel button */}
+        <button
+          onClick={togglePanel}
+          className="absolute left-2 top-2 z-10 rounded p-1.5 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-300"
+          aria-label={panelOpen ? 'Close chat history panel' : 'Open chat history panel'}
+        >
+          {panelOpen ? <PanelLeftClose size={16} /> : <PanelLeft size={16} />}
+        </button>
 
-          {messages.map((msg) => (
-            <ChatMessage
-              key={msg.id}
-              role={msg.role}
-              content={msg.content}
-              toolUses={msg.toolUses}
-              items={msg.items}
-            />
-          ))}
-
-          {/* Streaming message */}
-          {isStreaming && streamingItems.length > 0 && (
-            <ChatMessage role="assistant" content="" items={streamingItems} />
-          )}
-
-          {/* Streaming indicator */}
-          {isStreaming && (
-            <div className="flex items-center gap-2 px-4 py-2">
-              <div className="flex items-center gap-1">
-                <div className="stream-dot h-1.5 w-1.5 rounded-full bg-zinc-400" />
-                <div className="stream-dot h-1.5 w-1.5 rounded-full bg-zinc-400" />
-                <div className="stream-dot h-1.5 w-1.5 rounded-full bg-zinc-400" />
+        <div className="flex-1 overflow-y-auto dark-scrollbar">
+          <div className="mx-auto w-full max-w-[900px] py-4 pb-24">
+            {messages.length === 0 && !isStreaming && (
+              <div className="flex flex-col items-center justify-center gap-4 pt-20 text-center">
+                <h2 className="font-ovo text-6xl tracking-tight text-zinc-200">Orchestrate</h2>
+                <p className="max-w-xs text-sm leading-relaxed text-zinc-500">
+                  Create tasks, manage files, review changes,
+                  <br />
+                  and orchestrate your entire project.
+                </p>
               </div>
-              {streamingItems.length === 0 && (
-                <span className="text-xs text-zinc-500">Agent is thinking…</span>
-              )}
-            </div>
-          )}
+            )}
 
-          <div ref={messagesEndRef} />
+            {messages.map((msg) => (
+              <ChatMessage
+                key={msg.id}
+                role={msg.role}
+                content={msg.content}
+                toolUses={msg.toolUses}
+                items={msg.items}
+              />
+            ))}
+
+            {/* Streaming message */}
+            {isStreaming && streamingItems.length > 0 && (
+              <ChatMessage role="assistant" content="" items={streamingItems} />
+            )}
+
+            {/* Streaming indicator */}
+            {isStreaming && (
+              <div className="flex items-center gap-2 px-4 py-2">
+                <div className="flex items-center gap-1">
+                  <div className="stream-dot h-1.5 w-1.5 rounded-full bg-zinc-400" />
+                  <div className="stream-dot h-1.5 w-1.5 rounded-full bg-zinc-400" />
+                  <div className="stream-dot h-1.5 w-1.5 rounded-full bg-zinc-400" />
+                </div>
+                {streamingItems.length === 0 && (
+                  <span className="text-xs text-zinc-500">Agent is thinking…</span>
+                )}
+              </div>
+            )}
+
+            <div ref={messagesEndRef} />
+          </div>
         </div>
-      </div>
 
-      <ChatInput />
+        <ChatInput />
+      </div>
     </div>
   )
 }

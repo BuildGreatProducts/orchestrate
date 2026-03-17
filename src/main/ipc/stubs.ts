@@ -59,6 +59,13 @@ const stubs: StubDef[] = [
   { channel: 'browser:closeAll', returns: undefined },
   { channel: 'browser:toggleDevTools', returns: undefined },
 
+  // Chat History
+  { channel: 'chatHistory:list', returns: [] },
+  { channel: 'chatHistory:load', returns: null },
+  { channel: 'chatHistory:save', returns: undefined },
+  { channel: 'chatHistory:delete', returns: undefined },
+  { channel: 'chatHistory:rename', returns: undefined },
+
   // Skills
   { channel: 'skill:list', returns: [] },
   { channel: 'skill:addFromFolder', returns: null },
