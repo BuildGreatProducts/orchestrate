@@ -1,4 +1,3 @@
-import { useEffect } from 'react'
 import { useHistoryStore } from '@renderer/stores/history'
 import Spinner from '@renderer/components/ui/Spinner'
 import BranchSelector from './BranchSelector'
@@ -22,17 +21,6 @@ export default function BranchGraphView(): React.JSX.Element {
   const requestRevert = useHistoryStore((s) => s.requestRevert)
   const requestRestore = useHistoryStore((s) => s.requestRestore)
   const openDiff = useHistoryStore((s) => s.openDiff)
-  const loadCommitGraph = useHistoryStore((s) => s.loadCommitGraph)
-  const loadBranches = useHistoryStore((s) => s.loadBranches)
-
-  useEffect(() => {
-    if (commitGraph.length === 0 && !graphLoading) {
-      loadCommitGraph()
-    }
-    if (branches.length === 0) {
-      loadBranches()
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (graphLoading && commitGraph.length === 0) {
     return (
@@ -66,58 +54,76 @@ export default function BranchGraphView(): React.JSX.Element {
         onSelect={setSelectedBranch}
       />
 
-      <div className="flex-1 overflow-y-auto">
-        {/* Side-by-side graph + commit list */}
-        <div className="flex">
-          <div className="shrink-0 overflow-x-auto border-r border-zinc-800">
-            <CommitGraph
-              commits={commitGraph}
-              hoveredHash={hoveredCommitHash}
-              selectedHash={selectedCommitHash}
-              onHover={setHoveredCommit}
-              onSelect={(hash) => selectCommit(selectedCommitHash === hash ? null : hash)}
-            />
-          </div>
-          <div className="flex-1 min-w-0">
-            {commitGraph.map((commit) => (
-              <CommitRow
-                key={commit.hash}
-                commit={commit}
-                isSelected={selectedCommitHash === commit.hash}
-                isHovered={hoveredCommitHash === commit.hash}
-                onSelect={() =>
-                  selectCommit(selectedCommitHash === commit.hash ? null : commit.hash)
-                }
-                onHover={(hovered) => setHoveredCommit(hovered ? commit.hash : null)}
-                onRevert={() => requestRevert(commit.hash)}
-                onRestore={() => requestRestore(commit.hash)}
+      <div className="flex flex-1 min-h-0">
+        {/* Left: scrollable commit list */}
+        <div className="flex-1 min-w-0 overflow-y-auto">
+          <div className="flex">
+            <div className="shrink-0 overflow-x-auto border-r border-zinc-800">
+              <CommitGraph
+                commits={commitGraph}
+                hoveredHash={hoveredCommitHash}
+                selectedHash={selectedCommitHash}
+                onHover={setHoveredCommit}
+                onSelect={(hash) => selectCommit(selectedCommitHash === hash ? null : hash)}
               />
-            ))}
+            </div>
+            <div className="flex-1 min-w-0">
+              {commitGraph.map((commit) => (
+                <CommitRow
+                  key={commit.hash}
+                  commit={commit}
+                  isSelected={selectedCommitHash === commit.hash}
+                  isHovered={hoveredCommitHash === commit.hash}
+                  onSelect={() =>
+                    selectCommit(selectedCommitHash === commit.hash ? null : commit.hash)
+                  }
+                  onHover={(hovered) => setHoveredCommit(hovered ? commit.hash : null)}
+                  onRevert={() => requestRevert(commit.hash)}
+                  onRestore={() => requestRestore(commit.hash)}
+                />
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* Detail panel for selected commit */}
-        {selectedCommitHash && (
-          <div className="border-t border-zinc-800 px-3 py-3">
-            {detailLoading && (
-              <div className="flex items-center gap-2 py-2 text-xs text-zinc-500">
-                <Spinner className="h-3 w-3" />
-                Loading changes...
-              </div>
-            )}
-            {expandedDetail && (
-              <div>
-                <div className="mb-2 text-xs font-medium text-zinc-400">
-                  Files Changed ({expandedDetail.files.length})
+        {/* Right: fixed detail panel */}
+        <div className="w-80 shrink-0 border-l border-zinc-800 overflow-y-auto">
+          {selectedCommitHash ? (
+            <div className="px-3 py-3">
+              {detailLoading ? (
+                <div className="flex items-center gap-2 py-2 text-xs text-zinc-500">
+                  <Spinner className="h-3 w-3" />
+                  Loading changes...
                 </div>
-                <FileChangeList
-                  files={expandedDetail.files}
-                  onViewDiff={(filePath) => openDiff(selectedCommitHash, filePath)}
-                />
-              </div>
-            )}
-          </div>
-        )}
+              ) : expandedDetail ? (
+                <div>
+                  <div className="mb-2 text-xs font-medium text-zinc-400">
+                    Files Changed ({expandedDetail.files.length})
+                  </div>
+                  <FileChangeList
+                    files={expandedDetail.files}
+                    onViewDiff={(filePath) => openDiff(selectedCommitHash, filePath)}
+                  />
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-2 py-4 text-xs text-zinc-500">
+                  <span>Failed to load commit details</span>
+                  <button
+                    type="button"
+                    onClick={() => selectCommit(selectedCommitHash)}
+                    className="rounded bg-zinc-700 px-2 py-1 text-xs text-zinc-300 hover:bg-zinc-600"
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex h-full items-center justify-center p-4 text-xs text-zinc-500">
+              Select a commit to view changed files
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
