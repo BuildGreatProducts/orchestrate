@@ -11,6 +11,10 @@ const api: OrchestrateAPI = {
   // Folder
   selectFolder: () => ipcRenderer.invoke('folder:select'),
   getLastFolder: () => ipcRenderer.invoke('folder:getLast'),
+  getProjects: () => ipcRenderer.invoke('folder:getProjects'),
+  addProject: (path) => ipcRenderer.invoke('folder:addProject', path),
+  removeProject: (path) => ipcRenderer.invoke('folder:removeProject', path),
+  setActiveProject: (path) => ipcRenderer.invoke('folder:setActive', path),
 
   // Files
   readFile: (path) => ipcRenderer.invoke('file:read', path),
