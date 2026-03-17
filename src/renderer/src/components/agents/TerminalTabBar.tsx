@@ -21,52 +21,55 @@ export default function TerminalTabBar(): React.JSX.Element {
   }
 
   return (
-    <div className="flex h-9 items-center gap-0 overflow-x-auto border-b border-zinc-800 bg-zinc-900">
-      {tabs.map((tab) => {
-        const isActive = tab.id === activeTabId
+    <div className="flex w-56 shrink-0 flex-col border-r border-zinc-800 bg-zinc-900">
+      <div className="flex-1 overflow-y-auto">
+        {tabs.map((tab) => {
+          const isActive = tab.id === activeTabId
 
-        return (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`group flex h-full items-center gap-1.5 border-r border-zinc-800 px-3 text-sm ${
-              isActive
-                ? 'bg-zinc-800 text-white'
-                : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200'
-            }`}
-          >
-            <span className="max-w-[160px] truncate">
-              {tab.name}
-              {tab.exited && (
-                <span className="ml-1 text-zinc-500">(exited)</span>
-              )}
-            </span>
-            <span
-              role="button"
-              tabIndex={0}
-              onClick={(e) => {
-                e.stopPropagation()
-                closeTab(tab.id)
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`group flex w-full items-center gap-1.5 px-3 py-2 text-sm ${
+                isActive
+                  ? 'bg-zinc-800 text-white'
+                  : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200'
+              }`}
+            >
+              <span className="flex-1 truncate text-left">
+                {tab.name}
+                {tab.exited && (
+                  <span className="ml-1 text-zinc-500">(exited)</span>
+                )}
+              </span>
+              <span
+                role="button"
+                tabIndex={0}
+                onClick={(e) => {
                   e.stopPropagation()
                   closeTab(tab.id)
-                }
-              }}
-              className="ml-1 shrink-0 rounded p-0.5 opacity-0 hover:bg-zinc-600 group-hover:opacity-100"
-            >
-              <VscClose size={14} />
-            </span>
-          </button>
-        )
-      })}
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.stopPropagation()
+                    closeTab(tab.id)
+                  }
+                }}
+                className="shrink-0 rounded p-0.5 opacity-0 hover:bg-zinc-600 group-hover:opacity-100"
+              >
+                <VscClose size={14} />
+              </span>
+            </button>
+          )
+        })}
+      </div>
       <button
         onClick={handleNewTerminal}
-        className="flex h-full items-center px-2 text-zinc-400 hover:text-zinc-200"
+        className="flex w-full items-center gap-1.5 border-t border-zinc-800 px-3 py-2 text-zinc-400 hover:text-zinc-200"
         title="New terminal"
       >
         <VscAdd size={16} />
+        <span className="text-sm">New terminal</span>
       </button>
     </div>
   )
