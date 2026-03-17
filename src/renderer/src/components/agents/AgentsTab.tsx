@@ -26,7 +26,7 @@ export default function AgentsTab(): React.JSX.Element {
 
   if (tabs.length === 0) {
     return (
-      <div className="flex flex-1 flex-col">
+      <div className="flex flex-1 flex-row overflow-hidden">
         <TerminalTabBar />
         <div className="flex flex-1 items-center justify-center gap-3">
           <p className="text-zinc-500">Click + to open a new terminal</p>
@@ -36,7 +36,7 @@ export default function AgentsTab(): React.JSX.Element {
   }
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
+    <div className="flex flex-1 flex-row overflow-hidden">
       <TerminalTabBar />
       <div className="relative flex-1">
         {tabs.map((tab) => (
