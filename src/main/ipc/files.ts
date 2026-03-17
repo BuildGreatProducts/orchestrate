@@ -79,8 +79,6 @@ async function buildFileTree(dirPath: string): Promise<FileEntry[]> {
 
   for (const entry of entries) {
     if (IGNORED_NAMES.has(entry.name)) continue
-    if (entry.name.startsWith('.') && entry.name !== '.env' && entry.name !== '.gitignore')
-      continue
 
     const entryPath = join(dirPath, entry.name)
     const isDir = entry.isDirectory()

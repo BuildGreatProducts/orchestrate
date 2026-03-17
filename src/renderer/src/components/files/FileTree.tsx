@@ -169,6 +169,7 @@ function FileNode({
     : null
 
   const FileIcon = entry.isDirectory ? (isOpen ? VscFolderOpened : VscFolder) : VscFile
+  const isHidden = entry.name.startsWith('.')
 
   // Derive relative path for git status lookup
   const relativePath = entry.path.startsWith(currentFolder)
@@ -194,13 +195,17 @@ function FileNode({
         onKeyDown={handleKeyDown}
         style={{ paddingLeft: depth * 16 + 8 }}
         className={`flex cursor-pointer items-center gap-1 py-0.5 pr-2 text-sm ${
-          isActive ? 'bg-zinc-700 text-white' : 'text-zinc-300 hover:bg-zinc-800'
+          isActive
+            ? 'bg-zinc-700 text-white'
+            : isHidden
+              ? 'text-zinc-600 hover:bg-zinc-800'
+              : 'text-zinc-300 hover:bg-zinc-800'
         }`}
       >
         <span className="flex w-4 shrink-0 items-center justify-center">
           {Chevron ? <Chevron size={16} className="text-zinc-500" /> : null}
         </span>
-        <FileIcon className="shrink-0 text-zinc-500" size={16} />
+        <FileIcon className={`shrink-0 ${isHidden ? 'text-zinc-600' : 'text-zinc-500'}`} size={16} />
         <span className="truncate">{entry.name}</span>
         {fileStatus && (
           <span className={`ml-auto shrink-0 font-mono text-xs font-bold ${STATUS_COLORS[fileStatus] ?? ''}`}>
