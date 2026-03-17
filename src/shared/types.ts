@@ -120,6 +120,10 @@ export interface OrchestrateAPI {
   // Folder
   selectFolder: () => Promise<string | null>
   getLastFolder: () => Promise<string | null>
+  getProjects: () => Promise<string[]>
+  addProject: (path: string) => Promise<string[]>
+  removeProject: (path: string) => Promise<string[]>
+  setActiveProject: (path: string) => Promise<string>
 
   // Files
   readFile: (path: string) => Promise<string>

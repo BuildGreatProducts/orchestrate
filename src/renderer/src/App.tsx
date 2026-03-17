@@ -28,10 +28,12 @@ function App(): React.JSX.Element {
   const showSettings = useAppStore((s) => s.showSettings)
   const setShowSettings = useAppStore((s) => s.setShowSettings)
   const loadLastFolder = useAppStore((s) => s.loadLastFolder)
+  const loadProjects = useAppStore((s) => s.loadProjects)
 
   useEffect(() => {
     loadLastFolder()
-  }, [loadLastFolder])
+    loadProjects()
+  }, [loadLastFolder, loadProjects])
 
   // Global keyboard shortcuts
   useEffect(() => {
