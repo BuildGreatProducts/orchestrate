@@ -1,51 +1,11 @@
 import { useEffect, useRef } from 'react'
 import { useAppStore } from '@renderer/stores/app'
 import { useHistoryStore } from '@renderer/stores/history'
-import type { ViewMode } from '@renderer/stores/history'
 import Spinner from '@renderer/components/ui/Spinner'
 import EmptyState from './EmptyState'
-import CreateSavePoint from './CreateSavePoint'
-import SavePointList from './SavePointList'
 import DiffViewer from './DiffViewer'
 import ConfirmDialog from './ConfirmDialog'
 import BranchGraphView from './BranchGraphView'
-
-function ViewModeToggle({
-  mode,
-  onChange
-}: {
-  mode: ViewMode
-  onChange: (mode: ViewMode) => void
-}): React.JSX.Element {
-  return (
-    <div className="flex gap-0.5 rounded-md bg-zinc-800/50 p-0.5">
-      <button
-        type="button"
-        aria-pressed={mode === 'savepoints'}
-        onClick={() => onChange('savepoints')}
-        className={`rounded px-3 py-1 text-xs font-medium transition-colors ${
-          mode === 'savepoints'
-            ? 'bg-zinc-700 text-zinc-200'
-            : 'text-zinc-500 hover:text-zinc-300'
-        }`}
-      >
-        Save Points
-      </button>
-      <button
-        type="button"
-        aria-pressed={mode === 'graph'}
-        onClick={() => onChange('graph')}
-        className={`rounded px-3 py-1 text-xs font-medium transition-colors ${
-          mode === 'graph'
-            ? 'bg-zinc-700 text-zinc-200'
-            : 'text-zinc-500 hover:text-zinc-300'
-        }`}
-      >
-        Branches
-      </button>
-    </div>
-  )
-}
 
 export default function HistoryTab(): React.JSX.Element {
   const currentFolder = useAppStore((s) => s.currentFolder)
@@ -55,9 +15,6 @@ export default function HistoryTab(): React.JSX.Element {
   const checkIsRepo = useHistoryStore((s) => s.checkIsRepo)
   const refreshAll = useHistoryStore((s) => s.refreshAll)
   const resetState = useHistoryStore((s) => s.resetState)
-
-  const viewMode = useHistoryStore((s) => s.viewMode)
-  const setViewMode = useHistoryStore((s) => s.setViewMode)
 
   const confirmRevert = useHistoryStore((s) => s.confirmRevert)
   const confirmAndRevert = useHistoryStore((s) => s.confirmAndRevert)
@@ -126,22 +83,9 @@ export default function HistoryTab(): React.JSX.Element {
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      {/* View mode toggle header */}
-      <div className="flex items-center justify-between border-b border-zinc-800 px-3 py-2">
-        <ViewModeToggle mode={viewMode} onChange={setViewMode} />
-      </div>
+      <BranchGraphView />
 
-      {/* Content area */}
-      {viewMode === 'savepoints' ? (
-        <>
-          <CreateSavePoint />
-          <SavePointList />
-        </>
-      ) : (
-        <BranchGraphView />
-      )}
-
-      {/* Modals (shared across both views) */}
+      {/* Modals */}
       <DiffViewer />
 
       {confirmRevert !== null && (
