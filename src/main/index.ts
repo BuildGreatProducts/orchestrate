@@ -9,6 +9,7 @@ import { registerTaskHandlers, getTaskManager } from './ipc/tasks'
 import { registerGitHandlers, getGitManager } from './ipc/git'
 import { registerAgentHandlers, clearAgentConversation } from './ipc/agent'
 import { registerSkillHandlers } from './ipc/skills'
+import { registerChatHistoryHandlers } from './ipc/chat-history'
 import { registerBrowserHandlers, closeAllBrowserTabs } from './ipc/browser'
 import { registerStubHandlers } from './ipc/stubs'
 import { startWatching, stopWatching } from './file-watcher'
@@ -86,6 +87,7 @@ app.whenReady().then(() => {
     getSkillManager
   )
   registerSkillHandlers(() => mainWindow, getCurrentFolder, getSkillManager)
+  registerChatHistoryHandlers(() => mainWindow, getCurrentFolder)
   registerBrowserHandlers(() => mainWindow)
   registerStubHandlers()
 

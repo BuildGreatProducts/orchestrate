@@ -4,18 +4,25 @@ import { useHistoryStore } from './history'
 import { useFilesStore } from './files'
 import { useTerminalStore } from './terminal'
 import { useAppStore } from './app'
+import type { ChatMessageData } from '@shared/types'
 
 export type StreamItem =
   | { kind: 'text'; content: string }
   | { kind: 'tool_use'; tool: string; input: Record<string, unknown> }
 
-interface ChatMessage {
+export interface ChatMessage {
   id: string
   role: 'user' | 'assistant' | 'system'
   content: string
   toolUses?: { tool: string; input: Record<string, unknown> }[]
   items?: StreamItem[]
   timestamp: number
+}
+
+// Lazy reference to avoid circular import — set by chat-history store on init
+let _autoSaveFn: (() => Promise<void>) | null = null
+export function registerAutoSave(fn: () => Promise<void>): void {
+  _autoSaveFn = fn
 }
 
 interface AgentState {
@@ -29,6 +36,7 @@ interface AgentState {
   sendMessage: (text: string) => Promise<void>
   cancelMessage: () => Promise<void>
   clearConversation: () => Promise<void>
+  loadMessages: (messages: ChatMessageData[]) => void
   resetState: () => void
 }
 
@@ -40,7 +48,7 @@ const CLEANUP_KEY = '__agentIpcCleanup'
 
 function ensureGlobalListeners(): void {
   // Clean up previous listeners (handles HMR reloads that re-evaluate this module)
-  const prev = (window as Record<string, unknown>)[CLEANUP_KEY]
+  const prev = (window as unknown as Record<string, unknown>)[CLEANUP_KEY]
   if (typeof prev === 'function') {
     prev()
   }
@@ -90,6 +98,8 @@ function ensureGlobalListeners(): void {
       } else {
         useAgentStore.setState({ isStreaming: false })
       }
+      // Auto-save conversation after assistant response completes
+      _autoSaveFn?.()
     } else if (chunk.type === 'error') {
       const { streamingItems, messages } = useAgentStore.getState()
       const newMessages = [...messages]
@@ -126,6 +136,8 @@ function ensureGlobalListeners(): void {
         streamingItems: [],
         isStreaming: false
       })
+      // Auto-save conversation after error
+      _autoSaveFn?.()
     }
   })
 
@@ -160,7 +172,7 @@ function ensureGlobalListeners(): void {
   })
 
   // Store cleanup so the next HMR reload can remove these listeners
-  ;(window as Record<string, unknown>)[CLEANUP_KEY] = (): void => {
+  ;(window as unknown as Record<string, unknown>)[CLEANUP_KEY] = (): void => {
     cleanupResponse()
     cleanupStateChanged()
   }
@@ -230,6 +242,18 @@ export const useAgentStore = create<AgentState>((set, get) => {
     clearConversation: async () => {
       await window.orchestrate.clearAgentConversation()
       set({ messages: [], streamingItems: [], isStreaming: false })
+    },
+
+    loadMessages: (msgs: ChatMessageData[]) => {
+      const mapped: ChatMessage[] = msgs.map((m) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+        toolUses: m.toolUses,
+        items: m.items as StreamItem[] | undefined,
+        timestamp: m.timestamp
+      }))
+      set({ messages: mapped, streamingItems: [], isStreaming: false })
     },
 
     resetState: () => {

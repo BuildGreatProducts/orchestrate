@@ -50,6 +50,41 @@ export interface AgentResponseChunk {
   input?: Record<string, unknown>
 }
 
+// ── Chat History ──
+
+export interface ChatConversation {
+  id: string
+  title: string
+  createdAt: string // ISO 8601
+  updatedAt: string // ISO 8601
+  messages: ChatMessageData[]
+}
+
+export interface ChatMessageData {
+  id: string
+  role: 'user' | 'assistant' | 'system'
+  content: string
+  toolUses?: { tool: string; input: Record<string, unknown> }[]
+  items?: StreamItemData[]
+  timestamp: number
+}
+
+export interface StreamItemData {
+  kind: 'text' | 'tool_use'
+  content?: string
+  tool?: string
+  input?: Record<string, unknown>
+}
+
+export interface ChatConversationSummary {
+  id: string
+  title: string
+  createdAt: string
+  updatedAt: string
+  messageCount: number
+  preview: string // last user message truncated to ~80 chars
+}
+
 // ── Git / History ──
 
 export interface CommitNode {
@@ -175,6 +210,13 @@ export interface OrchestrateAPI {
   clearAgentConversation: () => Promise<void>
   cancelAgentMessage: () => Promise<void>
   onAgentStateChanged: (callback: (domain: string, data?: unknown) => void) => () => void
+
+  // Chat History
+  listConversations: () => Promise<ChatConversationSummary[]>
+  loadConversation: (id: string) => Promise<ChatConversation | null>
+  saveConversation: (conversation: ChatConversation) => Promise<void>
+  deleteConversation: (id: string) => Promise<void>
+  renameConversation: (id: string, title: string) => Promise<void>
 
   // Git / History
   isGitRepo: () => Promise<boolean>
