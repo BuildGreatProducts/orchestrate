@@ -5,6 +5,7 @@ import { toast } from './toast'
 export interface TerminalTab {
   id: string
   name: string
+  taskId?: string
   exited: boolean
   exitCode?: number
 }
@@ -23,7 +24,8 @@ interface TerminalState {
   groups: AgentGroup[]
   nextGroupIndex: number
 
-  createTab: (cwd: string, name?: string, command?: string) => Promise<string>
+  createTab: (cwd: string, name?: string, command?: string, taskId?: string) => Promise<string>
+  getTaskId: (terminalId: string) => string | undefined
   closeTab: (id: string) => void
   setActiveTab: (id: string) => void
   markExited: (id: string, exitCode: number) => void
@@ -95,7 +97,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
   groups: [],
   nextGroupIndex: 1,
 
-  createTab: async (cwd: string, name?: string, command?: string) => {
+  createTab: async (cwd: string, name?: string, command?: string, taskId?: string) => {
     const { nextIndex } = get()
     const id = `terminal-${Date.now()}-${nextIndex}`
     const tabName = name ?? `Terminal ${nextIndex}`
@@ -108,7 +110,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     // Add tab to state FIRST so the component mounts and registers
     // its handlers before the PTY starts emitting
     set((state) => ({
-      tabs: [...state.tabs, { id, name: tabName, exited: false }],
+      tabs: [...state.tabs, { id, name: tabName, taskId, exited: false }],
       activeTabId: id,
       nextIndex: state.nextIndex + 1
     }))
@@ -165,6 +167,10 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     set((state) => ({
       tabs: state.tabs.map((t) => (t.id === id ? { ...t, exited: true, exitCode } : t))
     }))
+  },
+
+  getTaskId: (terminalId: string) => {
+    return get().tabs.find((t) => t.id === terminalId)?.taskId
   },
 
   closeAllTabs: () => {
