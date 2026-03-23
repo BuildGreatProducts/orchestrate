@@ -162,10 +162,14 @@ function ensureGlobalListeners(): void {
         break
       case 'terminal': {
         if (folder && data && typeof data === 'object') {
-          const { name, command } = data as { name?: string; command?: string }
+          const { name, command, taskId } = data as {
+            name?: string
+            command?: string
+            taskId?: string
+          }
           useTerminalStore
             .getState()
-            .createTab(folder, name, command)
+            .createTab(folder, name, command, taskId)
             .then(() => {
               useAppStore.getState().setActiveTab('agents')
             })
