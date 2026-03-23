@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { arrayMove } from '@dnd-kit/sortable'
 import { toast } from './toast'
 
-interface TerminalTab {
+export interface TerminalTab {
   id: string
   name: string
   exited: boolean

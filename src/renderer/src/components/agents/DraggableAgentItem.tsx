@@ -1,13 +1,7 @@
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Terminal, Trash2 } from 'lucide-react'
-
-interface TerminalTab {
-  id: string
-  name: string
-  exited: boolean
-  exitCode?: number
-}
+import type { TerminalTab } from '@renderer/stores/terminal'
 
 interface DraggableAgentItemProps {
   tab: TerminalTab

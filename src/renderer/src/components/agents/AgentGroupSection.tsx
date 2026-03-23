@@ -2,16 +2,9 @@ import { useState, useRef, useEffect } from 'react'
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { ChevronRight, ChevronDown, Plus, Trash2 } from 'lucide-react'
-import { useTerminalStore, type AgentGroup } from '@renderer/stores/terminal'
+import { useTerminalStore, type AgentGroup, type TerminalTab } from '@renderer/stores/terminal'
 import { useAppStore } from '@renderer/stores/app'
 import DraggableAgentItem from './DraggableAgentItem'
-
-interface TerminalTab {
-  id: string
-  name: string
-  exited: boolean
-  exitCode?: number
-}
 
 interface AgentGroupSectionProps {
   group: AgentGroup
