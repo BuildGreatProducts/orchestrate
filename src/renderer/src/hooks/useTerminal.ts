@@ -9,6 +9,7 @@ import {
   unregisterTerminalHandlers,
   signalTerminalReady
 } from '@renderer/stores/terminal'
+import { handleTaskTerminalExit } from '@renderer/stores/task-terminal-bridge'
 
 interface UseTerminalOptions {
   id: string
@@ -142,6 +143,8 @@ export function useTerminal({ id, active }: UseTerminalOptions): UseTerminalResu
     registerExitHandler(id, (exitCode) => {
       term.write(`\r\n\x1b[38;5;242m[Process exited with code ${exitCode}]\x1b[0m\r\n`)
       useTerminalStore.getState().markExited(id, exitCode)
+      // Fire-and-forget: auto-complete task workflow if this terminal is linked to a task
+      handleTaskTerminalExit(id, exitCode)
     })
 
     // Signal that this terminal's handlers are ready

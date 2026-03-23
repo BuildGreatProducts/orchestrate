@@ -331,7 +331,7 @@ export function createOrchestrateServer(deps: ToolExecutorDeps) {
             const escaped = markdown.replace(/'/g, "'\\''")
             const cmd = agent === 'claude-code' ? `claude -p '${escaped}'` : `codex -q '${escaped}'`
             const tabName = `${agent === 'claude-code' ? 'Claude' : 'Codex'}: ${taskTitle}`
-            notifyStateChanged('terminal', { name: tabName, command: cmd })
+            notifyStateChanged('terminal', { name: tabName, command: cmd, taskId: args.task_id })
             return ok({ taskId: args.task_id, agent, tabName })
           } catch (err) {
             return fail(err instanceof Error ? err.message : String(err))
