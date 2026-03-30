@@ -24,6 +24,7 @@ export default function AgentGroupSection({
   const renameGroup = useTerminalStore((s) => s.renameGroup)
   const toggleGroupCollapsed = useTerminalStore((s) => s.toggleGroupCollapsed)
   const deleteGroup = useTerminalStore((s) => s.deleteGroup)
+  const removeTabFromGroup = useTerminalStore((s) => s.removeTabFromGroup)
   const createTabInGroup = useTerminalStore((s) => s.createTabInGroup)
   const currentFolder = useAppStore((s) => s.currentFolder)
 
@@ -91,10 +92,19 @@ export default function AgentGroupSection({
           />
         ) : (
           <span
+            role="button"
+            tabIndex={0}
             onDoubleClick={() => {
               setRenameValue(group.name)
               setIsRenaming(true)
             }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === 'F2') {
+                setRenameValue(group.name)
+                setIsRenaming(true)
+              }
+            }}
+            aria-label={`Rename ${group.name}`}
             className="flex-1 truncate text-xs font-medium text-zinc-400"
           >
             {group.name}
@@ -103,12 +113,12 @@ export default function AgentGroupSection({
 
         <span
           className={`rounded-full px-1.5 py-0.5 text-[10px] ${
-            group.tabIds.length > 0
+            groupTabs.length > 0
               ? 'bg-zinc-700 text-zinc-300'
               : 'bg-zinc-800 text-zinc-600'
           }`}
         >
-          {group.tabIds.length}
+          {groupTabs.length}
         </span>
 
         <button
@@ -120,7 +130,13 @@ export default function AgentGroupSection({
         </button>
 
         <button
-          onClick={() => deleteGroup(group.id)}
+          onClick={() => {
+            // Rehome tabs to ungrouped before deleting
+            for (const tabId of group.tabIds) {
+              removeTabFromGroup(tabId)
+            }
+            deleteGroup(group.id)
+          }}
           aria-label="Delete group"
           className="flex-shrink-0 rounded p-0.5 text-zinc-600 opacity-0 transition-opacity hover:bg-zinc-700 hover:text-red-400 group-hover/header:opacity-100 focus-visible:opacity-100"
         >
@@ -136,7 +152,7 @@ export default function AgentGroupSection({
             isOver ? 'bg-zinc-800/40' : ''
           } ${groupTabs.length === 0 ? 'min-h-[32px] border border-dashed border-zinc-800' : ''}`}
         >
-          <SortableContext items={group.tabIds} strategy={verticalListSortingStrategy}>
+          <SortableContext items={groupTabs.map((t) => t.id)} strategy={verticalListSortingStrategy}>
             {groupTabs.map((tab) => (
               <DraggableAgentItem
                 key={tab.id}

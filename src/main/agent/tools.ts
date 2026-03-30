@@ -437,6 +437,9 @@ export function createOrchestrateServer(deps: ToolExecutorDeps) {
             const mgr = requireLoopManager()
             const loop = await mgr.loadLoop(args.loop_id)
             if (!loop) return fail(`Loop ${args.loop_id} not found`)
+            if (!loop.steps || loop.steps.length === 0) {
+              return fail(`Loop ${args.loop_id} has no steps`)
+            }
             // Send trigger to renderer to execute
             notifyStateChanged('loop-trigger', { loopId: args.loop_id })
             return ok({ loopId: args.loop_id, name: loop.name })

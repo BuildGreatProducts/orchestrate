@@ -41,16 +41,18 @@ export default function LoopsTab(): React.JSX.Element {
     try {
       if (data.id) {
         const existing = loops.find((l) => l.id === data.id)
-        if (existing) {
-          await updateLoop({
-            ...existing,
-            name: data.name,
-            steps: data.steps,
-            schedule: data.schedule,
-            agentType: data.agentType,
-            lastRun: data.lastRun
-          })
+        if (!existing) {
+          console.error('[Loops] Loop not found for update:', data.id)
+          return
         }
+        await updateLoop({
+          ...existing,
+          name: data.name,
+          steps: data.steps,
+          schedule: data.schedule,
+          agentType: data.agentType,
+          lastRun: data.lastRun
+        })
       } else {
         await createLoop(data)
       }
@@ -59,6 +61,14 @@ export default function LoopsTab(): React.JSX.Element {
       console.error('[Loops] Failed to save loop:', err)
     }
   }
+
+  const modal = editingLoop !== null && (
+    <LoopEditorModal
+      initial={editingLoop}
+      onSave={handleSave}
+      onCancel={() => setEditingLoop(null)}
+    />
+  )
 
   if (!currentFolder) {
     return (
@@ -81,13 +91,7 @@ export default function LoopsTab(): React.JSX.Element {
         <Button variant="solid" onClick={() => setEditingLoop({})} className="mt-2">
           New loop
         </Button>
-        {editingLoop !== null && (
-          <LoopEditorModal
-            initial={editingLoop}
-            onSave={handleSave}
-            onCancel={() => setEditingLoop(null)}
-          />
-        )}
+        {modal}
       </div>
     )
   }
@@ -115,13 +119,7 @@ export default function LoopsTab(): React.JSX.Element {
         </div>
       </div>
 
-      {editingLoop !== null && (
-        <LoopEditorModal
-          initial={editingLoop}
-          onSave={handleSave}
-          onCancel={() => setEditingLoop(null)}
-        />
-      )}
+      {modal}
     </div>
   )
 }
