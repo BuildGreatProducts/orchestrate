@@ -154,9 +154,9 @@ export function createOrchestrateServer(deps: ToolExecutorDeps) {
         {
           title: z.string().describe('Task title'),
           column: z
-            .enum(['draft', 'planning', 'in-progress', 'review', 'done'])
+            .enum(['planning', 'in-progress', 'review', 'done'])
             .optional()
-            .describe('Column to place the task in (default: draft)')
+            .describe('Column to place the task in (default: planning)')
         },
         async (args) => {
           notify('create_task', args as Record<string, unknown>)

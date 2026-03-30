@@ -11,6 +11,9 @@ import {
   RotateCcw,
   Undo2,
   GitBranch,
+  LayoutList,
+  ArrowRight,
+  SendHorizontal,
   type LucideIcon
 } from 'lucide-react'
 import type { StreamItem } from '../../stores/agent'
@@ -25,6 +28,13 @@ interface ChatMessageProps {
 // --- Past-tense labels for tool actions ---
 
 const TOOL_PAST_LABELS: Record<string, string> = {
+  create_task: 'Created task',
+  edit_task: 'Edited task',
+  delete_task: 'Deleted task',
+  move_task: 'Moved task',
+  list_tasks: 'Listed tasks',
+  read_task: 'Read task',
+  send_to_agent: 'Sent to agent',
   list_loops: 'Listed loops',
   create_loop: 'Created loop',
   trigger_loop: 'Triggered loop',
@@ -59,6 +69,13 @@ const TOOL_ICONS: Record<string, LucideIcon> = {
   list_files: Search,
   Bash: SquareTerminal,
   spawn_terminal: SquareTerminal,
+  create_task: LayoutList,
+  edit_task: Pencil,
+  delete_task: Trash2,
+  move_task: ArrowRight,
+  list_tasks: List,
+  read_task: FileText,
+  send_to_agent: SendHorizontal,
   list_loops: List,
   create_loop: Repeat,
   trigger_loop: Play,

@@ -12,13 +12,15 @@ interface LoopsState {
 
   loadLoops: () => Promise<void>
   resetLoops: () => void
-  createLoop: (loop: Omit<Loop, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>
+  createLoop: (loop: Omit<Loop, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Loop>
   updateLoop: (loop: Loop) => Promise<void>
   deleteLoop: (id: string) => Promise<void>
   selectLoop: (id: string | null) => void
   setEditingLoop: (loop: Partial<Loop> | null) => void
   updateLoopRun: (loopId: string, run: LoopRun) => void
 }
+
+let loadRequestId = 0
 
 export const useLoopsStore = create<LoopsState>((set, get) => ({
   loops: [],
@@ -28,18 +30,23 @@ export const useLoopsStore = create<LoopsState>((set, get) => ({
   editingLoop: null,
 
   loadLoops: async () => {
+    const reqId = ++loadRequestId
     set({ isLoading: true })
     try {
       const loops = await window.orchestrate.listLoops()
+      // Ignore stale responses (e.g. if resetLoops was called during await)
+      if (reqId !== loadRequestId) return
       set({ loops, isLoading: false, hasLoaded: true })
     } catch (err) {
+      if (reqId !== loadRequestId) return
       console.error('[Loops] Failed to load loops:', err)
       set({ loops: [], isLoading: false, hasLoaded: true })
     }
   },
 
   resetLoops: () => {
-    set({ loops: [], selectedLoopId: null, hasLoaded: false, editingLoop: null })
+    ++loadRequestId // Invalidate any in-flight loadLoops
+    set({ loops: [], selectedLoopId: null, hasLoaded: false, isLoading: false, editingLoop: null })
   },
 
   createLoop: async (loopData) => {
@@ -59,6 +66,7 @@ export const useLoopsStore = create<LoopsState>((set, get) => ({
       throw err
     }
     set((state) => ({ loops: [loop, ...state.loops] }))
+    return loop
   },
 
   updateLoop: async (loop) => {

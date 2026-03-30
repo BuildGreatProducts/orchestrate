@@ -159,7 +159,7 @@ function ensureGlobalListeners(): void {
       case 'task-agent': {
         if (folder && data && typeof data === 'object') {
           const { taskId, agent } = data as { taskId: string; agent: string }
-          if (taskId) {
+          if (taskId && /^[A-Za-z0-9_-]{1,64}$/.test(taskId)) {
             const board = useTasksStore.getState().board
             if (board?.tasks[taskId]) {
               const taskTitle = board.tasks[taskId].title

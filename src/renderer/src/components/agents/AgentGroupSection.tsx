@@ -69,6 +69,7 @@ export default function AgentGroupSection({
       <div className="group/header flex items-center gap-1 rounded-md px-1.5 py-1.5 hover:bg-zinc-800/50">
         <button
           onClick={() => toggleGroupCollapsed(group.id)}
+          aria-label={group.collapsed ? 'Expand group' : 'Collapse group'}
           className="flex-shrink-0 text-zinc-500 hover:text-zinc-300"
         >
           {group.collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
@@ -112,14 +113,16 @@ export default function AgentGroupSection({
 
         <button
           onClick={handleAddAgent}
-          className="flex-shrink-0 rounded p-0.5 text-zinc-600 opacity-0 transition-opacity hover:bg-zinc-700 hover:text-zinc-300 group-hover/header:opacity-100"
+          aria-label="Add agent to group"
+          className="flex-shrink-0 rounded p-0.5 text-zinc-600 opacity-0 transition-opacity hover:bg-zinc-700 hover:text-zinc-300 group-hover/header:opacity-100 focus-visible:opacity-100"
         >
           <Plus size={13} />
         </button>
 
         <button
           onClick={() => deleteGroup(group.id)}
-          className="flex-shrink-0 rounded p-0.5 text-zinc-600 opacity-0 transition-opacity hover:bg-zinc-700 hover:text-red-400 group-hover/header:opacity-100"
+          aria-label="Delete group"
+          className="flex-shrink-0 rounded p-0.5 text-zinc-600 opacity-0 transition-opacity hover:bg-zinc-700 hover:text-red-400 group-hover/header:opacity-100 focus-visible:opacity-100"
         >
           <Trash2 size={13} />
         </button>

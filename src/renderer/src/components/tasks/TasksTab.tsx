@@ -72,18 +72,14 @@ export default function TasksTab(): React.JSX.Element {
           }
         }
       } else {
-        await createLoop(data)
-        // After creating the loop, add it to the board as a loop-type task
-        const newLoop = useLoopsStore.getState().loops[0] // just-created loop is prepended
-        if (newLoop) {
-          await useTasksStore.getState().createLoopTask('planning', newLoop)
-        }
+        const newLoop = await createLoop(data)
+        await useTasksStore.getState().createLoopTask('planning', newLoop)
       }
-    } catch (err) {
-      console.error('[Tasks] Failed to save loop:', err)
-    } finally {
+      // Only clear editor state on success
       setEditingLoop(null)
       selectTask(null)
+    } catch (err) {
+      console.error('[Tasks] Failed to save loop:', err)
     }
   }
 

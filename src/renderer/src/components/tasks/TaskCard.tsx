@@ -34,6 +34,7 @@ export default function TaskCard({ id, task, isDragOverlay }: TaskCardProps): Re
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [isRenaming, setIsRenaming] = useState(false)
   const [renameValue, setRenameValue] = useState(task.title)
+  const renameCancelledRef = useRef(false)
   const [preview, setPreview] = useState('')
   const menuRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -109,6 +110,10 @@ export default function TaskCard({ id, task, isDragOverlay }: TaskCardProps): Re
   }, [task.title])
 
   const commitRename = useCallback(() => {
+    if (renameCancelledRef.current) {
+      renameCancelledRef.current = false
+      return
+    }
     const trimmed = renameValue.trim()
     if (trimmed && trimmed !== task.title) {
       updateTaskTitle(id, trimmed)
@@ -173,7 +178,11 @@ export default function TaskCard({ id, task, isDragOverlay }: TaskCardProps): Re
             onBlur={commitRename}
             onKeyDown={(e) => {
               if (e.key === 'Enter') commitRename()
-              if (e.key === 'Escape') setIsRenaming(false)
+              if (e.key === 'Escape') {
+                renameCancelledRef.current = true
+                setRenameValue(task.title)
+                setIsRenaming(false)
+              }
             }}
             onClick={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}

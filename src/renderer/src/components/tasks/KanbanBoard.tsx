@@ -122,6 +122,13 @@ export default function KanbanBoard(): React.JSX.Element {
     [board, setBoardDirect]
   )
 
+  const createTask = useTasksStore((s) => s.createTask)
+  const setEditingLoop = useLoopsStore((s) => s.setEditingLoop)
+
+  const handleNewLoop = useCallback(() => {
+    setEditingLoop({})
+  }, [setEditingLoop])
+
   const handleDragCancel = useCallback(() => {
     setActiveId(null)
     loadBoard()
@@ -131,13 +138,6 @@ export default function KanbanBoard(): React.JSX.Element {
 
   const totalTasks = Object.keys(board.tasks).length
   const activeTask = activeId ? board.tasks[activeId] : null
-
-  const createTask = useTasksStore((s) => s.createTask)
-  const setEditingLoop = useLoopsStore((s) => s.setEditingLoop)
-
-  const handleNewLoop = useCallback(() => {
-    setEditingLoop({})
-  }, [setEditingLoop])
 
   if (totalTasks === 0) {
     return (

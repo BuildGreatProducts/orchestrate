@@ -113,6 +113,7 @@ export default function LoopCard({ loop, onRun, onEdit, onDelete }: LoopCardProp
         ) : (
           <button
             onClick={() => setConfirmDelete(true)}
+            aria-label={`Delete ${loop.name}`}
             className="ml-auto flex items-center gap-1 rounded px-2 py-1 text-xs text-zinc-500 hover:bg-zinc-800 hover:text-red-400"
           >
             <Trash2 size={12} />

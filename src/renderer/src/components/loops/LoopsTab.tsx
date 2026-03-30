@@ -54,10 +54,9 @@ export default function LoopsTab(): React.JSX.Element {
       } else {
         await createLoop(data)
       }
+      setEditingLoop(null)
     } catch (err) {
       console.error('[Loops] Failed to save loop:', err)
-    } finally {
-      setEditingLoop(null)
     }
   }
 

@@ -94,7 +94,12 @@ function App(): React.JSX.Element {
       if (e.key === 'n') {
         e.preventDefault()
         useAppStore.getState().setActiveTab('tasks')
-        useTasksStore.getState().createTask('planning', 'New task')
+        useTasksStore
+          .getState()
+          .createTask('planning', 'New task')
+          .catch((err) => {
+            console.error('[Shortcut] Failed to create task:', err)
+          })
         return
       }
     }

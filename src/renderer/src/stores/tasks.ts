@@ -185,12 +185,12 @@ export const useTasksStore = create<TasksState>((set, get) => ({
     if (!taskMeta || taskMeta.type === 'task') {
       await window.orchestrate.deleteTask(id)
     }
-    // For loop tasks, optionally delete the loop too
+    // For loop tasks, also delete the loop
     if (taskMeta?.type === 'loop' && taskMeta.loopId) {
       try {
         await useLoopsStore.getState().deleteLoop(taskMeta.loopId)
-      } catch {
-        // Loop may already be deleted
+      } catch (err) {
+        console.error('[Tasks] Failed to delete associated loop:', err)
       }
     }
   },

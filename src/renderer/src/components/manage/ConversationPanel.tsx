@@ -74,7 +74,7 @@ export default function ConversationPanel(): React.JSX.Element {
         panelOpen ? 'w-64' : 'w-0 border-r-0'
       }`}
     >
-      <div className="flex h-full w-64 flex-col">
+      <div className="flex h-full w-64 flex-col" aria-hidden={!panelOpen} inert={!panelOpen ? ('' as unknown as boolean) : undefined}>
         {/* Header */}
         <div className="flex items-center justify-between px-3 py-2.5">
           <span className="text-xs font-medium uppercase tracking-wider text-zinc-400">

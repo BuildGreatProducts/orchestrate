@@ -66,6 +66,7 @@ function SortableStep({
         <button
           {...attributes}
           {...listeners}
+          aria-label="Reorder step"
           className="shrink-0 cursor-grab text-zinc-600 hover:text-zinc-400 active:cursor-grabbing"
         >
           <GripVertical size={14} />
@@ -74,6 +75,7 @@ function SortableStep({
         {canDelete && (
           <button
             onClick={() => onDelete(step.id)}
+            aria-label="Delete step"
             className="ml-auto shrink-0 text-zinc-600 hover:text-red-400"
           >
             <X size={14} />
@@ -150,7 +152,8 @@ export default function LoopEditorModal({
       setScheduleEnabled(false)
       setCron('')
     } else if (value === '__custom__') {
-      setScheduleEnabled(true)
+      // Don't enable schedule until cron is actually filled in
+      setScheduleEnabled(false)
     } else {
       setScheduleEnabled(true)
       setCron(value)
@@ -168,7 +171,7 @@ export default function LoopEditorModal({
         ...(isEdit ? { id: initial!.id } : {}),
         name: trimmedName,
         steps: validSteps,
-        schedule: { enabled: scheduleEnabled, cron },
+        schedule: { enabled: scheduleEnabled && cron.trim().length > 0, cron: cron.trim() },
         agentType,
         lastRun: initial?.lastRun
       })
@@ -186,7 +189,7 @@ export default function LoopEditorModal({
           <h2 className="text-base font-semibold text-zinc-100">
             {isEdit ? 'Edit Loop' : 'New Loop'}
           </h2>
-          <button onClick={onCancel} className="text-zinc-500 hover:text-zinc-300">
+          <button onClick={onCancel} aria-label="Close" className="text-zinc-500 hover:text-zinc-300">
             <X size={18} />
           </button>
         </div>
@@ -278,7 +281,10 @@ export default function LoopEditorModal({
               <input
                 type="text"
                 value={cron}
-                onChange={(e) => setCron(e.target.value)}
+                onChange={(e) => {
+                  setCron(e.target.value)
+                  setScheduleEnabled(e.target.value.trim().length > 0)
+                }}
                 placeholder="e.g. 0 9 * * 1-5"
                 className="mt-2 w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-zinc-500 focus:outline-none"
               />
