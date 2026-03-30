@@ -123,8 +123,10 @@ export default function AgentGroupSection({
 
         <button
           onClick={handleAddAgent}
+          disabled={!currentFolder}
           aria-label="Add agent to group"
-          className="flex-shrink-0 rounded p-0.5 text-zinc-600 opacity-0 transition-opacity hover:bg-zinc-700 hover:text-zinc-300 group-hover/header:opacity-100 focus-visible:opacity-100"
+          title={currentFolder ? undefined : 'Select a project folder first'}
+          className="flex-shrink-0 rounded p-0.5 text-zinc-600 opacity-0 transition-opacity hover:bg-zinc-700 hover:text-zinc-300 group-hover/header:opacity-100 focus-visible:opacity-100 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-zinc-600"
         >
           <Plus size={13} />
         </button>

@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useLoopsStore } from '@renderer/stores/loops'
 import { useAppStore } from '@renderer/stores/app'
 import { executeLoop } from '@renderer/stores/loop-execution-engine'
+import { toast } from '@renderer/stores/toast'
 import { Button } from '@renderer/components/ui/button'
 import LoopCard from './LoopCard'
 import LoopEditorModal from './LoopEditorModal'
@@ -42,7 +43,7 @@ export default function LoopsTab(): React.JSX.Element {
       if (data.id) {
         const existing = loops.find((l) => l.id === data.id)
         if (!existing) {
-          console.error('[Loops] Loop not found for update:', data.id)
+          toast.error('Loop not found — it may have been deleted')
           return
         }
         await updateLoop({
@@ -58,7 +59,8 @@ export default function LoopsTab(): React.JSX.Element {
       }
       setEditingLoop(null)
     } catch (err) {
-      console.error('[Loops] Failed to save loop:', err)
+      const msg = err instanceof Error ? err.message : String(err)
+      toast.error(`Failed to save loop: ${msg}`)
     }
   }
 
