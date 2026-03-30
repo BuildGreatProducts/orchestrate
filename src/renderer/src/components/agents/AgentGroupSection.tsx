@@ -4,6 +4,7 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { ChevronRight, ChevronDown, Plus, Trash2 } from 'lucide-react'
 import { useTerminalStore, type AgentGroup, type TerminalTab } from '@renderer/stores/terminal'
 import { useAppStore } from '@renderer/stores/app'
+import { toast } from '@renderer/stores/toast'
 import DraggableAgentItem from './DraggableAgentItem'
 
 interface AgentGroupSectionProps {
@@ -54,7 +55,8 @@ export default function AgentGroupSection({
       try {
         await createTabInGroup(currentFolder, group.id)
       } catch (err) {
-        console.error('Failed to create terminal in group:', err)
+        const msg = err instanceof Error ? err.message : String(err)
+        toast.error(`Failed to create terminal: ${msg}`)
       }
     }
   }
@@ -84,7 +86,10 @@ export default function AgentGroupSection({
             onBlur={commitRename}
             onKeyDown={(e) => {
               if (e.key === 'Enter') commitRename()
-              if (e.key === 'Escape') setIsRenaming(false)
+              if (e.key === 'Escape') {
+                setRenameValue(group.name)
+                setIsRenaming(false)
+              }
             }}
             onClick={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}
@@ -105,7 +110,7 @@ export default function AgentGroupSection({
               }
             }}
             aria-label={`Rename ${group.name}`}
-            className="flex-1 truncate text-xs font-medium text-zinc-400"
+            className="flex-1 truncate rounded text-xs font-medium text-zinc-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-zinc-500"
           >
             {group.name}
           </span>

@@ -29,12 +29,13 @@ export default function LoopsTab(): React.JSX.Element {
   }, [])
 
   useEffect(() => {
+    setEditingLoop(null)
     if (currentFolder) {
       loadLoops()
     } else {
       resetLoops()
     }
-  }, [currentFolder, loadLoops, resetLoops])
+  }, [currentFolder, loadLoops, resetLoops, setEditingLoop])
 
   const handleSave = async (
     data: Omit<Loop, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }
@@ -52,7 +53,7 @@ export default function LoopsTab(): React.JSX.Element {
           steps: data.steps,
           schedule: data.schedule,
           agentType: data.agentType,
-          lastRun: data.lastRun
+          lastRun: data.lastRun ?? existing.lastRun
         })
       } else {
         await createLoop(data)
