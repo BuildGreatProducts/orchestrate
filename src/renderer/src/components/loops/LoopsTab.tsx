@@ -1,7 +1,6 @@
 import { useEffect } from 'react'
 import { useLoopsStore } from '@renderer/stores/loops'
 import { useAppStore } from '@renderer/stores/app'
-import { executeLoop } from '@renderer/stores/loop-execution-engine'
 import { toast } from '@renderer/stores/toast'
 import { Button } from '@renderer/components/ui/button'
 import LoopCard from './LoopCard'
@@ -19,14 +18,6 @@ export default function LoopsTab(): React.JSX.Element {
   const updateLoop = useLoopsStore((s) => s.updateLoop)
   const deleteLoop = useLoopsStore((s) => s.deleteLoop)
   const resetLoops = useLoopsStore((s) => s.resetLoops)
-
-  // Listen for schedule triggers
-  useEffect(() => {
-    const cleanup = window.orchestrate.onLoopTrigger((loopId) => {
-      executeLoop(loopId)
-    })
-    return cleanup
-  }, [])
 
   useEffect(() => {
     setEditingLoop(null)

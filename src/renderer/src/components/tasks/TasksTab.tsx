@@ -2,7 +2,6 @@ import { useEffect } from 'react'
 import { useAppStore } from '@renderer/stores/app'
 import { useTasksStore } from '@renderer/stores/tasks'
 import { useLoopsStore } from '@renderer/stores/loops'
-import { executeLoop } from '@renderer/stores/loop-execution-engine'
 import Spinner from '@renderer/components/ui/Spinner'
 import KanbanBoard from './KanbanBoard'
 import TaskDetailPanel from './TaskDetailPanel'
@@ -25,14 +24,6 @@ export default function TasksTab(): React.JSX.Element {
   const createLoop = useLoopsStore((s) => s.createLoop)
   const updateLoop = useLoopsStore((s) => s.updateLoop)
   const loops = useLoopsStore((s) => s.loops)
-
-  // Listen for schedule triggers
-  useEffect(() => {
-    const cleanup = window.orchestrate.onLoopTrigger((loopId) => {
-      executeLoop(loopId)
-    })
-    return cleanup
-  }, [])
 
   useEffect(() => {
     if (currentFolder) {

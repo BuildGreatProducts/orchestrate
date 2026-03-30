@@ -62,8 +62,9 @@ export default function AgentGroupSection({
   }
 
   // Filter tabs to only those in this group, preserving group order
+  const tabById = new Map(tabs.map((t) => [t.id, t]))
   const groupTabs = group.tabIds
-    .map((id) => tabs.find((t) => t.id === id))
+    .map((id) => tabById.get(id))
     .filter((t): t is TerminalTab => t !== undefined)
 
   return (

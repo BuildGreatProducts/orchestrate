@@ -219,10 +219,16 @@ function ensureGlobalListeners(): void {
     }
   })
 
+  // Listen for cron-scheduled loop triggers (separate IPC channel from agent tools)
+  const cleanupLoopTrigger = window.orchestrate.onLoopTrigger((loopId) => {
+    executeLoop(loopId)
+  })
+
   // Store cleanup so the next HMR reload can remove these listeners
   ;(window as unknown as Record<string, unknown>)[CLEANUP_KEY] = (): void => {
     cleanupResponse()
     cleanupStateChanged()
+    cleanupLoopTrigger()
   }
 }
 
