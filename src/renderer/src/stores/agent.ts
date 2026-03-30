@@ -1,9 +1,11 @@
 import { create } from 'zustand'
+import { useLoopsStore } from './loops'
 import { useTasksStore } from './tasks'
 import { useHistoryStore } from './history'
 import { useFilesStore } from './files'
 import { useTerminalStore } from './terminal'
 import { useAppStore } from './app'
+import { executeLoop } from './loop-execution-engine'
 import type { ChatMessageData, StreamItemData } from '@shared/types'
 
 export type StreamItem =
@@ -154,6 +156,42 @@ function ensureGlobalListeners(): void {
       case 'tasks':
         useTasksStore.getState().loadBoard()
         break
+      case 'task-agent': {
+        if (folder && data && typeof data === 'object') {
+          const { taskId, agent } = data as { taskId: string; agent: string }
+          if (taskId) {
+            const board = useTasksStore.getState().board
+            if (board?.tasks[taskId]) {
+              const taskTitle = board.tasks[taskId].title
+              const cmd =
+                agent === 'codex'
+                  ? `codex -q "$(cat tasks/task-${taskId}.md)"`
+                  : `claude -p "$(cat tasks/task-${taskId}.md)"`
+              const tabName = `${agent === 'codex' ? 'Codex' : 'Claude'}: ${taskTitle}`
+              useTerminalStore
+                .getState()
+                .createTab(folder, tabName, cmd)
+                .then(() => {
+                  useAppStore.getState().setActiveTab('agents')
+                })
+                .catch((err) => {
+                  console.error('[Agent] Failed to create terminal for task:', err)
+                })
+            }
+          }
+        }
+        break
+      }
+      case 'loops':
+        useLoopsStore.getState().loadLoops()
+        break
+      case 'loop-trigger': {
+        if (data && typeof data === 'object') {
+          const { loopId } = data as { loopId: string }
+          if (loopId) executeLoop(loopId)
+        }
+        break
+      }
       case 'history':
         useHistoryStore.getState().refreshAll()
         break
@@ -162,7 +200,10 @@ function ensureGlobalListeners(): void {
         break
       case 'terminal': {
         if (folder && data && typeof data === 'object') {
-          const { name, command } = data as { name?: string; command?: string }
+          const { name, command } = data as {
+            name?: string
+            command?: string
+          }
           useTerminalStore
             .getState()
             .createTab(folder, name, command)
@@ -222,6 +263,8 @@ export const useAgentStore = create<AgentState>((set, get) => {
         isStreaming: true,
         streamingItems: []
       })
+      // Save immediately so the conversation appears in history as soon as the user sends
+      _autoSaveFn?.()
       try {
         await window.orchestrate.sendAgentMessage(text)
       } catch (err) {

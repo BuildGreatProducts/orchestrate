@@ -5,11 +5,10 @@ import type { BoardState, ColumnId } from '@shared/types'
 
 const SAFE_ID_RE = /^[A-Za-z0-9_-]{1,64}$/
 
-const EXPECTED_COLUMNS: ColumnId[] = ['draft', 'planning', 'in-progress', 'review', 'done']
+const EXPECTED_COLUMNS: ColumnId[] = ['planning', 'in-progress', 'review', 'done']
 
 const EMPTY_BOARD: BoardState = {
   columns: {
-    draft: [],
     planning: [],
     'in-progress': [],
     review: [],
@@ -36,6 +35,10 @@ function isValidBoard(obj: unknown): obj is BoardState {
     if (!val || typeof val !== 'object') return false
     const meta = val as Record<string, unknown>
     if (typeof meta.title !== 'string' || typeof meta.createdAt !== 'string') return false
+    // Default missing type to 'task' for backward compatibility
+    if (meta.type === undefined) {
+      meta.type = 'task'
+    }
   }
   return true
 }

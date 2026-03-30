@@ -1,8 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { Play, Square, Repeat } from 'lucide-react'
 import type { TaskMeta } from '@shared/types'
 import { useTasksStore } from '@renderer/stores/tasks'
+import { useLoopsStore } from '@renderer/stores/loops'
+import { executeLoop, isLoopRunning, abortLoop } from '@renderer/stores/loop-execution-engine'
 import ConfirmDialog from '@renderer/components/history/ConfirmDialog'
 
 interface TaskCardProps {
@@ -18,9 +21,14 @@ export default function TaskCard({ id, task, isDragOverlay }: TaskCardProps): Re
   const deleteTask = useTasksStore((s) => s.deleteTask)
   const renamingTaskId = useTasksStore((s) => s.renamingTaskId)
   const setRenamingTaskId = useTasksStore((s) => s.setRenamingTaskId)
-
   const readMarkdown = useTasksStore((s) => s.readMarkdown)
   const markdownRevision = useTasksStore((s) => s.markdownRevision)
+
+  // Loop-specific state
+  const loops = useLoopsStore((s) => s.loops)
+  const loop = task.type === 'loop' && task.loopId
+    ? loops.find((l) => l.id === task.loopId) ?? null
+    : null
 
   const [menuOpen, setMenuOpen] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
@@ -41,14 +49,16 @@ export default function TaskCard({ id, task, isDragOverlay }: TaskCardProps): Re
   }
 
   const isSelected = selectedTaskId === id
+  const isLoop = task.type === 'loop'
 
   const createdDate = new Date(task.createdAt).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric'
   })
 
-  // Load preview text from markdown (re-reads when markdown is saved)
+  // Load preview text from markdown (only for regular tasks)
   useEffect(() => {
+    if (isLoop) return
     let cancelled = false
     readMarkdown(id).then((content) => {
       if (cancelled) return
@@ -61,7 +71,7 @@ export default function TaskCard({ id, task, isDragOverlay }: TaskCardProps): Re
     return () => {
       cancelled = true
     }
-  }, [id, readMarkdown, markdownRevision])
+  }, [id, readMarkdown, markdownRevision, isLoop])
 
   // Close menu on outside click
   useEffect(() => {
@@ -111,6 +121,29 @@ export default function TaskCard({ id, task, isDragOverlay }: TaskCardProps): Re
     setConfirmingDelete(true)
   }, [])
 
+  const handleRunLoop = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (task.loopId) executeLoop(task.loopId)
+  }, [task.loopId])
+
+  const handleStopLoop = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (task.loopId) abortLoop(task.loopId)
+  }, [task.loopId])
+
+  const running = loop && (isLoopRunning(loop.id) || loop.lastRun?.status === 'running')
+
+  // Status dot color for loop cards
+  const statusColor = loop
+    ? loop.lastRun?.status === 'running'
+      ? 'bg-yellow-400 animate-pulse'
+      : loop.lastRun?.status === 'completed'
+        ? 'bg-green-400'
+        : loop.lastRun?.status === 'failed'
+          ? 'bg-red-400'
+          : 'bg-zinc-500'
+    : ''
+
   return (
     <div
       ref={!isDragOverlay ? setNodeRef : undefined}
@@ -124,24 +157,67 @@ export default function TaskCard({ id, task, isDragOverlay }: TaskCardProps): Re
           : 'border-zinc-700 bg-zinc-800/80 hover:border-zinc-600'
       }`}
     >
-      {isRenaming ? (
-        <input
-          ref={inputRef}
-          value={renameValue}
-          onChange={(e) => setRenameValue(e.target.value)}
-          onBlur={commitRename}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') commitRename()
-            if (e.key === 'Escape') setIsRenaming(false)
-          }}
-          onClick={(e) => e.stopPropagation()}
-          onPointerDown={(e) => e.stopPropagation()}
-          className="w-full rounded border border-zinc-600 bg-zinc-900 px-1.5 py-0.5 text-sm text-zinc-200 outline-none focus:border-zinc-400"
-        />
-      ) : (
-        <p className="line-clamp-2 pr-6 text-sm text-zinc-200">{task.title}</p>
+      {/* Title row */}
+      <div className="flex items-center gap-2">
+        {isLoop && (
+          <div className="flex items-center gap-1.5">
+            <Repeat size={12} className="shrink-0 text-blue-400" />
+            <div className={`h-2 w-2 shrink-0 rounded-full ${statusColor}`} />
+          </div>
+        )}
+        {isRenaming ? (
+          <input
+            ref={inputRef}
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onBlur={commitRename}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commitRename()
+              if (e.key === 'Escape') setIsRenaming(false)
+            }}
+            onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="w-full rounded border border-zinc-600 bg-zinc-900 px-1.5 py-0.5 text-sm text-zinc-200 outline-none focus:border-zinc-400"
+          />
+        ) : (
+          <p className="line-clamp-2 pr-6 text-sm text-zinc-200">{task.title}</p>
+        )}
+      </div>
+
+      {/* Loop-specific info */}
+      {isLoop && loop && (
+        <div className="mt-1.5 flex items-center gap-2">
+          <span className="rounded bg-zinc-700/60 px-1.5 py-0.5 text-[11px] text-zinc-400">
+            {loop.steps.length} step{loop.steps.length !== 1 ? 's' : ''}
+          </span>
+          <span className="rounded bg-zinc-700/60 px-1.5 py-0.5 text-[11px] text-zinc-400">
+            {loop.agentType === 'claude-code' ? 'Claude' : 'Codex'}
+          </span>
+          {/* Inline Run/Stop button */}
+          {running ? (
+            <button
+              onClick={handleStopLoop}
+              onPointerDown={(e) => e.stopPropagation()}
+              className="ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-red-400 hover:bg-zinc-700"
+            >
+              <Square size={10} />
+              Stop
+            </button>
+          ) : (
+            <button
+              onClick={handleRunLoop}
+              onPointerDown={(e) => e.stopPropagation()}
+              className="ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-green-400 hover:bg-zinc-700"
+            >
+              <Play size={10} />
+              Run
+            </button>
+          )}
+        </div>
       )}
-      {preview && <p className="mt-1 line-clamp-1 text-xs text-zinc-500">{preview}</p>}
+
+      {/* Regular task preview */}
+      {!isLoop && preview && <p className="mt-1 line-clamp-1 text-xs text-zinc-500">{preview}</p>}
       <p className="mt-1 text-xs text-zinc-600">{createdDate}</p>
 
       {/* 3-dot menu */}
@@ -165,16 +241,18 @@ export default function TaskCard({ id, task, isDragOverlay }: TaskCardProps): Re
 
           {menuOpen && (
             <div className="absolute right-0 top-full z-50 mt-1 w-32 overflow-hidden rounded-md border border-zinc-700 bg-zinc-800 py-1 shadow-xl">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleRename()
-                }}
-                onPointerDown={(e) => e.stopPropagation()}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-zinc-300 hover:bg-zinc-700"
-              >
-                Rename
-              </button>
+              {!isLoop && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleRename()
+                  }}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-zinc-300 hover:bg-zinc-700"
+                >
+                  Rename
+                </button>
+              )}
               <button
                 onClick={(e) => {
                   e.stopPropagation()
@@ -192,7 +270,7 @@ export default function TaskCard({ id, task, isDragOverlay }: TaskCardProps): Re
 
       {confirmingDelete && (
         <ConfirmDialog
-          title="Delete task"
+          title={isLoop ? 'Delete loop' : 'Delete task'}
           description={`Are you sure you want to delete "${task.title}"? This action cannot be undone.`}
           confirmLabel="Delete"
           variant="danger"

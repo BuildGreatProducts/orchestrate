@@ -1,8 +1,9 @@
 import { create } from 'zustand'
-import type { BoardState, ColumnId, AgentType } from '@shared/types'
+import type { BoardState, ColumnId, AgentType, Loop } from '@shared/types'
 import { useTerminalStore } from './terminal'
 import { useAppStore } from './app'
 import { useHistoryStore } from './history'
+import { useLoopsStore } from './loops'
 import { toast } from './toast'
 
 const SAFE_ID_RE = /^[A-Za-z0-9_-]{1,64}$/
@@ -18,7 +19,6 @@ function generateId(): string {
 
 const EMPTY_BOARD: BoardState = {
   columns: {
-    draft: [],
     planning: [],
     'in-progress': [],
     review: [],
@@ -39,6 +39,7 @@ interface TasksState {
   loadBoard: () => Promise<void>
   resetBoard: () => void
   createTask: (columnId: ColumnId, title: string) => Promise<void>
+  createLoopTask: (columnId: ColumnId, loop: Loop) => Promise<void>
   setRenamingTaskId: (id: string | null) => void
   updateTaskTitle: (id: string, title: string) => Promise<void>
   deleteTask: (id: string) => Promise<void>
@@ -100,13 +101,45 @@ export const useTasksStore = create<TasksState>((set, get) => ({
       },
       tasks: {
         ...board.tasks,
-        [id]: { title, createdAt: new Date().toISOString() }
+        [id]: { title, type: 'task', createdAt: new Date().toISOString() }
       }
     }
 
     set({ board: newBoard, renamingTaskId: id })
     await window.orchestrate.saveBoard(newBoard)
     await window.orchestrate.writeTaskMarkdown(id, `# ${title}\n\n`)
+  },
+
+  createLoopTask: async (columnId: ColumnId, loop: Loop) => {
+    const { board } = get()
+    if (!board) return
+
+    let id = generateId()
+    let attempts = 0
+    while (board.tasks[id] && attempts < 10) {
+      id = generateId()
+      attempts++
+    }
+    if (board.tasks[id]) return
+
+    const newBoard: BoardState = {
+      columns: {
+        ...board.columns,
+        [columnId]: [...board.columns[columnId], id]
+      },
+      tasks: {
+        ...board.tasks,
+        [id]: {
+          title: loop.name,
+          type: 'loop',
+          createdAt: new Date().toISOString(),
+          loopId: loop.id
+        }
+      }
+    }
+
+    set({ board: newBoard })
+    await window.orchestrate.saveBoard(newBoard)
   },
 
   setRenamingTaskId: (id: string | null) => {
@@ -133,6 +166,7 @@ export const useTasksStore = create<TasksState>((set, get) => ({
     const { board, selectedTaskId } = get()
     if (!board) return
 
+    const taskMeta = board.tasks[id]
     const newColumns = { ...board.columns }
     for (const col of Object.keys(newColumns) as ColumnId[]) {
       newColumns[col] = newColumns[col].filter((taskId) => taskId !== id)
@@ -148,7 +182,17 @@ export const useTasksStore = create<TasksState>((set, get) => ({
     })
 
     await window.orchestrate.saveBoard(newBoard)
-    await window.orchestrate.deleteTask(id)
+    if (!taskMeta || taskMeta.type === 'task') {
+      await window.orchestrate.deleteTask(id)
+    }
+    // For loop tasks, optionally delete the loop too
+    if (taskMeta?.type === 'loop' && taskMeta.loopId) {
+      try {
+        await useLoopsStore.getState().deleteLoop(taskMeta.loopId)
+      } catch {
+        // Loop may already be deleted
+      }
+    }
   },
 
   moveTask: async (taskId: string, toColumn: ColumnId, toIndex: number) => {

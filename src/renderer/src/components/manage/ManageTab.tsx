@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { PanelLeft, PanelLeftClose } from 'lucide-react'
+import { PanelLeft } from 'lucide-react'
 import { useAppStore } from '../../stores/app'
 import { useAgentStore } from '../../stores/agent'
 import { useChatHistoryStore } from '../../stores/chat-history'
@@ -20,7 +20,7 @@ export default function OrchestrateTab(): React.JSX.Element {
   const resetState = useAgentStore((s) => s.resetState)
 
   const panelOpen = useChatHistoryStore((s) => s.panelOpen)
-  const togglePanel = useChatHistoryStore((s) => s.togglePanel)
+  const setPanelOpen = useChatHistoryStore((s) => s.setPanelOpen)
   const loadConversations = useChatHistoryStore((s) => s.loadConversations)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -99,16 +99,16 @@ export default function OrchestrateTab(): React.JSX.Element {
 
   // Chat interface
   return (
-    <div className="flex flex-1 overflow-hidden">
-      {panelOpen && <ConversationPanel />}
+    <div className="flex flex-1 flex-row overflow-hidden">
+      <ConversationPanel />
       <div className="relative flex flex-1 flex-col overflow-hidden">
         {/* Toggle panel button */}
         <button
-          onClick={togglePanel}
+          onClick={() => setPanelOpen(!panelOpen)}
           className="absolute left-2 top-2 z-10 rounded p-1.5 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-300"
           aria-label={panelOpen ? 'Close chat history panel' : 'Open chat history panel'}
         >
-          {panelOpen ? <PanelLeftClose size={16} /> : <PanelLeft size={16} />}
+          <PanelLeft size={16} />
         </button>
 
         <div className="flex-1 overflow-y-auto dark-scrollbar">
@@ -117,7 +117,7 @@ export default function OrchestrateTab(): React.JSX.Element {
               <div className="flex flex-col items-center justify-center gap-4 pt-20 text-center">
                 <h2 className="font-ovo text-6xl tracking-tight text-zinc-200">Orchestrate</h2>
                 <p className="max-w-xs text-sm leading-relaxed text-zinc-500">
-                  Create tasks, manage files, review changes,
+                  Create loops, manage files, review changes,
                   <br />
                   and orchestrate your entire project.
                 </p>

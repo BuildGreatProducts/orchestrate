@@ -16,8 +16,8 @@ import BrowserTab from '@renderer/components/browser/BrowserTab'
 
 const TABS: { id: TabId; Component: React.ComponentType }[] = [
   { id: 'orchestrate', Component: OrchestrateTab },
-  { id: 'agents', Component: AgentsTab },
   { id: 'tasks', Component: TasksTab },
+  { id: 'agents', Component: AgentsTab },
   { id: 'files', Component: FilesTab },
   { id: 'history', Component: HistoryTab },
   { id: 'browser', Component: BrowserTab }
@@ -94,12 +94,7 @@ function App(): React.JSX.Element {
       if (e.key === 'n') {
         e.preventDefault()
         useAppStore.getState().setActiveTab('tasks')
-        useTasksStore
-          .getState()
-          .createTask('draft', 'New task')
-          .catch((err) => {
-            console.error('[Shortcut] Failed to create task:', err)
-          })
+        useTasksStore.getState().createTask('planning', 'New task')
         return
       }
     }

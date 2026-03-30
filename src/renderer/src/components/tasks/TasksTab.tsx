@@ -1,9 +1,13 @@
 import { useEffect } from 'react'
 import { useAppStore } from '@renderer/stores/app'
 import { useTasksStore } from '@renderer/stores/tasks'
+import { useLoopsStore } from '@renderer/stores/loops'
+import { executeLoop } from '@renderer/stores/loop-execution-engine'
 import Spinner from '@renderer/components/ui/Spinner'
 import KanbanBoard from './KanbanBoard'
 import TaskDetailPanel from './TaskDetailPanel'
+import LoopEditorModal from '@renderer/components/loops/LoopEditorModal'
+import type { Loop } from '@shared/types'
 
 export default function TasksTab(): React.JSX.Element {
   const currentFolder = useAppStore((s) => s.currentFolder)
@@ -14,14 +18,74 @@ export default function TasksTab(): React.JSX.Element {
   const loadBoard = useTasksStore((s) => s.loadBoard)
   const resetBoard = useTasksStore((s) => s.resetBoard)
   const selectedTaskId = useTasksStore((s) => s.selectedTaskId)
+  const selectTask = useTasksStore((s) => s.selectTask)
+  const loadLoops = useLoopsStore((s) => s.loadLoops)
+  const editingLoop = useLoopsStore((s) => s.editingLoop)
+  const setEditingLoop = useLoopsStore((s) => s.setEditingLoop)
+  const createLoop = useLoopsStore((s) => s.createLoop)
+  const updateLoop = useLoopsStore((s) => s.updateLoop)
+  const loops = useLoopsStore((s) => s.loops)
+
+  // Listen for schedule triggers
+  useEffect(() => {
+    const cleanup = window.orchestrate.onLoopTrigger((loopId) => {
+      executeLoop(loopId)
+    })
+    return cleanup
+  }, [])
 
   useEffect(() => {
     if (currentFolder) {
       loadBoard()
+      loadLoops()
     } else {
       resetBoard()
     }
-  }, [currentFolder, loadBoard, resetBoard])
+  }, [currentFolder, loadBoard, loadLoops, resetBoard])
+
+  // Determine if selected task is a loop type
+  const selectedTask = selectedTaskId && board ? board.tasks[selectedTaskId] : null
+  const isLoopTask = selectedTask?.type === 'loop'
+  const selectedLoop = isLoopTask && selectedTask?.loopId
+    ? loops.find((l) => l.id === selectedTask.loopId) ?? null
+    : null
+
+  const handleLoopSave = async (
+    data: Omit<Loop, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }
+  ): Promise<void> => {
+    try {
+      if (data.id) {
+        const existing = loops.find((l) => l.id === data.id)
+        if (existing) {
+          await updateLoop({
+            ...existing,
+            name: data.name,
+            steps: data.steps,
+            schedule: data.schedule,
+            agentType: data.agentType,
+            lastRun: data.lastRun
+          })
+          // Update the task title on the board to match
+          if (selectedTaskId && board?.tasks[selectedTaskId]) {
+            const { updateTaskTitle } = useTasksStore.getState()
+            await updateTaskTitle(selectedTaskId, data.name)
+          }
+        }
+      } else {
+        await createLoop(data)
+        // After creating the loop, add it to the board as a loop-type task
+        const newLoop = useLoopsStore.getState().loops[0] // just-created loop is prepended
+        if (newLoop) {
+          await useTasksStore.getState().createLoopTask('planning', newLoop)
+        }
+      }
+    } catch (err) {
+      console.error('[Tasks] Failed to save loop:', err)
+    } finally {
+      setEditingLoop(null)
+      selectTask(null)
+    }
+  }
 
   if (!currentFolder) {
     return (
@@ -40,7 +104,7 @@ export default function TasksTab(): React.JSX.Element {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-2">
         <Spinner className="text-zinc-500" />
-        <p className="text-sm text-zinc-500">Loading board…</p>
+        <p className="text-sm text-zinc-500">Loading board...</p>
       </div>
     )
   }
@@ -69,7 +133,21 @@ export default function TasksTab(): React.JSX.Element {
       <div className="flex-1 overflow-hidden">
         <KanbanBoard />
       </div>
-      {selectedTaskId && <TaskDetailPanel />}
+      {selectedTaskId && !isLoopTask && <TaskDetailPanel />}
+      {selectedTaskId && isLoopTask && selectedLoop && (
+        <LoopEditorModal
+          initial={selectedLoop}
+          onSave={handleLoopSave}
+          onCancel={() => selectTask(null)}
+        />
+      )}
+      {editingLoop !== null && !selectedTaskId && (
+        <LoopEditorModal
+          initial={editingLoop}
+          onSave={handleLoopSave}
+          onCancel={() => setEditingLoop(null)}
+        />
+      )}
     </div>
   )
 }

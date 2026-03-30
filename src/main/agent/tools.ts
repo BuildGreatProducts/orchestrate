@@ -2,14 +2,12 @@ import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk'
 import { z } from 'zod'
 import type { BrowserWindow } from 'electron'
 import type { TaskManager } from '../task-manager'
+import type { LoopManager } from '../loop-manager'
 import type { GitManager } from '../git-manager'
 import type { PtyManager } from '../pty-manager'
 import { readFile, writeFile, unlink, readdir, stat, mkdir, realpath } from 'fs/promises'
 import { dirname, isAbsolute, join, resolve, relative, parse as pathParse } from 'path'
-import type { ColumnId } from '@shared/types'
 import type { SkillManager } from '../skill-manager'
-
-const VALID_COLUMNS: ColumnId[] = ['draft', 'planning', 'in-progress', 'review', 'done']
 
 // ── Path validation ──
 
@@ -30,14 +28,11 @@ const IGNORED_NAMES = new Set([
 async function validatePath(filePath: string, projectFolder: string): Promise<string> {
   const resolved = resolve(projectFolder, filePath)
 
-  // Resolve symlinks to detect escapes via symlinked directories
   let realResolved: string
   let realRoot: string
   try {
     realResolved = await realpath(resolved)
   } catch {
-    // Target doesn't exist yet (e.g. write_file creating a new file) —
-    // fall back to the logical path but still validate the parent
     realResolved = resolved
   }
   try {
@@ -48,14 +43,10 @@ async function validatePath(filePath: string, projectFolder: string): Promise<st
 
   const rel = relative(realRoot, realResolved)
 
-  // Reject paths that escape the project root:
-  // - starts with '..' (traversal)
-  // - is absolute (cross-drive on Windows, e.g. D:\ vs C:\)
   if (rel.startsWith('..') || isAbsolute(rel)) {
     throw new Error('Path outside project folder')
   }
 
-  // Extra guard: different drive roots on Windows
   if (pathParse(realResolved).root !== pathParse(realRoot).root) {
     throw new Error('Path outside project folder')
   }
@@ -63,11 +54,12 @@ async function validatePath(filePath: string, projectFolder: string): Promise<st
   return resolved
 }
 
-// ── Deps interface (unchanged) ──
+// ── Deps interface ──
 
 export interface ToolExecutorDeps {
   getCurrentFolder: () => string | null
   getTaskManager: () => TaskManager | null
+  getLoopManager: () => LoopManager | null
   getGitManager: () => GitManager | null
   getPtyManager: () => PtyManager | null
   getSkillManager: () => SkillManager | null
@@ -95,8 +87,11 @@ export const ORCHESTRATE_TOOL_NAMES = [
   'move_task',
   'list_tasks',
   'read_task',
-  'spawn_terminal',
   'send_to_agent',
+  'list_loops',
+  'create_loop',
+  'trigger_loop',
+  'spawn_terminal',
   'read_file',
   'write_file',
   'list_files',
@@ -113,6 +108,7 @@ export function createOrchestrateServer(deps: ToolExecutorDeps) {
   const {
     getCurrentFolder,
     getTaskManager,
+    getLoopManager,
     getGitManager,
     getSkillManager,
     notifyToolUse,
@@ -131,6 +127,12 @@ export function createOrchestrateServer(deps: ToolExecutorDeps) {
     return mgr
   }
 
+  function requireLoopManager(): LoopManager {
+    const mgr = getLoopManager()
+    if (!mgr) throw new Error('Loop manager not available')
+    return mgr
+  }
+
   function requireGitManager(): GitManager {
     const mgr = getGitManager()
     if (!mgr) throw new Error('Git manager not available — is a project folder selected?')
@@ -141,8 +143,6 @@ export function createOrchestrateServer(deps: ToolExecutorDeps) {
     notifyToolUse(toolName, args)
   }
 
-  const columnEnum = z.enum(['draft', 'planning', 'in-progress', 'review', 'done'])
-
   return createSdkMcpServer({
     name: 'orchestrate',
     version: '1.0.0',
@@ -150,27 +150,31 @@ export function createOrchestrateServer(deps: ToolExecutorDeps) {
       // ── Task tools ──
       tool(
         'create_task',
-        'Create a new task on the kanban board in the specified column.',
+        'Create a new task on the kanban board.',
         {
-          title: z.string().describe('The title of the task'),
-          column: columnEnum
+          title: z.string().describe('Task title'),
+          column: z
+            .enum(['draft', 'planning', 'in-progress', 'review', 'done'])
             .optional()
-            .describe('The column to place the task in (default: draft)'),
-          markdown: z.string().optional().describe('Optional markdown content for the task')
+            .describe('Column to place the task in (default: draft)')
         },
         async (args) => {
           notify('create_task', args as Record<string, unknown>)
           try {
             const mgr = requireTaskManager()
-            const column = (args.column as ColumnId) || 'draft'
             const board = await mgr.loadBoard()
             const id = mgr.generateId()
-            board.columns[column].push(id)
-            board.tasks[id] = { title: args.title, createdAt: new Date().toISOString() }
+            const col = args.column || 'planning'
+            board.columns[col].push(id)
+            board.tasks[id] = {
+              title: args.title,
+              type: 'task',
+              createdAt: new Date().toISOString()
+            }
             await mgr.saveBoard(board)
-            await mgr.writeMarkdown(id, args.markdown || `# ${args.title}\n\n`)
+            await mgr.writeMarkdown(id, `# ${args.title}\n\n`)
             notifyStateChanged('tasks')
-            return ok({ id, title: args.title, column })
+            return ok({ id, title: args.title, column: col })
           } catch (err) {
             return fail(err instanceof Error ? err.message : String(err))
           }
@@ -179,10 +183,11 @@ export function createOrchestrateServer(deps: ToolExecutorDeps) {
 
       tool(
         'edit_task',
-        'Edit an existing task title.',
+        'Edit a task title or markdown content.',
         {
-          task_id: z.string().describe('The ID of the task to edit'),
-          title: z.string().describe('The new title for the task')
+          task_id: z.string().describe('The task ID'),
+          title: z.string().optional().describe('New title'),
+          content: z.string().optional().describe('New markdown content')
         },
         async (args) => {
           notify('edit_task', args as Record<string, unknown>)
@@ -190,10 +195,15 @@ export function createOrchestrateServer(deps: ToolExecutorDeps) {
             const mgr = requireTaskManager()
             const board = await mgr.loadBoard()
             if (!board.tasks[args.task_id]) return fail(`Task ${args.task_id} not found`)
-            board.tasks[args.task_id].title = args.title
-            await mgr.saveBoard(board)
+            if (args.title) {
+              board.tasks[args.task_id].title = args.title
+              await mgr.saveBoard(board)
+            }
+            if (args.content !== undefined) {
+              await mgr.writeMarkdown(args.task_id, args.content)
+            }
             notifyStateChanged('tasks')
-            return ok({ id: args.task_id, title: args.title })
+            return ok({ id: args.task_id })
           } catch (err) {
             return fail(err instanceof Error ? err.message : String(err))
           }
@@ -204,7 +214,7 @@ export function createOrchestrateServer(deps: ToolExecutorDeps) {
         'delete_task',
         'Delete a task from the board.',
         {
-          task_id: z.string().describe('The ID of the task to delete')
+          task_id: z.string().describe('The task ID to delete')
         },
         async (args) => {
           notify('delete_task', args as Record<string, unknown>)
@@ -212,12 +222,16 @@ export function createOrchestrateServer(deps: ToolExecutorDeps) {
             const mgr = requireTaskManager()
             const board = await mgr.loadBoard()
             if (!board.tasks[args.task_id]) return fail(`Task ${args.task_id} not found`)
-            for (const col of VALID_COLUMNS) {
+            // Remove from columns
+            for (const col of Object.keys(board.columns) as Array<keyof typeof board.columns>) {
               board.columns[col] = board.columns[col].filter((id) => id !== args.task_id)
             }
+            const taskMeta = board.tasks[args.task_id]
             delete board.tasks[args.task_id]
             await mgr.saveBoard(board)
-            await mgr.deleteMarkdown(args.task_id)
+            if (taskMeta.type === 'task') {
+              await mgr.deleteMarkdown(args.task_id)
+            }
             notifyStateChanged('tasks')
             return ok({ id: args.task_id })
           } catch (err) {
@@ -228,41 +242,45 @@ export function createOrchestrateServer(deps: ToolExecutorDeps) {
 
       tool(
         'move_task',
-        'Move a task to a different column on the kanban board.',
+        'Move a task to a different column on the board.',
         {
-          task_id: z.string().describe('The ID of the task to move'),
-          column: columnEnum.describe('The target column')
+          task_id: z.string().describe('The task ID'),
+          column: z.enum(['planning', 'in-progress', 'review', 'done']).describe('Target column')
         },
         async (args) => {
           notify('move_task', args as Record<string, unknown>)
           try {
             const mgr = requireTaskManager()
-            const column = args.column as ColumnId
             const board = await mgr.loadBoard()
             if (!board.tasks[args.task_id]) return fail(`Task ${args.task_id} not found`)
-            for (const col of VALID_COLUMNS) {
+            // Remove from current column
+            for (const col of Object.keys(board.columns) as Array<keyof typeof board.columns>) {
               board.columns[col] = board.columns[col].filter((id) => id !== args.task_id)
             }
-            board.columns[column].push(args.task_id)
+            board.columns[args.column].push(args.task_id)
             await mgr.saveBoard(board)
             notifyStateChanged('tasks')
-            return ok({ id: args.task_id, column })
+            return ok({ id: args.task_id, column: args.column })
           } catch (err) {
             return fail(err instanceof Error ? err.message : String(err))
           }
         }
       ),
 
-      tool('list_tasks', 'List all tasks on the kanban board, grouped by column.', {}, async () => {
+      tool('list_tasks', 'List all tasks on the kanban board.', {}, async () => {
         notify('list_tasks', {})
         try {
           const mgr = requireTaskManager()
           const board = await mgr.loadBoard()
-          const result: Record<string, { id: string; title: string }[]> = {}
-          for (const col of VALID_COLUMNS) {
-            result[col] = board.columns[col]
+          const result: Record<string, Array<{ id: string; title: string; type: string }>> = {}
+          for (const [col, ids] of Object.entries(board.columns)) {
+            result[col] = ids
               .filter((id) => board.tasks[id])
-              .map((id) => ({ id, title: board.tasks[id].title }))
+              .map((id) => ({
+                id,
+                title: board.tasks[id].title,
+                type: board.tasks[id].type || 'task'
+              }))
           }
           return ok(result)
         } catch (err) {
@@ -274,7 +292,7 @@ export function createOrchestrateServer(deps: ToolExecutorDeps) {
         'read_task',
         'Read the markdown content of a task.',
         {
-          task_id: z.string().describe('The ID of the task to read')
+          task_id: z.string().describe('The task ID')
         },
         async (args) => {
           notify('read_task', args as Record<string, unknown>)
@@ -282,8 +300,146 @@ export function createOrchestrateServer(deps: ToolExecutorDeps) {
             const mgr = requireTaskManager()
             const board = await mgr.loadBoard()
             if (!board.tasks[args.task_id]) return fail(`Task ${args.task_id} not found`)
-            const markdown = await mgr.readMarkdown(args.task_id)
-            return ok({ id: args.task_id, title: board.tasks[args.task_id].title, markdown })
+            const content = await mgr.readMarkdown(args.task_id)
+            return ok({ id: args.task_id, title: board.tasks[args.task_id].title, content })
+          } catch (err) {
+            return fail(err instanceof Error ? err.message : String(err))
+          }
+        }
+      ),
+
+      tool(
+        'send_to_agent',
+        'Send a task to be executed by an AI agent (Claude Code or Codex).',
+        {
+          task_id: z.string().describe('The task ID'),
+          agent: z.enum(['claude-code', 'codex']).optional().describe('Agent type (default: claude-code)')
+        },
+        async (args) => {
+          notify('send_to_agent', args as Record<string, unknown>)
+          try {
+            const mgr = requireTaskManager()
+            const board = await mgr.loadBoard()
+            if (!board.tasks[args.task_id]) return fail(`Task ${args.task_id} not found`)
+            const agent = args.agent || 'claude-code'
+            // Move to in-progress
+            for (const col of Object.keys(board.columns) as Array<keyof typeof board.columns>) {
+              board.columns[col] = board.columns[col].filter((id) => id !== args.task_id)
+            }
+            board.columns['in-progress'].unshift(args.task_id)
+            await mgr.saveBoard(board)
+            // Notify renderer to create terminal and run
+            notifyStateChanged('task-agent', { taskId: args.task_id, agent })
+            notifyStateChanged('tasks')
+            return ok({ id: args.task_id, agent })
+          } catch (err) {
+            return fail(err instanceof Error ? err.message : String(err))
+          }
+        }
+      ),
+
+      // ── Loop tools ──
+      tool('list_loops', 'List all loops.', {}, async () => {
+        notify('list_loops', {})
+        try {
+          const mgr = requireLoopManager()
+          const loops = await mgr.listLoops()
+          const result = loops.map((l) => ({
+            id: l.id,
+            name: l.name,
+            stepCount: l.steps.length,
+            agentType: l.agentType,
+            scheduleEnabled: l.schedule.enabled,
+            cron: l.schedule.cron,
+            lastRunStatus: l.lastRun?.status
+          }))
+          return ok(result)
+        } catch (err) {
+          return fail(err instanceof Error ? err.message : String(err))
+        }
+      }),
+
+      tool(
+        'create_loop',
+        'Create a new loop with ordered steps.',
+        {
+          name: z.string().describe('The name of the loop'),
+          steps: z
+            .array(z.string())
+            .describe('Ordered list of step prompts'),
+          agent_type: z
+            .enum(['claude-code', 'codex'])
+            .optional()
+            .describe('Which AI agent to use (default: claude-code)'),
+          cron: z
+            .string()
+            .optional()
+            .describe('Cron schedule expression (e.g. "0 9 * * 1-5")')
+        },
+        async (args) => {
+          notify('create_loop', args as Record<string, unknown>)
+          try {
+            const mgr = requireLoopManager()
+            const id = mgr.generateId()
+            const now = new Date().toISOString()
+            const loop = {
+              id,
+              name: args.name,
+              steps: args.steps.map((prompt, i) => ({
+                id: `step-${i + 1}`,
+                prompt
+              })),
+              schedule: {
+                enabled: !!args.cron,
+                cron: args.cron || ''
+              },
+              agentType: (args.agent_type || 'claude-code') as 'claude-code' | 'codex',
+              createdAt: now,
+              updatedAt: now
+            }
+            await mgr.saveLoop(loop)
+            // Also add to task board as a loop-type task
+            try {
+              const taskMgr = getTaskManager()
+              if (taskMgr) {
+                const board = await taskMgr.loadBoard()
+                const taskId = taskMgr.generateId()
+                board.columns.planning.push(taskId)
+                board.tasks[taskId] = {
+                  title: args.name,
+                  type: 'loop',
+                  createdAt: now,
+                  loopId: id
+                }
+                await taskMgr.saveBoard(board)
+                notifyStateChanged('tasks')
+              }
+            } catch (boardErr) {
+              console.warn('[Tools] Failed to add loop to board:', boardErr)
+            }
+            notifyStateChanged('loops')
+            return ok({ id, name: args.name, stepCount: loop.steps.length })
+          } catch (err) {
+            return fail(err instanceof Error ? err.message : String(err))
+          }
+        }
+      ),
+
+      tool(
+        'trigger_loop',
+        'Trigger a loop to start executing its steps sequentially.',
+        {
+          loop_id: z.string().describe('The ID of the loop to trigger')
+        },
+        async (args) => {
+          notify('trigger_loop', args as Record<string, unknown>)
+          try {
+            const mgr = requireLoopManager()
+            const loop = await mgr.loadLoop(args.loop_id)
+            if (!loop) return fail(`Loop ${args.loop_id} not found`)
+            // Send trigger to renderer to execute
+            notifyStateChanged('loop-trigger', { loopId: args.loop_id })
+            return ok({ loopId: args.loop_id, name: loop.name })
           } catch (err) {
             return fail(err instanceof Error ? err.message : String(err))
           }
@@ -303,39 +459,6 @@ export function createOrchestrateServer(deps: ToolExecutorDeps) {
           const terminalName = args.name || 'Terminal'
           notifyStateChanged('terminal', { name: terminalName, command: args.command || null })
           return ok({ name: terminalName, command: args.command || null })
-        }
-      ),
-
-      tool(
-        'send_to_agent',
-        'Send a task to an AI coding agent (Claude Code or Codex) in a new terminal.',
-        {
-          task_id: z.string().describe('The task ID to send'),
-          agent: z
-            .enum(['claude-code', 'codex'])
-            .optional()
-            .describe('Which AI agent to use (default: claude-code)')
-        },
-        async (args) => {
-          notify('send_to_agent', args as Record<string, unknown>)
-          try {
-            const mgr = requireTaskManager()
-            if (!/^[A-Za-z0-9_-]{1,64}$/.test(args.task_id)) {
-              return fail(`Invalid task ID: ${args.task_id}`)
-            }
-            const agent = args.agent || 'claude-code'
-            const board = await mgr.loadBoard()
-            if (!board.tasks[args.task_id]) return fail(`Task ${args.task_id} not found`)
-            const taskTitle = board.tasks[args.task_id].title
-            const markdown = await mgr.readMarkdown(args.task_id)
-            const escaped = markdown.replace(/'/g, "'\\''")
-            const cmd = agent === 'claude-code' ? `claude -p '${escaped}'` : `codex -q '${escaped}'`
-            const tabName = `${agent === 'claude-code' ? 'Claude' : 'Codex'}: ${taskTitle}`
-            notifyStateChanged('terminal', { name: tabName, command: cmd })
-            return ok({ taskId: args.task_id, agent, tabName })
-          } catch (err) {
-            return fail(err instanceof Error ? err.message : String(err))
-          }
         }
       ),
 

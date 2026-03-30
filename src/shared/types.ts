@@ -1,6 +1,6 @@
 // ── Tab Navigation ──
 
-export type TabId = 'orchestrate' | 'agents' | 'tasks' | 'files' | 'history' | 'browser'
+export type TabId = 'orchestrate' | 'tasks' | 'agents' | 'files' | 'history' | 'browser'
 
 export const TAB_LIST: { id: TabId; label: string }[] = [
   { id: 'orchestrate', label: 'Orchestrate' },
@@ -25,18 +25,61 @@ export interface FileChangeEvent {
   path: string
 }
 
-// ── Tasks / Kanban ──
+// ── Kanban / Tasks ──
 
-export type ColumnId = 'draft' | 'planning' | 'in-progress' | 'review' | 'done'
+export type ColumnId = 'planning' | 'in-progress' | 'review' | 'done'
+export type TaskType = 'task' | 'loop'
 
 export interface TaskMeta {
   title: string
+  type: TaskType
   createdAt: string
+  loopId?: string // present when type === 'loop', references Loop.id
 }
 
 export interface BoardState {
   columns: Record<ColumnId, string[]>
   tasks: Record<string, TaskMeta>
+}
+
+// ── Loops ──
+
+export interface LoopStep {
+  id: string
+  prompt: string
+}
+
+export interface LoopSchedule {
+  enabled: boolean
+  cron: string // e.g. "0 9 * * 1-5"
+}
+
+export type LoopStatus = 'idle' | 'running' | 'completed' | 'failed'
+
+export interface LoopRun {
+  id: string
+  startedAt: string
+  finishedAt?: string
+  status: 'running' | 'completed' | 'failed'
+  stepResults: {
+    stepId: string
+    terminalId: string
+    exitCode?: number
+    startedAt: string
+    finishedAt?: string
+  }[]
+  groupId: string
+}
+
+export interface Loop {
+  id: string
+  name: string
+  steps: LoopStep[]
+  schedule: LoopSchedule
+  agentType: AgentType
+  createdAt: string
+  updatedAt: string
+  lastRun?: LoopRun
 }
 
 // ── Agents ──
@@ -192,12 +235,19 @@ export interface OrchestrateAPI {
   onTerminalExit: (callback: (id: string, exitCode: number) => void) => () => void
 
   // Tasks
-  loadBoard: () => Promise<BoardState | null>
+  loadBoard: () => Promise<BoardState>
   saveBoard: (board: BoardState) => Promise<void>
   readTaskMarkdown: (id: string) => Promise<string>
   writeTaskMarkdown: (id: string, content: string) => Promise<void>
   deleteTask: (id: string) => Promise<void>
   sendToAgent: (id: string, agent: AgentType) => Promise<void>
+
+  // Loops
+  listLoops: () => Promise<Loop[]>
+  loadLoop: (id: string) => Promise<Loop | null>
+  saveLoop: (loop: Loop) => Promise<void>
+  deleteLoop: (id: string) => Promise<void>
+  onLoopTrigger: (callback: (loopId: string) => void) => () => void
 
   // Manage Agent
   sendAgentMessage: (message: string) => Promise<void>

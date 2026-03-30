@@ -125,8 +125,8 @@ export const useChatHistoryStore = create<ChatHistoryState>((set, get) => {
 
     // Fix #3: reserve ID before async save; Fix #4: rethrow on failure
     saveCurrentConversation: async () => {
-      const { messages, isStreaming } = useAgentStore.getState()
-      if (messages.length === 0 || isStreaming) return
+      const { messages } = useAgentStore.getState()
+      if (messages.length === 0) return
 
       const { activeConversationId } = get()
 
