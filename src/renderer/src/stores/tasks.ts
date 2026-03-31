@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { BoardState, ColumnId, AgentType, Loop } from '@shared/types'
+import type { BoardState, ColumnId, AgentType, Loop, TaskSchedule } from '@shared/types'
 import { useTerminalStore } from './terminal'
 import { useAppStore } from './app'
 import { useHistoryStore } from './history'
@@ -27,6 +27,11 @@ const EMPTY_BOARD: BoardState = {
   tasks: {}
 }
 
+/** Escape a string for safe use in a bash single-quoted context. */
+function shellQuote(s: string): string {
+  return "'" + s.replace(/'/g, "'\\''") + "'"
+}
+
 interface TasksState {
   board: BoardState | null
   selectedTaskId: string | null
@@ -35,6 +40,7 @@ interface TasksState {
   isLoading: boolean
   hasLoaded: boolean
   loadError: string | null
+  activeAgentTasks: Record<string, { terminalId: string; agent: AgentType }>
 
   loadBoard: () => Promise<void>
   resetBoard: () => void
@@ -49,6 +55,9 @@ interface TasksState {
   readMarkdown: (id: string) => Promise<string>
   writeMarkdown: (id: string, content: string) => Promise<void>
   sendToAgent: (id: string, agent: AgentType) => Promise<void>
+  trackAgentTask: (taskId: string, terminalId: string, agent: AgentType) => void
+  updateTaskSchedule: (id: string, schedule: TaskSchedule | undefined, agentType: AgentType | undefined) => Promise<void>
+  updateTaskGroup: (id: string, groupName: string | undefined) => Promise<void>
 }
 
 export const useTasksStore = create<TasksState>((set, get) => ({
@@ -59,12 +68,30 @@ export const useTasksStore = create<TasksState>((set, get) => ({
   isLoading: false,
   hasLoaded: false,
   loadError: null,
+  activeAgentTasks: {},
 
   loadBoard: async () => {
     set({ isLoading: true, loadError: null })
     try {
       const board = await window.orchestrate.loadBoard()
-      set({ board: board ?? structuredClone(EMPTY_BOARD), isLoading: false, hasLoaded: true })
+      const loaded = board ?? structuredClone(EMPTY_BOARD)
+
+      // Sweep: move in-progress tasks with no active agent back to planning.
+      // activeAgentTasks is runtime-only, so after an app restart it's empty
+      // and any previously in-progress tasks are stale.
+      const { activeAgentTasks } = get()
+      const stale = loaded.columns['in-progress'].filter(
+        (id) => loaded.tasks[id]?.type === 'task' && !activeAgentTasks[id]
+      )
+      if (stale.length > 0) {
+        const staleSet = new Set(stale)
+        loaded.columns['in-progress'] = loaded.columns['in-progress'].filter((id) => !staleSet.has(id))
+        loaded.columns.planning = [...stale, ...loaded.columns.planning]
+        // Persist the corrected board
+        window.orchestrate.saveBoard(loaded).catch(() => {})
+      }
+
+      set({ board: loaded, isLoading: false, hasLoaded: true })
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error'
       console.error('[Tasks] Failed to load board:', err)
@@ -258,11 +285,17 @@ export const useTasksStore = create<TasksState>((set, get) => ({
   },
 
   sendToAgent: async (id: string, agent: AgentType) => {
-    const { board, moveTask } = get()
+    const { board, moveTask, activeAgentTasks } = get()
     if (!board || !board.tasks[id]) return
 
     if (!SAFE_ID_RE.test(id)) {
       console.error('[Tasks] Refusing to send task with unsafe ID:', id)
+      return
+    }
+
+    // Prevent duplicate sends
+    if (activeAgentTasks[id]) {
+      toast.error('Agent already running for this task')
       return
     }
 
@@ -285,22 +318,128 @@ export const useTasksStore = create<TasksState>((set, get) => ({
       await moveTask(id, 'in-progress', 0)
     }
 
-    // Build the agent command
+    // Build the interactive agent command
     const folder = useAppStore.getState().currentFolder
-    if (!folder) return
+    if (!folder) {
+      // No folder — can't run agent, move back to planning
+      await get().moveTask(id, 'planning', 0)
+      return
+    }
 
     const taskTitle = board.tasks[id].title
-    const cmd =
-      agent === 'claude-code'
-        ? `claude -p "$(cat tasks/task-${id}.md)"`
-        : `codex -q "$(cat tasks/task-${id}.md)"`
+    const systemPrompt = `You have orchestrate MCP tools. Your task ID is '${id}'. When you finish, call move_task to move it to 'review'. Use create_save_point to commit.`
+    let cmd: string
+
+    if (agent === 'claude-code') {
+      const mcpConfigPath = await window.orchestrate.getMcpConfigPath().catch(() => null)
+      const mcpFlag = mcpConfigPath ? `--mcp-config ${shellQuote(mcpConfigPath)} ` : ''
+      cmd = `claude ${mcpFlag}--append-system-prompt ${shellQuote(systemPrompt)} "$(cat tasks/task-${id}.md)"`
+    } else {
+      const codexFlags = await window.orchestrate.getCodexMcpFlags().catch(() => null)
+      cmd = codexFlags
+        ? `codex ${codexFlags} "$(cat tasks/task-${id}.md)"`
+        : `codex "$(cat tasks/task-${id}.md)"`
+    }
 
     const tabName = `${agent === 'claude-code' ? 'Claude' : 'Codex'}: ${taskTitle}`
+    const groupName = board.tasks[id].groupName
 
-    // Create terminal tab on the Agents tab, linked to this task
-    await useTerminalStore.getState().createTab(folder, tabName, cmd, id)
+    // Create terminal tab, optionally in a group
+    const termStore = useTerminalStore.getState()
+    let tabId: string
+    try {
+      if (groupName) {
+        const groupId = termStore.findOrCreateGroup(groupName)
+        tabId = await termStore.createTabInGroup(folder, groupId, tabName, cmd)
+      } else {
+        tabId = await termStore.createTab(folder, tabName, cmd)
+      }
+    } catch (err) {
+      // Terminal creation failed — move back to planning and notify user
+      toast.error(`Failed to start agent: ${err instanceof Error ? err.message : String(err)}`)
+      await get().moveTask(id, 'planning', 0)
+      return
+    }
+    get().trackAgentTask(id, tabId, agent)
 
     // Switch to Agents tab
     useAppStore.getState().setActiveTab('agents')
+  },
+
+  trackAgentTask: (taskId: string, terminalId: string, agent: AgentType) => {
+    set((state) => ({
+      activeAgentTasks: {
+        ...state.activeAgentTasks,
+        [taskId]: { terminalId, agent }
+      }
+    }))
+
+    let resolved = false
+    const cleanup = (): void => {
+      if (resolved) return
+      resolved = true
+      unsub()
+      // Remove from active tasks
+      set((state) => {
+        const { [taskId]: _, ...rest } = state.activeAgentTasks
+        return { activeAgentTasks: rest }
+      })
+    }
+
+    const checkAutoMove = (exitCode: number): void => {
+      const { board, moveTask } = get()
+      if (!board || !board.columns['in-progress'].includes(taskId)) return
+      const target = exitCode === 0 ? 'review' : 'planning'
+      moveTask(taskId, target as ColumnId, 0).catch((err) => {
+        console.error(`[Tasks] Failed to auto-move task ${taskId} to ${target}:`, err)
+      })
+    }
+
+    const unsub = useTerminalStore.subscribe((state) => {
+      const tab = state.tabs.find((t) => t.id === terminalId)
+      if (tab?.exited) {
+        checkAutoMove(tab.exitCode ?? 1)
+        cleanup()
+      }
+    })
+
+    // Race guard: check if already exited immediately after subscribing
+    const tab = useTerminalStore.getState().tabs.find((t) => t.id === terminalId)
+    if (tab?.exited) {
+      checkAutoMove(tab.exitCode ?? 1)
+      cleanup()
+    }
+  },
+
+  updateTaskSchedule: async (id: string, schedule: TaskSchedule | undefined, agentType: AgentType | undefined) => {
+    const { board } = get()
+    if (!board || !board.tasks[id]) return
+
+    const newBoard: BoardState = {
+      ...board,
+      tasks: {
+        ...board.tasks,
+        [id]: { ...board.tasks[id], schedule, agentType }
+      }
+    }
+
+    set({ board: newBoard })
+    await window.orchestrate.saveBoard(newBoard)
+  },
+
+  updateTaskGroup: async (id: string, groupName: string | undefined) => {
+    const { board } = get()
+    if (!board || !board.tasks[id]) return
+
+    const newBoard: BoardState = {
+      ...board,
+      tasks: {
+        ...board.tasks,
+        [id]: { ...board.tasks[id], groupName }
+      }
+    }
+
+    set({ board: newBoard })
+    await window.orchestrate.saveBoard(newBoard)
   }
 }))

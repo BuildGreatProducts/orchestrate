@@ -1,10 +1,19 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Editor from '@monaco-editor/react'
-import type { ColumnId } from '@shared/types'
+import type { ColumnId, AgentType } from '@shared/types'
 import { useTasksStore } from '@renderer/stores/tasks'
+import { useTerminalStore } from '@renderer/stores/terminal'
 import MarkdownToggle from '@renderer/components/files/MarkdownToggle'
 import MarkdownPreview from '@renderer/components/files/MarkdownPreview'
 import ConfirmDialog from '@renderer/components/history/ConfirmDialog'
+
+const SCHEDULE_PRESETS = [
+  { label: 'Manual (no schedule)', cron: '' },
+  { label: 'Every hour', cron: '0 * * * *' },
+  { label: 'Daily at 9am', cron: '0 9 * * *' },
+  { label: 'Weekdays at 9am', cron: '0 9 * * 1-5' },
+  { label: 'Custom', cron: '__custom__' }
+]
 
 const COLUMNS: { id: ColumnId; label: string }[] = [
   { id: 'planning', label: 'Planning' },
@@ -23,6 +32,9 @@ export default function TaskDetailPanel(): React.JSX.Element | null {
   const readMarkdown = useTasksStore((s) => s.readMarkdown)
   const writeMarkdown = useTasksStore((s) => s.writeMarkdown)
   const sendToAgent = useTasksStore((s) => s.sendToAgent)
+  const updateTaskSchedule = useTasksStore((s) => s.updateTaskSchedule)
+  const updateTaskGroup = useTasksStore((s) => s.updateTaskGroup)
+  const terminalGroups = useTerminalStore((s) => s.groups)
 
   const [title, setTitle] = useState('')
   const [markdown, setMarkdown] = useState('')
@@ -31,6 +43,11 @@ export default function TaskDetailPanel(): React.JSX.Element | null {
   const [menuOpen, setMenuOpen] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [sendMenuOpen, setSendMenuOpen] = useState(false)
+  const [scheduleAgent, setScheduleAgent] = useState<AgentType>('claude-code')
+  const [scheduleCron, setScheduleCron] = useState('')
+  const [schedulePreset, setSchedulePreset] = useState('')
+  const [groupSelect, setGroupSelect] = useState('') // '' = none, '__new__' = new, or group name
+  const [newGroupName, setNewGroupName] = useState('')
   const menuRef = useRef<HTMLDivElement>(null)
   const sendMenuRef = useRef<HTMLDivElement>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -50,12 +67,35 @@ export default function TaskDetailPanel(): React.JSX.Element | null {
     }
   }
 
+  const isLoopTask = task?.type === 'loop'
+
   // Load task data when selection changes
   useEffect(() => {
     if (!selectedTaskId || !task) return
     let cancelled = false
     setTitle(task.title)
     setSaveStatus('idle')
+
+    // Sync group state
+    const gn = task.groupName ?? ''
+    setNewGroupName('')
+    if (!gn) {
+      setGroupSelect('')
+    } else {
+      setGroupSelect(gn)
+    }
+
+    // Sync schedule state
+    setScheduleAgent(task.agentType ?? 'claude-code')
+    const cron = task.schedule?.cron ?? ''
+    setScheduleCron(cron)
+    if (!task.schedule?.enabled || !cron) {
+      setSchedulePreset('')
+    } else {
+      const match = SCHEDULE_PRESETS.find((p) => p.cron === cron)
+      setSchedulePreset(match ? match.cron : '__custom__')
+    }
+
     readMarkdown(selectedTaskId).then((content) => {
       if (!cancelled) {
         setMarkdown(content)
@@ -144,6 +184,87 @@ export default function TaskDetailPanel(): React.JSX.Element | null {
     [selectedTaskId, markdown, writeMarkdown, sendToAgent]
   )
 
+  const handleSchedulePresetChange = useCallback(
+    (value: string) => {
+      if (!selectedTaskId) return
+      setSchedulePreset(value)
+      if (value === '') {
+        setScheduleCron('')
+        updateTaskSchedule(selectedTaskId, { enabled: false, cron: '' }, scheduleAgent)
+      } else if (value === '__custom__') {
+        // Only update local state — save happens on blur/Enter in the cron input
+      } else {
+        setScheduleCron(value)
+        updateTaskSchedule(selectedTaskId, { enabled: true, cron: value }, scheduleAgent)
+      }
+    },
+    [selectedTaskId, scheduleAgent, updateTaskSchedule]
+  )
+
+  const handleCustomCronChange = useCallback(
+    (value: string) => {
+      setScheduleCron(value)
+    },
+    []
+  )
+
+  const commitCustomCron = useCallback(() => {
+    if (!selectedTaskId) return
+    const trimmed = scheduleCron.trim()
+    updateTaskSchedule(
+      selectedTaskId,
+      { enabled: trimmed.length > 0, cron: trimmed },
+      scheduleAgent
+    )
+  }, [selectedTaskId, scheduleCron, scheduleAgent, updateTaskSchedule])
+
+  const handleScheduleAgentChange = useCallback(
+    (agent: AgentType) => {
+      if (!selectedTaskId) return
+      setScheduleAgent(agent)
+      const enabled = schedulePreset !== '' && schedulePreset !== '__custom__'
+        ? true
+        : schedulePreset === '__custom__' && scheduleCron.trim().length > 0
+      updateTaskSchedule(
+        selectedTaskId,
+        { enabled, cron: scheduleCron },
+        agent
+      )
+    },
+    [selectedTaskId, schedulePreset, scheduleCron, updateTaskSchedule]
+  )
+
+  const handleGroupSelectChange = useCallback(
+    (value: string) => {
+      if (!selectedTaskId) return
+      setGroupSelect(value)
+      if (value === '' || value === '__new__') {
+        if (value === '') {
+          updateTaskGroup(selectedTaskId, undefined)
+        }
+        // For __new__, wait until the name is committed
+      } else {
+        updateTaskGroup(selectedTaskId, value)
+      }
+    },
+    [selectedTaskId, updateTaskGroup]
+  )
+
+  const handleNewGroupCommit = useCallback(
+    (name: string) => {
+      if (!selectedTaskId) return
+      const trimmed = name.trim()
+      if (trimmed) {
+        setGroupSelect(trimmed)
+        updateTaskGroup(selectedTaskId, trimmed)
+      } else {
+        setGroupSelect('')
+        updateTaskGroup(selectedTaskId, undefined)
+      }
+    },
+    [selectedTaskId, updateTaskGroup]
+  )
+
   if (!selectedTaskId || !task) return null
 
   return (
@@ -221,6 +342,101 @@ export default function TaskDetailPanel(): React.JSX.Element | null {
             ))}
           </select>
         </div>
+
+        {/* Agent group (not for loop tasks — loops manage their own groups) */}
+        {!isLoopTask && (
+          <div>
+            <label className="mb-1 block text-xs text-zinc-500">Agent Group</label>
+            {(() => {
+              const selectVal = groupSelect === '__new__' ? '__new__' : (groupSelect || '')
+              const savedName = selectVal && selectVal !== '__new__' ? selectVal : null
+              const existsInGroups = savedName && terminalGroups.some((g) => g.name === savedName)
+              return (
+                <select
+                  value={selectVal}
+                  onChange={(e) => handleGroupSelectChange(e.target.value)}
+                  className="w-full rounded border border-zinc-800 bg-zinc-800 px-2 py-1 text-sm text-zinc-300 outline-none focus:border-zinc-500"
+                >
+                  <option value="">None</option>
+                  {savedName && !existsInGroups && (
+                    <option value={savedName}>{savedName}</option>
+                  )}
+                  {terminalGroups.map((g) => (
+                    <option key={g.id} value={g.name}>
+                      {g.name}
+                    </option>
+                  ))}
+                  <option value="__new__">+ Create new group</option>
+                </select>
+              )
+            })()}
+            {groupSelect === '__new__' && (
+              <input
+                type="text"
+                value={newGroupName}
+                onChange={(e) => setNewGroupName(e.target.value)}
+                onBlur={() => handleNewGroupCommit(newGroupName)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleNewGroupCommit(newGroupName)
+                }}
+                placeholder="Group name"
+                autoFocus
+                className="mt-1.5 w-full rounded border border-zinc-800 bg-zinc-800 px-2 py-1 text-sm text-zinc-300 placeholder:text-zinc-600 outline-none focus:border-zinc-500"
+              />
+            )}
+          </div>
+        )}
+
+        {/* Schedule (not for loop tasks) */}
+        {!isLoopTask && (
+          <div>
+            <label className="mb-1 block text-xs text-zinc-500">Schedule</label>
+            <select
+              value={schedulePreset}
+              onChange={(e) => handleSchedulePresetChange(e.target.value)}
+              className="w-full rounded border border-zinc-800 bg-zinc-800 px-2 py-1 text-sm text-zinc-300 outline-none focus:border-zinc-500"
+            >
+              {SCHEDULE_PRESETS.map((p) => (
+                <option key={p.cron} value={p.cron}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+            {schedulePreset === '__custom__' && (
+              <input
+                type="text"
+                value={scheduleCron}
+                onChange={(e) => handleCustomCronChange(e.target.value)}
+                onBlur={commitCustomCron}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') commitCustomCron()
+                }}
+                placeholder="e.g. 0 9 * * 1-5"
+                className="mt-1.5 w-full rounded border border-zinc-800 bg-zinc-800 px-2 py-1 text-sm text-zinc-300 placeholder:text-zinc-600 outline-none focus:border-zinc-500"
+              />
+            )}
+            {schedulePreset !== '' && (
+              <div className="mt-2">
+                <label className="mb-1 block text-xs text-zinc-500">Agent</label>
+                <div className="flex gap-2">
+                  {(['claude-code', 'codex'] as const).map((type) => (
+                    <button
+                      key={type}
+                      onClick={() => handleScheduleAgentChange(type)}
+                      className={`rounded px-3 py-1 text-xs transition-colors ${
+                        scheduleAgent === type
+                          ? 'bg-zinc-700 text-white'
+                          : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700/60 hover:text-zinc-300'
+                      }`}
+                    >
+                      {type === 'claude-code' ? 'Claude Code' : 'Codex'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Markdown editor */}
         <div className="relative flex flex-1 flex-col gap-1">

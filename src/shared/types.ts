@@ -30,11 +30,19 @@ export interface FileChangeEvent {
 export type ColumnId = 'planning' | 'in-progress' | 'review' | 'done'
 export type TaskType = 'task' | 'loop'
 
+export interface TaskSchedule {
+  enabled: boolean
+  cron: string // e.g. "0 9 * * 1-5"
+}
+
 export interface TaskMeta {
   title: string
   type: TaskType
   createdAt: string
   loopId?: string // present when type === 'loop', references Loop.id
+  schedule?: TaskSchedule
+  agentType?: AgentType // agent to use for scheduled runs
+  groupName?: string // agent group to place terminal tabs in
 }
 
 export interface BoardState {
@@ -80,6 +88,7 @@ export interface Loop {
   createdAt: string
   updatedAt: string
   lastRun?: LoopRun
+  groupName?: string // agent group to place step tabs in (defaults to loop name)
 }
 
 // ── Agents ──
@@ -248,6 +257,7 @@ export interface OrchestrateAPI {
   saveLoop: (loop: Loop) => Promise<void>
   deleteLoop: (id: string) => Promise<void>
   onLoopTrigger: (callback: (loopId: string) => void) => () => void
+  onTaskScheduleTrigger: (callback: (taskId: string) => void) => () => void
 
   // Manage Agent
   sendAgentMessage: (message: string) => Promise<void>
@@ -295,6 +305,11 @@ export interface OrchestrateAPI {
   toggleBrowserDevTools: (id: string) => Promise<void>
   onBrowserTabUpdated: (callback: (tab: BrowserTabInfo) => void) => () => void
   onBrowserTabClosed: (callback: (id: string) => void) => () => void
+
+  // MCP
+  getMcpServerUrl: () => Promise<string | null>
+  getMcpConfigPath: () => Promise<string | null>
+  getCodexMcpFlags: () => Promise<string | null>
 
   // Skills
   getSkills: () => Promise<SkillMeta[]>

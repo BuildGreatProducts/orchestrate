@@ -51,8 +51,16 @@ export async function executeLoop(loopId: string): Promise<void> {
   const execution: ActiveExecution = { aborted: false, currentTabId: null, abortListeners: new Set() }
   activeExecutions.set(loopId, execution)
 
+  // Fetch MCP config once for all steps
+  const mcpConfigPath = await window.orchestrate.getMcpConfigPath().catch(() => null)
+  const codexMcpFlags = await window.orchestrate.getCodexMcpFlags().catch(() => null)
+  const shellQuote = (s: string): string => "'" + s.replace(/'/g, "'\\''") + "'"
+
   const runId = nanoid(8)
-  const groupId = useTerminalStore.getState().createGroup(loop.name)
+  const termStore = useTerminalStore.getState()
+  const groupId = loop.groupName
+    ? termStore.findOrCreateGroup(loop.groupName)
+    : termStore.createGroup(loop.name)
 
   const run: LoopRun = {
     id: runId,
@@ -76,11 +84,19 @@ export async function executeLoop(loopId: string): Promise<void> {
         break
       }
 
+      const systemPrompt = 'You have orchestrate MCP tools. Use create_save_point to commit your changes.'
       const escaped = step.prompt.replace(/'/g, "'\\''")
-      const cmd =
-        loop.agentType === 'claude-code'
-          ? `claude -p '${escaped}'`
-          : `codex -q '${escaped}'`
+      let cmd: string
+
+      if (loop.agentType === 'claude-code') {
+        cmd = mcpConfigPath
+          ? `claude --mcp-config ${shellQuote(mcpConfigPath)} --append-system-prompt ${shellQuote(systemPrompt)} '${escaped}'`
+          : `claude '${escaped}'`
+      } else {
+        cmd = codexMcpFlags
+          ? `codex ${codexMcpFlags} '${escaped}'`
+          : `codex '${escaped}'`
+      }
 
       const stepName = `Step ${loop.steps.indexOf(step) + 1}: ${step.prompt.slice(0, 40)}${step.prompt.length > 40 ? '...' : ''}`
 
@@ -92,13 +108,10 @@ export async function executeLoop(loopId: string): Promise<void> {
         exitCode: undefined as number | undefined
       }
 
-      // Create terminal tab in the group
-      const tabId = await useTerminalStore.getState().createTabInGroup(folder, groupId, stepName)
+      // Create terminal tab in the group with the command
+      const tabId = await useTerminalStore.getState().createTabInGroup(folder, groupId, stepName, cmd)
       stepResult.terminalId = tabId
       execution.currentTabId = tabId
-
-      // Write the command to the terminal
-      window.orchestrate.writeTerminal(tabId, cmd + '\n')
 
       // Wait for exit by subscribing to store changes, or abort signal
       const exitCode = await new Promise<number>((resolve) => {

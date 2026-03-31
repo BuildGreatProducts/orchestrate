@@ -19,6 +19,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { nanoid } from 'nanoid'
 import type { Loop, LoopStep, AgentType } from '@shared/types'
+import { useTerminalStore } from '@renderer/stores/terminal'
 
 interface LoopEditorModalProps {
   initial: Partial<Loop> | null
@@ -116,6 +117,9 @@ export default function LoopEditorModal({
     const match = SCHEDULE_PRESETS.find((p) => p.cron === initial.schedule!.cron)
     return match ? match.cron : '__custom__'
   })
+  const [groupSelect, setGroupSelect] = useState(initial?.groupName ?? '')
+  const [newGroupName, setNewGroupName] = useState('')
+  const terminalGroups = useTerminalStore((s) => s.groups)
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -160,6 +164,10 @@ export default function LoopEditorModal({
     }
   }, [])
 
+  const resolvedGroupName = groupSelect === '__new__'
+    ? newGroupName.trim() || undefined
+    : groupSelect || undefined
+
   const handleSubmit = useCallback(async () => {
     const trimmedName = name.trim()
     if (!trimmedName) return
@@ -173,12 +181,13 @@ export default function LoopEditorModal({
         steps: validSteps,
         schedule: { enabled: scheduleEnabled && cron.trim().length > 0, cron: cron.trim() },
         agentType,
-        lastRun: initial?.lastRun
+        lastRun: initial?.lastRun,
+        groupName: resolvedGroupName
       })
     } catch (err) {
       console.error('[LoopEditor] Save failed:', err)
     }
-  }, [name, steps, scheduleEnabled, cron, agentType, isEdit, initial, onSave])
+  }, [name, steps, scheduleEnabled, cron, agentType, isEdit, initial, onSave, resolvedGroupName])
 
   const canSave = name.trim() && steps.some((s) => s.prompt.trim())
 
@@ -261,6 +270,46 @@ export default function LoopEditorModal({
               <Plus size={14} />
               Add step
             </button>
+          </div>
+
+          {/* Agent Group */}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-400">Agent Group</label>
+            {(() => {
+              const selectVal = groupSelect === '__new__' ? '__new__' : (groupSelect || '')
+              const savedName = selectVal && selectVal !== '__new__' ? selectVal : null
+              const existsInGroups = savedName && terminalGroups.some((g) => g.name === savedName)
+              return (
+                <select
+                  value={selectVal}
+                  onChange={(e) => {
+                    setGroupSelect(e.target.value)
+                    if (e.target.value !== '__new__') setNewGroupName('')
+                  }}
+                  className="w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 focus:border-zinc-500 focus:outline-none"
+                >
+                  <option value="">Default (loop name)</option>
+                  {savedName && !existsInGroups && (
+                    <option value={savedName}>{savedName}</option>
+                  )}
+                  {terminalGroups.map((g) => (
+                    <option key={g.id} value={g.name}>
+                      {g.name}
+                    </option>
+                  ))}
+                  <option value="__new__">+ Create new group</option>
+                </select>
+              )
+            })()}
+            {groupSelect === '__new__' && (
+              <input
+                type="text"
+                value={newGroupName}
+                onChange={(e) => setNewGroupName(e.target.value)}
+                placeholder="Group name"
+                className="mt-2 w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-zinc-500 focus:outline-none"
+              />
+            )}
           </div>
 
           {/* Schedule */}

@@ -1,13 +1,13 @@
-import { Play, Pencil, Trash2, Square } from 'lucide-react'
+import { Play, Trash2, Square } from 'lucide-react'
 import { useState } from 'react'
 import type { Loop } from '@shared/types'
-import { isLoopRunning, abortLoop } from '@renderer/stores/loop-execution-engine'
+import { isLoopRunning, abortLoop, executeLoop } from '@renderer/stores/loop-execution-engine'
 
 interface LoopCardProps {
   loop: Loop
-  onRun: (id: string) => void
-  onEdit: (loop: Loop) => void
+  onSelect: (loop: Loop) => void
   onDelete: (id: string) => void
+  isSelected?: boolean
 }
 
 function humanCron(cron: string): string {
@@ -29,7 +29,7 @@ function relativeTime(iso: string): string {
   return `${days}d ago`
 }
 
-export default function LoopCard({ loop, onRun, onEdit, onDelete }: LoopCardProps): React.JSX.Element {
+export default function LoopCard({ loop, onSelect, onDelete, isSelected }: LoopCardProps): React.JSX.Element {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const running = isLoopRunning(loop.id) || loop.lastRun?.status === 'running'
 
@@ -43,7 +43,19 @@ export default function LoopCard({ loop, onRun, onEdit, onDelete }: LoopCardProp
           : 'bg-zinc-500'
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onSelect(loop)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') onSelect(loop)
+      }}
+      className={`flex cursor-pointer flex-col gap-3 rounded-lg border p-4 transition-colors ${
+        isSelected
+          ? 'border-zinc-500 bg-zinc-800'
+          : 'border-zinc-800 bg-zinc-900/50 hover:border-zinc-700'
+      }`}
+    >
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <div className={`h-2 w-2 shrink-0 rounded-full ${statusColor}`} />
@@ -72,7 +84,7 @@ export default function LoopCard({ loop, onRun, onEdit, onDelete }: LoopCardProp
       <div className="flex items-center gap-1 border-t border-zinc-800 pt-3">
         {running ? (
           <button
-            onClick={() => abortLoop(loop.id)}
+            onClick={(e) => { e.stopPropagation(); abortLoop(loop.id) }}
             className="flex items-center gap-1 rounded px-2 py-1 text-xs text-red-400 hover:bg-zinc-800"
           >
             <Square size={12} />
@@ -80,31 +92,24 @@ export default function LoopCard({ loop, onRun, onEdit, onDelete }: LoopCardProp
           </button>
         ) : (
           <button
-            onClick={() => onRun(loop.id)}
+            onClick={(e) => { e.stopPropagation(); executeLoop(loop.id) }}
             className="flex items-center gap-1 rounded px-2 py-1 text-xs text-green-400 hover:bg-zinc-800"
           >
             <Play size={12} />
             Run
           </button>
         )}
-        <button
-          onClick={() => onEdit(loop)}
-          className="flex items-center gap-1 rounded px-2 py-1 text-xs text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
-        >
-          <Pencil size={12} />
-          Edit
-        </button>
         {confirmDelete ? (
           <div className="ml-auto flex items-center gap-1">
             <span className="text-[11px] text-zinc-500">Delete?</span>
             <button
-              onClick={() => onDelete(loop.id)}
+              onClick={(e) => { e.stopPropagation(); onDelete(loop.id) }}
               className="rounded px-1.5 py-0.5 text-[11px] text-red-400 hover:bg-zinc-800"
             >
               Yes
             </button>
             <button
-              onClick={() => setConfirmDelete(false)}
+              onClick={(e) => { e.stopPropagation(); setConfirmDelete(false) }}
               className="rounded px-1.5 py-0.5 text-[11px] text-zinc-400 hover:bg-zinc-800"
             >
               No
@@ -112,7 +117,7 @@ export default function LoopCard({ loop, onRun, onEdit, onDelete }: LoopCardProp
           </div>
         ) : (
           <button
-            onClick={() => setConfirmDelete(true)}
+            onClick={(e) => { e.stopPropagation(); setConfirmDelete(true) }}
             aria-label={`Delete ${loop.name}`}
             className="ml-auto flex items-center gap-1 rounded px-2 py-1 text-xs text-zinc-500 hover:bg-zinc-800 hover:text-red-400"
           >

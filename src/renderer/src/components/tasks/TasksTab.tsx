@@ -5,8 +5,7 @@ import { useLoopsStore } from '@renderer/stores/loops'
 import Spinner from '@renderer/components/ui/Spinner'
 import KanbanBoard from './KanbanBoard'
 import TaskDetailPanel from './TaskDetailPanel'
-import LoopEditorModal from '@renderer/components/loops/LoopEditorModal'
-import type { Loop } from '@shared/types'
+import LoopDetailPanel from '@renderer/components/loops/LoopDetailPanel'
 
 export default function TasksTab(): React.JSX.Element {
   const currentFolder = useAppStore((s) => s.currentFolder)
@@ -21,8 +20,6 @@ export default function TasksTab(): React.JSX.Element {
   const loadLoops = useLoopsStore((s) => s.loadLoops)
   const editingLoop = useLoopsStore((s) => s.editingLoop)
   const setEditingLoop = useLoopsStore((s) => s.setEditingLoop)
-  const createLoop = useLoopsStore((s) => s.createLoop)
-  const updateLoop = useLoopsStore((s) => s.updateLoop)
   const loops = useLoopsStore((s) => s.loops)
 
   useEffect(() => {
@@ -41,38 +38,31 @@ export default function TasksTab(): React.JSX.Element {
     ? loops.find((l) => l.id === selectedTask.loopId) ?? null
     : null
 
-  const handleLoopSave = async (
-    data: Omit<Loop, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }
-  ): Promise<void> => {
-    try {
-      if (data.id) {
-        const existing = loops.find((l) => l.id === data.id)
-        if (existing) {
-          await updateLoop({
-            ...existing,
-            name: data.name,
-            steps: data.steps,
-            schedule: data.schedule,
-            agentType: data.agentType,
-            lastRun: data.lastRun
-          })
-          // Update the task title on the board to match
-          if (selectedTaskId && board?.tasks[selectedTaskId]) {
-            const { updateTaskTitle } = useTasksStore.getState()
-            await updateTaskTitle(selectedTaskId, data.name)
-          }
-        }
-      } else {
-        const newLoop = await createLoop(data)
-        await useTasksStore.getState().createLoopTask('planning', newLoop)
-      }
-      // Only clear editor state on success
+  // Coordinate panel state: selecting a task closes the loop panel and vice versa
+  useEffect(() => {
+    if (!selectedTaskId) return
+    if (isLoopTask && selectedLoop) {
+      // Loop task clicked → open loop panel
+      setEditingLoop(selectedLoop)
+    } else if (!isLoopTask) {
+      // Regular task clicked → close loop panel
       setEditingLoop(null)
-      selectTask(null)
-    } catch (err) {
-      console.error('[Tasks] Failed to save loop:', err)
     }
-  }
+  }, [selectedTaskId, isLoopTask, selectedLoop, setEditingLoop])
+
+  // When a new/standalone loop is being edited (not from a task card), deselect any task
+  useEffect(() => {
+    if (editingLoop !== null && !isLoopTask) {
+      selectTask(null)
+    }
+  }, [editingLoop, isLoopTask, selectTask])
+
+  // When the loop panel closes while a loop task is selected, deselect the card
+  useEffect(() => {
+    if (isLoopTask && editingLoop === null) {
+      selectTask(null)
+    }
+  }, [editingLoop, isLoopTask, selectTask])
 
   if (!currentFolder) {
     return (
@@ -120,21 +110,8 @@ export default function TasksTab(): React.JSX.Element {
       <div className="flex-1 overflow-hidden">
         <KanbanBoard />
       </div>
-      {selectedTaskId && !isLoopTask && <TaskDetailPanel />}
-      {selectedTaskId && isLoopTask && selectedLoop && (
-        <LoopEditorModal
-          initial={selectedLoop}
-          onSave={handleLoopSave}
-          onCancel={() => selectTask(null)}
-        />
-      )}
-      {editingLoop !== null && !selectedTaskId && (
-        <LoopEditorModal
-          initial={editingLoop}
-          onSave={handleLoopSave}
-          onCancel={() => setEditingLoop(null)}
-        />
-      )}
+      {selectedTaskId && !isLoopTask && editingLoop === null && <TaskDetailPanel />}
+      {editingLoop !== null && <LoopDetailPanel />}
     </div>
   )
 }

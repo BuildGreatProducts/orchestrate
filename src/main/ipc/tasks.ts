@@ -4,6 +4,7 @@ import { getGitManager } from './git'
 import { TaskManager } from '../task-manager'
 import type { BoardState, AgentType } from '@shared/types'
 import type { PtyManager } from '../pty-manager'
+import type { LoopScheduler } from '../loop-scheduler'
 
 const SAFE_ID_RE = /^[A-Za-z0-9_-]{1,64}$/
 
@@ -35,7 +36,8 @@ export function getTaskManager(): TaskManager | null {
 export function registerTaskHandlers(
   _getWindow: () => BrowserWindow | null,
   getCurrentFolder: () => string | null,
-  _getPtyManager: () => PtyManager | null
+  _getPtyManager: () => PtyManager | null,
+  scheduler?: LoopScheduler
 ): void {
   getCurrentFolderFn = getCurrentFolder
   markChannelRegistered('task:loadBoard')
@@ -65,6 +67,11 @@ export function registerTaskHandlers(
   ipcMain.handle('task:saveBoard', async (_, board: BoardState) => {
     const mgr = getManager()
     await mgr.saveBoard(board)
+    try {
+      scheduler?.rescheduleAllTasks(board)
+    } catch (err) {
+      console.error('[Tasks] Failed to reschedule tasks:', err)
+    }
   })
 
   ipcMain.handle('task:readMarkdown', async (_, id: string) => {
