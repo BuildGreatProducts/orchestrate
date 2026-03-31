@@ -90,7 +90,7 @@ export async function executeLoop(loopId: string): Promise<void> {
 
       if (loop.agentType === 'claude-code') {
         cmd = mcpConfigPath
-          ? `claude --mcp-config ${mcpConfigPath} --append-system-prompt ${shellQuote(systemPrompt)} '${escaped}'`
+          ? `claude --mcp-config ${shellQuote(mcpConfigPath)} --append-system-prompt ${shellQuote(systemPrompt)} '${escaped}'`
           : `claude '${escaped}'`
       } else {
         cmd = codexMcpFlags

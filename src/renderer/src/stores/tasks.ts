@@ -333,7 +333,7 @@ export const useTasksStore = create<TasksState>((set, get) => ({
     if (agent === 'claude-code') {
       const mcpConfigPath = await window.orchestrate.getMcpConfigPath().catch(() => null)
       cmd = mcpConfigPath
-        ? `claude --mcp-config ${mcpConfigPath} --append-system-prompt ${shellQuote(systemPrompt)} "$(cat tasks/task-${id}.md)"`
+        ? `claude --mcp-config ${shellQuote(mcpConfigPath)} --append-system-prompt ${shellQuote(systemPrompt)} "$(cat tasks/task-${id}.md)"`
         : `claude "$(cat tasks/task-${id}.md)"`
     } else {
       const codexFlags = await window.orchestrate.getCodexMcpFlags().catch(() => null)
@@ -389,11 +389,10 @@ export const useTasksStore = create<TasksState>((set, get) => ({
     const checkAutoMove = (exitCode: number): void => {
       const { board, moveTask } = get()
       if (!board || !board.columns['in-progress'].includes(taskId)) return
-      if (exitCode === 0) {
-        moveTask(taskId, 'review', 0)
-      } else {
-        moveTask(taskId, 'planning', 0)
-      }
+      const target = exitCode === 0 ? 'review' : 'planning'
+      moveTask(taskId, target as ColumnId, 0).catch((err) => {
+        console.error(`[Tasks] Failed to auto-move task ${taskId} to ${target}:`, err)
+      })
     }
 
     const unsub = useTerminalStore.subscribe((state) => {

@@ -44,7 +44,12 @@ export default function LoopCard({ loop, onSelect, onDelete, isSelected }: LoopC
 
   return (
     <div
+      role="button"
+      tabIndex={0}
       onClick={() => onSelect(loop)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') onSelect(loop)
+      }}
       className={`flex cursor-pointer flex-col gap-3 rounded-lg border p-4 transition-colors ${
         isSelected
           ? 'border-zinc-500 bg-zinc-800'

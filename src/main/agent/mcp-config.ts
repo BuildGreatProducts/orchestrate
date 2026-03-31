@@ -70,4 +70,5 @@ export function cleanupMcpConfigFile(): void {
     }
     configPath = null
   }
+  activePort = null
 }

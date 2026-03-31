@@ -176,9 +176,12 @@ app.on('window-all-closed', () => {
   closeAllBrowserTabs()
   loopScheduler.stopAll()
   stopWatching()
-  closeMcpServer?.()
-  cleanupMcpConfigFile()
   if (process.platform !== 'darwin') {
     app.quit()
   }
+})
+
+app.on('will-quit', () => {
+  closeMcpServer?.()
+  cleanupMcpConfigFile()
 })

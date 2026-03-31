@@ -188,40 +188,35 @@ export default function TaskDetailPanel(): React.JSX.Element | null {
     (value: string) => {
       if (!selectedTaskId) return
       setSchedulePreset(value)
-      if (value === '' || value === '__custom__') {
-        const enabled = false
-        const cron = value === '__custom__' ? scheduleCron : ''
-        if (value === '') setScheduleCron('')
-        updateTaskSchedule(
-          selectedTaskId,
-          { enabled, cron },
-          scheduleAgent
-        )
+      if (value === '') {
+        setScheduleCron('')
+        updateTaskSchedule(selectedTaskId, { enabled: false, cron: '' }, scheduleAgent)
+      } else if (value === '__custom__') {
+        // Only update local state — save happens on blur/Enter in the cron input
       } else {
         setScheduleCron(value)
-        updateTaskSchedule(
-          selectedTaskId,
-          { enabled: true, cron: value },
-          scheduleAgent
-        )
+        updateTaskSchedule(selectedTaskId, { enabled: true, cron: value }, scheduleAgent)
       }
     },
-    [selectedTaskId, scheduleCron, scheduleAgent, updateTaskSchedule]
+    [selectedTaskId, scheduleAgent, updateTaskSchedule]
   )
 
   const handleCustomCronChange = useCallback(
     (value: string) => {
-      if (!selectedTaskId) return
       setScheduleCron(value)
-      const enabled = value.trim().length > 0
-      updateTaskSchedule(
-        selectedTaskId,
-        { enabled, cron: value.trim() },
-        scheduleAgent
-      )
     },
-    [selectedTaskId, scheduleAgent, updateTaskSchedule]
+    []
   )
+
+  const commitCustomCron = useCallback(() => {
+    if (!selectedTaskId) return
+    const trimmed = scheduleCron.trim()
+    updateTaskSchedule(
+      selectedTaskId,
+      { enabled: trimmed.length > 0, cron: trimmed },
+      scheduleAgent
+    )
+  }, [selectedTaskId, scheduleCron, scheduleAgent, updateTaskSchedule])
 
   const handleScheduleAgentChange = useCallback(
     (agent: AgentType) => {
@@ -412,6 +407,10 @@ export default function TaskDetailPanel(): React.JSX.Element | null {
                 type="text"
                 value={scheduleCron}
                 onChange={(e) => handleCustomCronChange(e.target.value)}
+                onBlur={commitCustomCron}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') commitCustomCron()
+                }}
                 placeholder="e.g. 0 9 * * 1-5"
                 className="mt-1.5 w-full rounded border border-zinc-800 bg-zinc-800 px-2 py-1 text-sm text-zinc-300 placeholder:text-zinc-600 outline-none focus:border-zinc-500"
               />

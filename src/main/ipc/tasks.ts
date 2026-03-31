@@ -67,7 +67,11 @@ export function registerTaskHandlers(
   ipcMain.handle('task:saveBoard', async (_, board: BoardState) => {
     const mgr = getManager()
     await mgr.saveBoard(board)
-    scheduler?.rescheduleAllTasks(board)
+    try {
+      scheduler?.rescheduleAllTasks(board)
+    } catch (err) {
+      console.error('[Tasks] Failed to reschedule tasks:', err)
+    }
   })
 
   ipcMain.handle('task:readMarkdown', async (_, id: string) => {

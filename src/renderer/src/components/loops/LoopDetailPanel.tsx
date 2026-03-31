@@ -18,6 +18,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { nanoid } from 'nanoid'
+import { CronExpressionParser } from 'cron-parser'
 import type { Loop, LoopStep, AgentType } from '@shared/types'
 import { useLoopsStore } from '@renderer/stores/loops'
 import { executeLoop, isLoopRunning, abortLoop } from '@renderer/stores/loop-execution-engine'
@@ -196,6 +197,17 @@ export default function LoopDetailPanel(): React.JSX.Element | null {
     if (!trimmedName) return
     const validSteps = steps.filter((s) => s.prompt.trim())
     if (validSteps.length === 0) return
+
+    // Validate cron expression before saving
+    const cronValue = cron.trim()
+    if (scheduleEnabled && cronValue.length > 0) {
+      try {
+        CronExpressionParser.parse(cronValue)
+      } catch {
+        toast.error('Invalid cron expression')
+        return
+      }
+    }
 
     try {
       if (isEdit && existingLoop) {
