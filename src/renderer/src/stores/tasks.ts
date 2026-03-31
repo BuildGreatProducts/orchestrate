@@ -332,9 +332,8 @@ export const useTasksStore = create<TasksState>((set, get) => ({
 
     if (agent === 'claude-code') {
       const mcpConfigPath = await window.orchestrate.getMcpConfigPath().catch(() => null)
-      cmd = mcpConfigPath
-        ? `claude --mcp-config ${shellQuote(mcpConfigPath)} --append-system-prompt ${shellQuote(systemPrompt)} "$(cat tasks/task-${id}.md)"`
-        : `claude "$(cat tasks/task-${id}.md)"`
+      const mcpFlag = mcpConfigPath ? `--mcp-config ${shellQuote(mcpConfigPath)} ` : ''
+      cmd = `claude ${mcpFlag}--append-system-prompt ${shellQuote(systemPrompt)} "$(cat tasks/task-${id}.md)"`
     } else {
       const codexFlags = await window.orchestrate.getCodexMcpFlags().catch(() => null)
       cmd = codexFlags
@@ -355,8 +354,9 @@ export const useTasksStore = create<TasksState>((set, get) => ({
       } else {
         tabId = await termStore.createTab(folder, tabName, cmd)
       }
-    } catch {
-      // Terminal creation failed — move back to planning
+    } catch (err) {
+      // Terminal creation failed — move back to planning and notify user
+      toast.error(`Failed to start agent: ${err instanceof Error ? err.message : String(err)}`)
       await get().moveTask(id, 'planning', 0)
       return
     }

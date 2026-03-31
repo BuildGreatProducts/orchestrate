@@ -185,12 +185,13 @@ export default function LoopDetailPanel(): React.JSX.Element | null {
       setScheduleEnabled(false)
       setCron('')
     } else if (value === '__custom__') {
-      setScheduleEnabled(false)
+      // Only disable if there's no cron already set
+      if (!cron.trim()) setScheduleEnabled(false)
     } else {
       setScheduleEnabled(true)
       setCron(value)
     }
-  }, [])
+  }, [cron])
 
   const handleSave = useCallback(async () => {
     const trimmedName = name.trim()
@@ -210,7 +211,12 @@ export default function LoopDetailPanel(): React.JSX.Element | null {
     }
 
     try {
-      if (isEdit && existingLoop) {
+      if (isEdit) {
+        if (!existingLoop) {
+          toast.error('Loop not found — it may have been deleted')
+          setEditingLoop(null)
+          return
+        }
         await updateLoop({
           ...existingLoop,
           name: trimmedName,
@@ -258,6 +264,7 @@ export default function LoopDetailPanel(): React.JSX.Element | null {
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
+          aria-label="Loop name"
           className="min-w-0 flex-1 bg-transparent font-ovo text-xl text-zinc-200 outline-none placeholder:text-zinc-600"
           placeholder="Loop name"
           autoFocus={!isEdit}
@@ -267,6 +274,9 @@ export default function LoopDetailPanel(): React.JSX.Element | null {
             <div ref={menuRef} className="relative">
               <button
                 onClick={() => setMenuOpen((v) => !v)}
+                aria-label="More actions"
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
                 className="rounded p-1 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-300"
               >
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -277,8 +287,9 @@ export default function LoopDetailPanel(): React.JSX.Element | null {
               </button>
 
               {menuOpen && (
-                <div className="absolute right-0 top-full z-50 mt-1 w-32 overflow-hidden rounded-md border border-zinc-700 bg-zinc-800 py-1 shadow-xl">
+                <div role="menu" className="absolute right-0 top-full z-50 mt-1 w-32 overflow-hidden rounded-md border border-zinc-700 bg-zinc-800 py-1 shadow-xl">
                   <button
+                    role="menuitem"
                     onClick={handleDelete}
                     className="flex w-full items-center px-3 py-1.5 text-left text-sm text-red-400 hover:bg-zinc-700"
                   >
@@ -291,6 +302,7 @@ export default function LoopDetailPanel(): React.JSX.Element | null {
 
           <button
             onClick={() => setEditingLoop(null)}
+            aria-label="Close"
             className="rounded p-1 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-300"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">

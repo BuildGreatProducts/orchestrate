@@ -87,11 +87,15 @@ app.whenReady().then(() => {
       // Reschedule loops and tasks for the new project
       const loopMgr = getLoopManager()
       if (loopMgr) {
-        loopMgr.listLoops().then((loops) => loopScheduler.rescheduleAll(loops)).catch(() => {})
+        loopMgr.listLoops().then((loops) => loopScheduler.rescheduleAll(loops)).catch((err) => {
+          console.error('[Scheduler] Failed to reschedule loops:', err)
+        })
       }
       const taskMgr = getTaskManager()
       if (taskMgr) {
-        taskMgr.loadBoard().then((board) => loopScheduler.rescheduleAllTasks(board)).catch(() => {})
+        taskMgr.loadBoard().then((board) => loopScheduler.rescheduleAllTasks(board)).catch((err) => {
+          console.error('[Scheduler] Failed to reschedule tasks:', err)
+        })
       }
     }
   )
