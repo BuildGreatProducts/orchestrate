@@ -419,6 +419,16 @@ export function createOrchestrateServer(deps: ToolExecutorDeps) {
             }
             notifyStateChanged('loops')
             return ok({ id, name: args.name, stepCount: loop.steps.length })
+            const agent = args.agent || 'claude-code'
+            const board = await mgr.loadBoard()
+            if (!board.tasks[args.task_id]) return fail(`Task ${args.task_id} not found`)
+            const taskTitle = board.tasks[args.task_id].title
+            const markdown = await mgr.readMarkdown(args.task_id)
+            const escaped = markdown.replace(/'/g, "'\\''")
+            const cmd = agent === 'claude-code' ? `claude -p '${escaped}'` : `codex -q '${escaped}'`
+            const tabName = `${agent === 'claude-code' ? 'Claude' : 'Codex'}: ${taskTitle}`
+            notifyStateChanged('terminal', { name: tabName, command: cmd, taskId: args.task_id })
+            return ok({ taskId: args.task_id, agent, tabName })
           } catch (err) {
             return fail(err instanceof Error ? err.message : String(err))
           }

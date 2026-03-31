@@ -297,8 +297,8 @@ export const useTasksStore = create<TasksState>((set, get) => ({
 
     const tabName = `${agent === 'claude-code' ? 'Claude' : 'Codex'}: ${taskTitle}`
 
-    // Create terminal tab on the Agents tab
-    await useTerminalStore.getState().createTab(folder, tabName, cmd)
+    // Create terminal tab on the Agents tab, linked to this task
+    await useTerminalStore.getState().createTab(folder, tabName, cmd, id)
 
     // Switch to Agents tab
     useAppStore.getState().setActiveTab('agents')
