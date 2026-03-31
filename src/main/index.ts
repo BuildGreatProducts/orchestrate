@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow } from 'electron'
+import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join, basename } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -17,8 +17,16 @@ import { registerStubHandlers } from './ipc/stubs'
 import { startWatching, stopWatching } from './file-watcher'
 import { SkillManager } from './skill-manager'
 import Store from 'electron-store'
+import { startMcpServer, getMcpServerUrl } from './agent/mcp-http-server'
+import {
+  writeMcpConfigFile,
+  cleanupMcpConfigFile,
+  getMcpConfigPath,
+  getCodexMcpFlags
+} from './agent/mcp-config'
 
 let mainWindow: BrowserWindow | null = null
+let closeMcpServer: (() => Promise<void>) | null = null
 const skillStore = new Store()
 const skillManager = new SkillManager(skillStore)
 const getSkillManager = (): SkillManager => skillManager
@@ -76,16 +84,20 @@ app.whenReady().then(() => {
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.setTitle(`Orchestrate — ${basename(folder)}`)
       }
-      // Reschedule loops for the new project
-      const mgr = getLoopManager()
-      if (mgr) {
-        mgr.listLoops().then((loops) => loopScheduler.rescheduleAll(loops)).catch(() => {})
+      // Reschedule loops and tasks for the new project
+      const loopMgr = getLoopManager()
+      if (loopMgr) {
+        loopMgr.listLoops().then((loops) => loopScheduler.rescheduleAll(loops)).catch(() => {})
+      }
+      const taskMgr = getTaskManager()
+      if (taskMgr) {
+        taskMgr.loadBoard().then((board) => loopScheduler.rescheduleAllTasks(board)).catch(() => {})
       }
     }
   )
   registerFileHandlers(() => mainWindow, getCurrentFolder)
   registerTerminalHandlers(() => mainWindow, getCurrentFolder)
-  registerTaskHandlers(() => mainWindow, getCurrentFolder, getPtyManager)
+  registerTaskHandlers(() => mainWindow, getCurrentFolder, getPtyManager, loopScheduler)
   registerLoopHandlers(() => mainWindow, getCurrentFolder)
   registerGitHandlers(() => mainWindow, getCurrentFolder)
   registerAgentHandlers(
@@ -101,6 +113,35 @@ app.whenReady().then(() => {
   registerChatHistoryHandlers(() => mainWindow, getCurrentFolder)
   registerBrowserHandlers(() => mainWindow)
   registerStubHandlers()
+
+  // Register MCP IPC handlers
+  ipcMain.handle('mcp:getUrl', () => getMcpServerUrl())
+  ipcMain.handle('mcp:getConfigPath', () => getMcpConfigPath())
+  ipcMain.handle('mcp:getCodexFlags', () => getCodexMcpFlags())
+
+  // Start the HTTP MCP server for CLI agents
+  startMcpServer({
+    getCurrentFolder,
+    getTaskManager,
+    getLoopManager: () => null, // Not exposed via HTTP MCP
+    getGitManager,
+    getPtyManager: () => null, // Not exposed via HTTP MCP
+    getSkillManager: () => null, // Not exposed via HTTP MCP
+    getWindow: () => mainWindow,
+    notifyToolUse: (tool, input) => {
+      mainWindow?.webContents.send('agent:toolUse', tool, input)
+    },
+    notifyStateChanged: (domain, data) => {
+      mainWindow?.webContents.send('agent:stateChanged', domain, data)
+    }
+  })
+    .then(({ port, close }) => {
+      closeMcpServer = close
+      writeMcpConfigFile(port)
+    })
+    .catch((err) => {
+      console.error('[MCP] Failed to start HTTP server:', err)
+    })
 
   // Ensure global skills directory exists
   skillManager.ensureGlobalDir().catch((err) => {
@@ -135,6 +176,8 @@ app.on('window-all-closed', () => {
   closeAllBrowserTabs()
   loopScheduler.stopAll()
   stopWatching()
+  closeMcpServer?.()
+  cleanupMcpConfigFile()
   if (process.platform !== 'darwin') {
     app.quit()
   }

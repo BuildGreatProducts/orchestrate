@@ -81,6 +81,15 @@ const api: OrchestrateAPI = {
       ipcRenderer.removeListener('loop:trigger', handler)
     }
   },
+  onTaskScheduleTrigger: (callback: (taskId: string) => void) => {
+    const handler = (_: Electron.IpcRendererEvent, taskId: string): void => {
+      callback(taskId)
+    }
+    ipcRenderer.on('task:scheduleTrigger', handler)
+    return () => {
+      ipcRenderer.removeListener('task:scheduleTrigger', handler)
+    }
+  },
 
   // Manage Agent
   sendAgentMessage: (message) => ipcRenderer.invoke('agent:message', message),
@@ -152,6 +161,11 @@ const api: OrchestrateAPI = {
       ipcRenderer.removeListener('browser:tabClosed', handler)
     }
   },
+
+  // MCP
+  getMcpServerUrl: () => ipcRenderer.invoke('mcp:getUrl'),
+  getMcpConfigPath: () => ipcRenderer.invoke('mcp:getConfigPath'),
+  getCodexMcpFlags: () => ipcRenderer.invoke('mcp:getCodexFlags'),
 
   // Skills
   getSkills: () => ipcRenderer.invoke('skill:list'),

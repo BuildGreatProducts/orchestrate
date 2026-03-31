@@ -51,6 +51,10 @@ export default function DraggableAgentItem({
     >
       <Terminal size={14} className="flex-shrink-0 text-zinc-500" />
 
+      {tab.busy && !tab.exited && (
+        <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-green-400 animate-pulse" />
+      )}
+
       <span className="flex-1 truncate text-left">
         {tab.name}
         {tab.exited && <span className="ml-1 text-zinc-500">(exited)</span>}
