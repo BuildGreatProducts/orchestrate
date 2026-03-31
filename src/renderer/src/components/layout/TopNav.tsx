@@ -6,8 +6,8 @@ import FolderSelector from './FolderSelector'
 
 const TAB_ICONS: Record<TabId, React.ComponentType<{ size?: number }>> = {
   orchestrate: MessageSquare,
-  agents: Terminal,
   tasks: LayoutList,
+  agents: Terminal,
   files: FolderOpen,
   history: History,
   browser: Globe

@@ -1,9 +1,11 @@
 import { create } from 'zustand'
+import { useLoopsStore } from './loops'
 import { useTasksStore } from './tasks'
 import { useHistoryStore } from './history'
 import { useFilesStore } from './files'
 import { useTerminalStore } from './terminal'
 import { useAppStore } from './app'
+import { executeLoop } from './loop-execution-engine'
 import type { ChatMessageData, StreamItemData } from '@shared/types'
 
 export type StreamItem =
@@ -154,6 +156,42 @@ function ensureGlobalListeners(): void {
       case 'tasks':
         useTasksStore.getState().loadBoard()
         break
+      case 'task-agent': {
+        if (folder && data && typeof data === 'object') {
+          const { taskId, agent } = data as { taskId: string; agent: string }
+          if (taskId && /^[A-Za-z0-9_-]{1,64}$/.test(taskId)) {
+            const board = useTasksStore.getState().board
+            if (board?.tasks[taskId]) {
+              const taskTitle = board.tasks[taskId].title
+              const cmd =
+                agent === 'codex'
+                  ? `codex -q "$(cat tasks/task-${taskId}.md)"`
+                  : `claude -p "$(cat tasks/task-${taskId}.md)"`
+              const tabName = `${agent === 'codex' ? 'Codex' : 'Claude'}: ${taskTitle}`
+              useTerminalStore
+                .getState()
+                .createTab(folder, tabName, cmd)
+                .then(() => {
+                  useAppStore.getState().setActiveTab('agents')
+                })
+                .catch((err) => {
+                  console.error('[Agent] Failed to create terminal for task:', err)
+                })
+            }
+          }
+        }
+        break
+      }
+      case 'loops':
+        useLoopsStore.getState().loadLoops()
+        break
+      case 'loop-trigger': {
+        if (data && typeof data === 'object') {
+          const { loopId } = data as { loopId: string }
+          if (loopId) executeLoop(loopId)
+        }
+        break
+      }
       case 'history':
         useHistoryStore.getState().refreshAll()
         break
@@ -182,10 +220,16 @@ function ensureGlobalListeners(): void {
     }
   })
 
+  // Listen for cron-scheduled loop triggers (separate IPC channel from agent tools)
+  const cleanupLoopTrigger = window.orchestrate.onLoopTrigger((loopId) => {
+    executeLoop(loopId)
+  })
+
   // Store cleanup so the next HMR reload can remove these listeners
   ;(window as unknown as Record<string, unknown>)[CLEANUP_KEY] = (): void => {
     cleanupResponse()
     cleanupStateChanged()
+    cleanupLoopTrigger()
   }
 }
 
@@ -226,6 +270,8 @@ export const useAgentStore = create<AgentState>((set, get) => {
         isStreaming: true,
         streamingItems: []
       })
+      // Save immediately so the conversation appears in history as soon as the user sends
+      _autoSaveFn?.()
       try {
         await window.orchestrate.sendAgentMessage(text)
       } catch (err) {

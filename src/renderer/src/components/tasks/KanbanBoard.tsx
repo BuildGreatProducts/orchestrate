@@ -13,11 +13,11 @@ import {
 import { arrayMove } from '@dnd-kit/sortable'
 import type { ColumnId, BoardState } from '@shared/types'
 import { useTasksStore } from '@renderer/stores/tasks'
+import { useLoopsStore } from '@renderer/stores/loops'
 import KanbanColumn from './KanbanColumn'
 import TaskCard from './TaskCard'
-import { Button } from '@renderer/components/ui/button'
 
-const COLUMNS: ColumnId[] = ['draft', 'planning', 'in-progress', 'review', 'done']
+const COLUMNS: ColumnId[] = ['planning', 'in-progress', 'review', 'done']
 
 function findColumnForTask(board: BoardState, taskId: string): ColumnId | null {
   for (const col of COLUMNS) {
@@ -29,14 +29,12 @@ function findColumnForTask(board: BoardState, taskId: string): ColumnId | null {
 export default function KanbanBoard(): React.JSX.Element {
   const board = useTasksStore((s) => s.board)
   const loadBoard = useTasksStore((s) => s.loadBoard)
-  const createTask = useTasksStore((s) => s.createTask)
   const [activeId, setActiveId] = useState<string | null>(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   )
 
-  // Directly mutate the store's board for live preview during drag
   const setBoardDirect = useTasksStore.setState
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
@@ -55,7 +53,6 @@ export default function KanbanBoard(): React.JSX.Element {
       const fromCol = findColumnForTask(board, activeTaskId)
       if (!fromCol) return
 
-      // Determine target column: either directly a column, or the column containing the over task
       let toCol: ColumnId | null = null
       if (COLUMNS.includes(overId as ColumnId)) {
         toCol = overId as ColumnId
@@ -64,7 +61,6 @@ export default function KanbanBoard(): React.JSX.Element {
       }
       if (!toCol || fromCol === toCol) return
 
-      // Move between columns (live preview)
       const fromItems = [...board.columns[fromCol]]
       const toItems = [...board.columns[toCol]]
 
@@ -104,7 +100,6 @@ export default function KanbanBoard(): React.JSX.Element {
       const col = findColumnForTask(board, activeTaskId)
       if (!col) return
 
-      // Within-column reorder
       const items = board.columns[col]
       const oldIdx = items.indexOf(activeTaskId)
       const newIdx = items.indexOf(overId)
@@ -118,7 +113,6 @@ export default function KanbanBoard(): React.JSX.Element {
         setBoardDirect({ board: newBoard })
         await window.orchestrate.saveBoard(newBoard)
       } else {
-        // Cross-column move already applied in handleDragOver — persist latest store state
         const currentBoard = useTasksStore.getState().board
         if (currentBoard) {
           await window.orchestrate.saveBoard(currentBoard)
@@ -127,6 +121,13 @@ export default function KanbanBoard(): React.JSX.Element {
     },
     [board, setBoardDirect]
   )
+
+  const createTask = useTasksStore((s) => s.createTask)
+  const setEditingLoop = useLoopsStore((s) => s.setEditingLoop)
+
+  const handleNewLoop = useCallback(() => {
+    setEditingLoop({})
+  }, [setEditingLoop])
 
   const handleDragCancel = useCallback(() => {
     setActiveId(null)
@@ -145,9 +146,20 @@ export default function KanbanBoard(): React.JSX.Element {
         <p className="max-w-xs text-sm text-zinc-500">
           Plan and track work across your project with a drag-and-drop board.
         </p>
-        <Button variant="solid" onClick={() => createTask('draft', 'New task')} className="mt-2">
-          Create task
-        </Button>
+        <div className="mt-2 flex gap-3">
+          <button
+            onClick={() => createTask('planning', 'New task')}
+            className="rounded bg-white px-4 py-2 text-sm font-medium text-zinc-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_1px_3px_rgba(0,0,0,0.4),0_0px_1px_rgba(0,0,0,0.3)] transition-colors hover:bg-zinc-100 active:bg-zinc-200 active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.2)]"
+          >
+            New Task
+          </button>
+          <button
+            onClick={handleNewLoop}
+            className="rounded border border-zinc-700 bg-zinc-800 px-4 py-2 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-700 hover:text-white"
+          >
+            New Loop
+          </button>
+        </div>
       </div>
     )
   }

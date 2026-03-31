@@ -19,12 +19,18 @@ const stubs: StubDef[] = [
   { channel: 'terminal:close', returns: undefined },
 
   // Tasks
-  { channel: 'task:loadBoard', returns: null },
+  { channel: 'task:loadBoard', returns: { columns: { planning: [], 'in-progress': [], review: [], done: [] }, tasks: {} } },
   { channel: 'task:saveBoard', returns: undefined },
   { channel: 'task:readMarkdown', returns: '' },
   { channel: 'task:writeMarkdown', returns: undefined },
   { channel: 'task:delete', returns: undefined },
   { channel: 'task:sendToAgent', returns: undefined },
+
+  // Loops
+  { channel: 'loop:list', returns: [] },
+  { channel: 'loop:load', returns: null },
+  { channel: 'loop:save', returns: undefined },
+  { channel: 'loop:delete', returns: undefined },
 
   // Agent
   { channel: 'agent:message', returns: undefined },

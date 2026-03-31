@@ -5,11 +5,10 @@ import type { BoardState, ColumnId } from '@shared/types'
 
 const SAFE_ID_RE = /^[A-Za-z0-9_-]{1,64}$/
 
-const EXPECTED_COLUMNS: ColumnId[] = ['draft', 'planning', 'in-progress', 'review', 'done']
+const EXPECTED_COLUMNS: ColumnId[] = ['planning', 'in-progress', 'review', 'done']
 
 const EMPTY_BOARD: BoardState = {
   columns: {
-    draft: [],
     planning: [],
     'in-progress': [],
     review: [],
@@ -36,6 +35,16 @@ function isValidBoard(obj: unknown): obj is BoardState {
     if (!val || typeof val !== 'object') return false
     const meta = val as Record<string, unknown>
     if (typeof meta.title !== 'string' || typeof meta.createdAt !== 'string') return false
+    // Default missing type to 'task' for backward compatibility
+    if (meta.type === undefined) {
+      meta.type = 'task'
+    } else if (meta.type !== 'task' && meta.type !== 'loop') {
+      return false
+    }
+    // Loop tasks must have a loopId
+    if (meta.type === 'loop' && typeof meta.loopId !== 'string') {
+      return false
+    }
   }
   return true
 }
@@ -66,11 +75,30 @@ export class TaskManager {
     await mkdir(this.tasksDir, { recursive: true })
   }
 
+  /** Migrate boards that still have a 'draft' column from the old schema */
+  private migrateBoard(obj: Record<string, unknown>): void {
+    const cols = obj.columns as Record<string, unknown> | undefined
+    if (!cols) return
+    const draft = cols['draft']
+    if (Array.isArray(draft)) {
+      // Move draft task IDs to planning
+      if (!Array.isArray(cols['planning'])) {
+        cols['planning'] = []
+      }
+      ;(cols['planning'] as string[]).unshift(...(draft as string[]))
+      delete cols['draft']
+    }
+  }
+
   async loadBoard(): Promise<BoardState> {
     await this.ensureDir()
     try {
       const raw = await readFile(join(this.tasksDir, 'board.json'), 'utf-8')
       const parsed: unknown = JSON.parse(raw)
+      // Migrate old boards with 'draft' column before validation
+      if (parsed && typeof parsed === 'object') {
+        this.migrateBoard(parsed as Record<string, unknown>)
+      }
       if (!isValidBoard(parsed)) {
         console.error('[TaskManager] board.json failed validation, returning empty board')
         return structuredClone(EMPTY_BOARD)

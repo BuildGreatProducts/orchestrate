@@ -8,6 +8,15 @@ export interface TerminalTab {
   taskId?: string
   exited: boolean
   exitCode?: number
+  busy: boolean
+  bell: boolean
+}
+
+export interface AgentGroup {
+  id: string
+  name: string
+  collapsed: boolean
+  tabIds: string[]
 }
 
 export interface AgentGroup {
@@ -28,6 +37,10 @@ interface TerminalState {
   getTaskId: (terminalId: string) => string | undefined
   closeTab: (id: string) => void
   setActiveTab: (id: string) => void
+  updateTabName: (id: string, name: string) => void
+  markBusy: (id: string, busy: boolean) => void
+  markBell: (id: string) => void
+  clearBell: (id: string) => void
   markExited: (id: string, exitCode: number) => void
   closeAllTabs: () => void
 
@@ -110,6 +123,10 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     // Add tab to state FIRST so the component mounts and registers
     // its handlers before the PTY starts emitting
     set((state) => ({
+      tabs: [
+        ...state.tabs,
+        { id, name: tabName, exited: false, busy: false, bell: false }
+      ],
       tabs: [...state.tabs, { id, name: tabName, taskId, exited: false }],
       activeTabId: id,
       nextIndex: state.nextIndex + 1
@@ -162,6 +179,33 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
   },
 
   setActiveTab: (id: string) => set({ activeTabId: id }),
+
+  updateTabName: (id: string, name: string) => {
+    set((state) => ({
+      tabs: state.tabs.map((t) => (t.id === id ? { ...t, name } : t))
+    }))
+  },
+
+  markBusy: (id: string, busy: boolean) => {
+    set((state) => ({
+      tabs: state.tabs.map((t) => (t.id === id ? { ...t, busy } : t))
+    }))
+  },
+
+  markBell: (id: string) => {
+    const { activeTabId } = get()
+    // Only show bell if the tab isn't currently active
+    if (id === activeTabId) return
+    set((state) => ({
+      tabs: state.tabs.map((t) => (t.id === id ? { ...t, bell: true } : t))
+    }))
+  },
+
+  clearBell: (id: string) => {
+    set((state) => ({
+      tabs: state.tabs.map((t) => (t.id === id ? { ...t, bell: false } : t))
+    }))
+  },
 
   markExited: (id: string, exitCode: number) => {
     set((state) => ({

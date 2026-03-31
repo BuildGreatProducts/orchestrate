@@ -5,10 +5,8 @@ import { useTasksStore } from '@renderer/stores/tasks'
 import MarkdownToggle from '@renderer/components/files/MarkdownToggle'
 import MarkdownPreview from '@renderer/components/files/MarkdownPreview'
 import ConfirmDialog from '@renderer/components/history/ConfirmDialog'
-import { Button } from '@renderer/components/ui/button'
 
 const COLUMNS: { id: ColumnId; label: string }[] = [
-  { id: 'draft', label: 'Draft' },
   { id: 'planning', label: 'Planning' },
   { id: 'in-progress', label: 'In Progress' },
   { id: 'review', label: 'Review' },
@@ -105,7 +103,6 @@ export default function TaskDetailPanel(): React.JSX.Element | null {
       setSaveStatus('saving')
       saveTimerRef.current = setTimeout(async () => {
         await writeMarkdown(taskId, content)
-        // Only show "saved" if content hasn't changed during the save
         if (latestMarkdownRef.current === content) {
           setSaveStatus('saved')
         }
@@ -139,7 +136,6 @@ export default function TaskDetailPanel(): React.JSX.Element | null {
   const handleSendToAgent = useCallback(
     async (agent: 'claude-code' | 'codex') => {
       if (!selectedTaskId) return
-      // Flush any pending autosave immediately
       clearTimeout(saveTimerRef.current)
       await writeMarkdown(selectedTaskId, markdown)
       setSaveStatus('saved')
@@ -166,7 +162,6 @@ export default function TaskDetailPanel(): React.JSX.Element | null {
           placeholder="Task name"
         />
         <div className="mt-1 flex flex-shrink-0 items-center gap-1">
-          {/* 3-dot menu */}
           <div ref={menuRef} className="relative">
             <button
               onClick={() => setMenuOpen((v) => !v)}
@@ -194,7 +189,6 @@ export default function TaskDetailPanel(): React.JSX.Element | null {
             )}
           </div>
 
-          {/* Close button */}
           <button
             onClick={() => selectTask(null)}
             className="rounded p-1 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-300"
@@ -212,7 +206,6 @@ export default function TaskDetailPanel(): React.JSX.Element | null {
       </div>
 
       <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-4">
-
         {/* Column selector */}
         <div className="flex items-center gap-2">
           <label className="text-xs text-zinc-500">Column</label>
@@ -269,23 +262,20 @@ export default function TaskDetailPanel(): React.JSX.Element | null {
             )}
           </div>
         </div>
-
-
       </div>
 
       {/* Send to agent */}
       <div className="flex justify-end border-t border-zinc-800 px-4 py-3">
         <div ref={sendMenuRef} className="relative">
-          <Button
-            variant="solid"
-            size="sm"
+          <button
             onClick={() => setSendMenuOpen((v) => !v)}
+            className="flex items-center gap-1.5 rounded bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_1px_3px_rgba(0,0,0,0.4),0_0px_1px_rgba(0,0,0,0.3)] transition-colors hover:bg-zinc-100 active:bg-zinc-200 active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.2)]"
           >
             Send to
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-zinc-500">
               <path d="M3 5l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-          </Button>
+          </button>
 
           {sendMenuOpen && (
             <div className="absolute bottom-full right-0 z-50 mb-1 w-40 overflow-hidden rounded-md border border-zinc-700 bg-zinc-800 py-1 shadow-xl">

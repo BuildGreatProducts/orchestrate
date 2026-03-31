@@ -5,6 +5,7 @@ import { Agent } from '../agent/agent'
 import { createOrchestrateServer, ORCHESTRATE_TOOL_NAMES } from '../agent/tools'
 import { SYSTEM_PROMPT } from '../agent/system-prompt'
 import type { TaskManager } from '../task-manager'
+import type { LoopManager } from '../loop-manager'
 import type { GitManager } from '../git-manager'
 import type { PtyManager } from '../pty-manager'
 import type { SkillManager } from '../skill-manager'
@@ -31,6 +32,7 @@ export function registerAgentHandlers(
   getWindow: () => BrowserWindow | null,
   getCurrentFolder: () => string | null,
   getTaskManager: () => TaskManager | null,
+  getLoopManager: () => LoopManager | null,
   getGitManager: () => GitManager | null,
   _getPtyManager: () => PtyManager | null,
   getSkillManager: () => SkillManager | null
@@ -170,6 +172,7 @@ ${skillsXml}
       const mcpServer = createOrchestrateServer({
         getCurrentFolder,
         getTaskManager,
+        getLoopManager,
         getGitManager,
         getPtyManager: _getPtyManager,
         getSkillManager: () => getSkillManager(),

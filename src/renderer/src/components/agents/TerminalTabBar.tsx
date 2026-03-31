@@ -38,6 +38,7 @@ export default function TerminalTabBar(): React.JSX.Element {
   const tabs = useTerminalStore((s) => s.tabs)
   const activeTabId = useTerminalStore((s) => s.activeTabId)
   const setActiveTab = useTerminalStore((s) => s.setActiveTab)
+  const clearBell = useTerminalStore((s) => s.clearBell)
   const closeTab = useTerminalStore((s) => s.closeTab)
   const createTab = useTerminalStore((s) => s.createTab)
   const groups = useTerminalStore((s) => s.groups)
@@ -94,6 +95,7 @@ export default function TerminalTabBar(): React.JSX.Element {
 
   const handleSelectTab = (id: string): void => {
     setActiveTab(id)
+    clearBell(id)
   }
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
@@ -184,90 +186,99 @@ export default function TerminalTabBar(): React.JSX.Element {
   const activeTab = activeId ? tabs.find((t) => t.id === activeId) : null
 
   return (
-    <div className="flex w-56 shrink-0 flex-col border-r border-zinc-800 bg-zinc-900">
-      {/* Agent list */}
-      <div className="flex-1 overflow-y-auto p-1.5">
-        {tabs.length === 0 && groups.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-2 pt-12 text-center">
-            <Terminal size={20} className="text-zinc-600" />
-            <span className="text-xs text-zinc-600">No agents yet</span>
-          </div>
-        ) : (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCorners}
-            onDragStart={handleDragStart}
-            onDragOver={handleDragOver}
-            onDragEnd={handleDragEnd}
-            onDragCancel={handleDragCancel}
-          >
-            {/* Ungrouped agents */}
-            {ungroupedTabs.length > 0 && (
-              <UngroupedDropZone>
-                <SortableContext items={ungroupedTabIds} strategy={verticalListSortingStrategy}>
-                  {ungroupedTabs.map((tab) => (
-                    <DraggableAgentItem
-                      key={tab.id}
-                      tab={tab}
-                      isActive={tab.id === activeTabId}
-                      onSelect={handleSelectTab}
-                      onClose={closeTab}
-                    />
-                  ))}
-                </SortableContext>
-              </UngroupedDropZone>
-            )}
+    <div className="w-64 shrink-0 border-r border-zinc-800 bg-zinc-900">
+      <div className="flex h-full w-64 flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-3 py-2.5">
+          <span className="text-xs font-medium uppercase tracking-wider text-zinc-400">
+            Agents
+          </span>
+        </div>
 
-            {/* Empty ungrouped drop zone when all tabs are grouped */}
-            {ungroupedTabs.length === 0 && tabs.length > 0 && (
-              <UngroupedDropZone>
-                <div className="min-h-[8px]" />
-              </UngroupedDropZone>
-            )}
+        {/* Agent list */}
+        <div className="flex-1 overflow-y-auto dark-scrollbar p-1.5">
+          {tabs.length === 0 && groups.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-2 pt-12 text-center">
+              <Terminal size={20} className="text-zinc-600" />
+              <span className="text-xs text-zinc-600">No agents yet</span>
+            </div>
+          ) : (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCorners}
+              onDragStart={handleDragStart}
+              onDragOver={handleDragOver}
+              onDragEnd={handleDragEnd}
+              onDragCancel={handleDragCancel}
+            >
+              {/* Ungrouped agents */}
+              {ungroupedTabs.length > 0 && (
+                <UngroupedDropZone>
+                  <SortableContext items={ungroupedTabIds} strategy={verticalListSortingStrategy}>
+                    {ungroupedTabs.map((tab) => (
+                      <DraggableAgentItem
+                        key={tab.id}
+                        tab={tab}
+                        isActive={tab.id === activeTabId}
+                        onSelect={handleSelectTab}
+                        onClose={closeTab}
+                      />
+                    ))}
+                  </SortableContext>
+                </UngroupedDropZone>
+              )}
 
-            {/* Groups */}
-            {groups.map((group) => (
-              <AgentGroupSection
-                key={group.id}
-                group={group}
-                tabs={tabs}
-                activeTabId={activeTabId}
-                onSelectTab={handleSelectTab}
-                onCloseTab={closeTab}
-              />
-            ))}
+              {/* Empty ungrouped drop zone when all tabs are grouped */}
+              {ungroupedTabs.length === 0 && tabs.length > 0 && (
+                <UngroupedDropZone>
+                  <div className="min-h-[8px]" />
+                </UngroupedDropZone>
+              )}
 
-            <DragOverlay>
-              {activeId && activeTab ? (
-                <DraggableAgentItem
-                  tab={activeTab}
-                  isActive={false}
-                  onSelect={() => {}}
-                  onClose={() => {}}
-                  isDragOverlay
+              {/* Groups */}
+              {groups.map((group) => (
+                <AgentGroupSection
+                  key={group.id}
+                  group={group}
+                  tabs={tabs}
+                  activeTabId={activeTabId}
+                  onSelectTab={handleSelectTab}
+                  onCloseTab={closeTab}
                 />
-              ) : null}
-            </DragOverlay>
-          </DndContext>
-        )}
-      </div>
+              ))}
 
-      {/* Bottom buttons */}
-      <div className="flex flex-col gap-1.5 border-t border-zinc-800 p-2">
-        <button
-          onClick={() => createGroup()}
-          className="flex w-full items-center justify-center gap-1.5 rounded px-3 py-1.5 text-sm text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-300"
-        >
-          <FolderPlus size={14} />
-          <span>New group</span>
-        </button>
-        <button
-          onClick={handleNewAgent}
-          className="flex w-full items-center justify-center gap-1.5 rounded px-3 py-1.5 text-sm text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-200"
-        >
-          <Plus size={14} />
-          <span>New terminal</span>
-        </button>
+              <DragOverlay>
+                {activeId && activeTab ? (
+                  <DraggableAgentItem
+                    tab={activeTab}
+                    isActive={false}
+                    onSelect={() => {}}
+                    onClose={() => {}}
+                    isDragOverlay
+                  />
+                ) : null}
+              </DragOverlay>
+            </DndContext>
+          )}
+        </div>
+
+        {/* Bottom buttons */}
+        <div className="flex flex-col gap-1.5 px-2.5 pb-2.5">
+          <button
+            onClick={() => createGroup()}
+            className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-zinc-800/60 px-3 py-2 text-sm text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-200"
+          >
+            <FolderPlus size={14} />
+            <span>New group</span>
+          </button>
+          <button
+            onClick={handleNewAgent}
+            className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-zinc-800 px-3 py-2 text-sm text-zinc-300 transition-colors hover:bg-zinc-700 hover:text-zinc-100"
+          >
+            <Plus size={14} />
+            <span>New agent</span>
+          </button>
+        </div>
       </div>
     </div>
   )

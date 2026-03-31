@@ -4,7 +4,8 @@ import type {
   FileChangeEvent,
   AgentResponseChunk,
   BrowserTabInfo,
-  BrowserBounds
+  BrowserBounds,
+  BoardState
 } from '@shared/types'
 
 const api: OrchestrateAPI = {
@@ -60,11 +61,26 @@ const api: OrchestrateAPI = {
 
   // Tasks
   loadBoard: () => ipcRenderer.invoke('task:loadBoard'),
-  saveBoard: (board) => ipcRenderer.invoke('task:saveBoard', board),
-  readTaskMarkdown: (id) => ipcRenderer.invoke('task:readMarkdown', id),
-  writeTaskMarkdown: (id, content) => ipcRenderer.invoke('task:writeMarkdown', id, content),
-  deleteTask: (id) => ipcRenderer.invoke('task:delete', id),
-  sendToAgent: (id, agent) => ipcRenderer.invoke('task:sendToAgent', id, agent),
+  saveBoard: (board: BoardState) => ipcRenderer.invoke('task:saveBoard', board),
+  readTaskMarkdown: (id: string) => ipcRenderer.invoke('task:readMarkdown', id),
+  writeTaskMarkdown: (id: string, content: string) => ipcRenderer.invoke('task:writeMarkdown', id, content),
+  deleteTask: (id: string) => ipcRenderer.invoke('task:delete', id),
+  sendToAgent: (id: string, agent: string) => ipcRenderer.invoke('task:sendToAgent', id, agent),
+
+  // Loops
+  listLoops: () => ipcRenderer.invoke('loop:list'),
+  loadLoop: (id) => ipcRenderer.invoke('loop:load', id),
+  saveLoop: (loop) => ipcRenderer.invoke('loop:save', loop),
+  deleteLoop: (id) => ipcRenderer.invoke('loop:delete', id),
+  onLoopTrigger: (callback: (loopId: string) => void) => {
+    const handler = (_: Electron.IpcRendererEvent, loopId: string): void => {
+      callback(loopId)
+    }
+    ipcRenderer.on('loop:trigger', handler)
+    return () => {
+      ipcRenderer.removeListener('loop:trigger', handler)
+    }
+  },
 
   // Manage Agent
   sendAgentMessage: (message) => ipcRenderer.invoke('agent:message', message),

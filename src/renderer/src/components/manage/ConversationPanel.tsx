@@ -63,44 +63,53 @@ function ConversationItem({
 export default function ConversationPanel(): React.JSX.Element {
   const conversations = useChatHistoryStore((s) => s.conversations)
   const activeConversationId = useChatHistoryStore((s) => s.activeConversationId)
+  const panelOpen = useChatHistoryStore((s) => s.panelOpen)
   const newConversation = useChatHistoryStore((s) => s.newConversation)
   const selectConversation = useChatHistoryStore((s) => s.selectConversation)
   const deleteConversation = useChatHistoryStore((s) => s.deleteConversation)
 
   return (
-    <div className="flex w-64 min-w-[200px] flex-col border-r border-zinc-800 bg-zinc-900">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-zinc-800 px-3 py-2.5">
-        <span className="text-xs font-medium uppercase tracking-wider text-zinc-400">Chats</span>
-        <button
-          onClick={newConversation}
-          className="rounded p-1 text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-200"
-          aria-label="New conversation"
-        >
-          <Plus size={14} />
-        </button>
-      </div>
+    <div
+      className={`shrink-0 overflow-hidden border-r border-zinc-800 bg-zinc-900 transition-all duration-200 ease-out ${
+        panelOpen ? 'w-64' : 'w-0 border-r-0'
+      }`}
+    >
+      <div className="flex h-full w-64 flex-col" aria-hidden={!panelOpen} inert={!panelOpen ? ('' as unknown as boolean) : undefined}>
+        {/* Header */}
+        <div className="flex items-center justify-between px-3 py-2.5">
+          <span className="text-xs font-medium uppercase tracking-wider text-zinc-400">
+            Chats
+          </span>
+          <button
+            onClick={newConversation}
+            className="rounded p-1 text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-200"
+            aria-label="New conversation"
+          >
+            <Plus size={14} />
+          </button>
+        </div>
 
-      {/* Conversation list */}
-      <div className="flex-1 overflow-y-auto dark-scrollbar p-1.5">
-        {conversations.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-2 pt-12 text-center">
-            <MessageSquare size={20} className="text-zinc-600" />
-            <span className="text-xs text-zinc-600">No conversations yet</span>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-0.5">
-            {conversations.map((conv) => (
-              <ConversationItem
-                key={conv.id}
-                conversation={conv}
-                isActive={conv.id === activeConversationId}
-                onSelect={() => selectConversation(conv.id)}
-                onDelete={() => deleteConversation(conv.id)}
-              />
-            ))}
-          </div>
-        )}
+        {/* Conversation list */}
+        <div className="flex-1 overflow-y-auto dark-scrollbar p-1.5">
+          {conversations.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-2 pt-12 text-center">
+              <MessageSquare size={20} className="text-zinc-600" />
+              <span className="text-xs text-zinc-600">No conversations yet</span>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-0.5">
+              {conversations.map((conv) => (
+                <ConversationItem
+                  key={conv.id}
+                  conversation={conv}
+                  isActive={conv.id === activeConversationId}
+                  onSelect={() => selectConversation(conv.id)}
+                  onDelete={() => deleteConversation(conv.id)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

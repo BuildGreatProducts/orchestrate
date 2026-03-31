@@ -6,6 +6,8 @@ import { registerFolderHandlers, getCurrentFolder } from './ipc/folder'
 import { registerFileHandlers } from './ipc/files'
 import { registerTerminalHandlers, closeAllTerminals, getPtyManager } from './ipc/terminal'
 import { registerTaskHandlers, getTaskManager } from './ipc/tasks'
+import { registerLoopHandlers, getLoopManager } from './ipc/loops'
+import { LoopScheduler } from './loop-scheduler'
 import { registerGitHandlers, getGitManager } from './ipc/git'
 import { registerAgentHandlers, clearAgentConversation } from './ipc/agent'
 import { registerSkillHandlers } from './ipc/skills'
@@ -20,6 +22,7 @@ let mainWindow: BrowserWindow | null = null
 const skillStore = new Store()
 const skillManager = new SkillManager(skillStore)
 const getSkillManager = (): SkillManager => skillManager
+const loopScheduler = new LoopScheduler(() => mainWindow)
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -68,20 +71,28 @@ app.whenReady().then(() => {
       closeAllTerminals()
       closeAllBrowserTabs()
       clearAgentConversation()
+      loopScheduler.stopAll()
       startWatching(folder, () => mainWindow)
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.setTitle(`Orchestrate — ${basename(folder)}`)
+      }
+      // Reschedule loops for the new project
+      const mgr = getLoopManager()
+      if (mgr) {
+        mgr.listLoops().then((loops) => loopScheduler.rescheduleAll(loops)).catch(() => {})
       }
     }
   )
   registerFileHandlers(() => mainWindow, getCurrentFolder)
   registerTerminalHandlers(() => mainWindow, getCurrentFolder)
   registerTaskHandlers(() => mainWindow, getCurrentFolder, getPtyManager)
+  registerLoopHandlers(() => mainWindow, getCurrentFolder)
   registerGitHandlers(() => mainWindow, getCurrentFolder)
   registerAgentHandlers(
     () => mainWindow,
     getCurrentFolder,
     getTaskManager,
+    getLoopManager,
     getGitManager,
     getPtyManager,
     getSkillManager
@@ -122,6 +133,7 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   closeAllTerminals()
   closeAllBrowserTabs()
+  loopScheduler.stopAll()
   stopWatching()
   if (process.platform !== 'darwin') {
     app.quit()

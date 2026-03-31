@@ -135,13 +135,39 @@ export function useTerminal({ id, active }: UseTerminalOptions): UseTerminalResu
       window.orchestrate.writeTerminal(id, data)
     })
 
+    // Update tab name when the terminal title changes (via OSC escape sequences)
+    term.onTitleChange((title) => {
+      if (title) {
+        useTerminalStore.getState().updateTabName(id, title)
+      }
+    })
+
+    // Bell → alert indicator
+    term.onBell(() => {
+      useTerminalStore.getState().markBell(id)
+    })
+
     // Register with shared dispatcher (single global IPC listener)
+    let idleTimer: ReturnType<typeof setTimeout> | null = null
     registerOutputHandler(id, (data) => {
       term.write(data)
+
+      // Mark busy on output, then idle after 800ms of silence
+      const store = useTerminalStore.getState()
+      const tab = store.tabs.find((t) => t.id === id)
+      if (tab && !tab.busy) {
+        store.markBusy(id, true)
+      }
+      if (idleTimer) clearTimeout(idleTimer)
+      idleTimer = setTimeout(() => {
+        useTerminalStore.getState().markBusy(id, false)
+      }, 800)
     })
 
     registerExitHandler(id, (exitCode) => {
       term.write(`\r\n\x1b[38;5;242m[Process exited with code ${exitCode}]\x1b[0m\r\n`)
+      if (idleTimer) clearTimeout(idleTimer)
+      useTerminalStore.getState().markBusy(id, false)
       useTerminalStore.getState().markExited(id, exitCode)
       // Fire-and-forget: auto-complete task workflow if this terminal is linked to a task
       handleTaskTerminalExit(id, exitCode)
@@ -157,6 +183,7 @@ export function useTerminal({ id, active }: UseTerminalOptions): UseTerminalResu
     }
 
     return () => {
+      if (idleTimer) clearTimeout(idleTimer)
       unregisterTerminalHandlers(id)
       observerRef.current?.disconnect()
       term.dispose()
