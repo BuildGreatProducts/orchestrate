@@ -1,5 +1,5 @@
 /**
- * HTTP MCP server that exposes a subset of Orchestrate tools to CLI agents.
+ * HTTP MCP server that exposes Orchestrate tools to CLI agents.
  * Binds to 127.0.0.1 only — no external access.
  */
 import { createServer, type Server as HttpServer, type IncomingMessage } from 'http'
@@ -9,12 +9,27 @@ import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js'
 import { z } from 'zod'
 import type { ToolExecutorDeps } from './tools'
 import {
+  handleCreateTask,
   handleReadTask,
   handleListTasks,
   handleMoveTask,
   handleEditTask,
+  handleDeleteTask,
+  handleSendToAgent,
+  handleListLoops,
+  handleCreateLoop,
+  handleTriggerLoop,
+  handleSpawnTerminal,
+  handleReadFile,
+  handleWriteFile,
+  handleListFiles,
+  handleDeleteFile,
   handleCreateSavePoint,
-  handleGetChanges
+  handleListSavePoints,
+  handleRestoreSavePoint,
+  handleRevertSavePoint,
+  handleGetChanges,
+  handleActivateSkill
 } from './tool-handlers'
 
 let httpServer: HttpServer | null = null
@@ -40,13 +55,40 @@ function readBody(req: IncomingMessage): Promise<unknown> {
 
 /** Create a fresh McpServer with all tool registrations */
 function createMcpInstance(deps: ToolExecutorDeps): McpServer {
-  const { getTaskManager, getGitManager, notifyStateChanged } = deps
+  const {
+    getCurrentFolder,
+    getTaskManager,
+    getLoopManager,
+    getGitManager,
+    getSkillManager,
+    notifyStateChanged
+  } = deps
+
   const taskDeps = { getTaskManager, notifyStateChanged }
   const gitDeps = { getGitManager, notifyStateChanged }
+  const loopDeps = { getLoopManager, getTaskManager, notifyStateChanged }
+  const fileDeps = { getCurrentFolder, notifyStateChanged }
+  const skillDeps = { getSkillManager, getCurrentFolder }
+  const termDeps = { notifyStateChanged }
 
   const server = new McpServer(
     { name: 'orchestrate', version: '1.0.0' },
     { capabilities: { tools: {} } }
+  )
+
+  // ── Task tools ──
+
+  server.tool(
+    'create_task',
+    'Create a new task on the kanban board.',
+    {
+      title: z.string().describe('Task title'),
+      column: z
+        .enum(['planning', 'in-progress', 'review', 'done'])
+        .optional()
+        .describe('Column to place the task in (default: planning)')
+    },
+    async (args) => handleCreateTask(args, taskDeps)
   )
 
   server.tool(
@@ -82,14 +124,144 @@ function createMcpInstance(deps: ToolExecutorDeps): McpServer {
   )
 
   server.tool(
+    'delete_task',
+    'Delete a task from the board.',
+    { task_id: z.string().describe('The task ID to delete') },
+    async (args) => handleDeleteTask(args, taskDeps)
+  )
+
+  server.tool(
+    'send_to_agent',
+    'Send a task to be executed by an AI agent (Claude Code or Codex).',
+    {
+      task_id: z.string().describe('The task ID'),
+      agent: z
+        .enum(['claude-code', 'codex'])
+        .optional()
+        .describe('Agent type (default: claude-code)')
+    },
+    async (args) => handleSendToAgent(args, taskDeps)
+  )
+
+  // ── Loop tools ──
+
+  server.tool('list_loops', 'List all loops.', async () => handleListLoops(loopDeps))
+
+  server.tool(
+    'create_loop',
+    'Create a new loop with ordered steps.',
+    {
+      name: z.string().describe('The name of the loop'),
+      steps: z.array(z.string()).describe('Ordered list of step prompts'),
+      agent_type: z
+        .enum(['claude-code', 'codex'])
+        .optional()
+        .describe('Which AI agent to use (default: claude-code)'),
+      cron: z.string().optional().describe('Cron schedule expression (e.g. "0 9 * * 1-5")')
+    },
+    async (args) => handleCreateLoop(args, loopDeps)
+  )
+
+  server.tool(
+    'trigger_loop',
+    'Trigger a loop to start executing its steps sequentially.',
+    { loop_id: z.string().describe('The ID of the loop to trigger') },
+    async (args) => handleTriggerLoop(args, loopDeps)
+  )
+
+  // ── Terminal tools ──
+
+  server.tool(
+    'spawn_terminal',
+    'Open a new terminal tab in the Agents panel.',
+    {
+      name: z.string().optional().describe('Name for the terminal tab'),
+      command: z.string().optional().describe('Optional command to run in the terminal')
+    },
+    async (args) => handleSpawnTerminal(args, termDeps)
+  )
+
+  // ── File tools ──
+
+  server.tool(
+    'read_file',
+    'Read the contents of a file. Path is relative to the project root.',
+    { path: z.string().describe('Relative file path from project root') },
+    async (args) => handleReadFile(args, fileDeps)
+  )
+
+  server.tool(
+    'write_file',
+    'Write content to a file. Creates parent directories if needed. Path is relative to the project root.',
+    {
+      path: z.string().describe('Relative file path from project root'),
+      content: z.string().describe('The content to write')
+    },
+    async (args) => handleWriteFile(args, fileDeps)
+  )
+
+  server.tool(
+    'list_files',
+    'List files in a directory. Path is relative to the project root. Defaults to root if no path given.',
+    {
+      path: z.string().optional().describe('Relative directory path (default: project root)')
+    },
+    async (args) => handleListFiles(args, fileDeps)
+  )
+
+  server.tool(
+    'delete_file',
+    'Delete a file. Path is relative to the project root.',
+    { path: z.string().describe('Relative file path from project root') },
+    async (args) => handleDeleteFile(args, fileDeps)
+  )
+
+  // ── Git tools ──
+
+  server.tool(
     'create_save_point',
     'Create a git save point (commit) with a message.',
     { message: z.string().describe('The save point message') },
     async (args) => handleCreateSavePoint(args, gitDeps)
   )
 
+  server.tool(
+    'list_save_points',
+    'List recent git save points (commits).',
+    {
+      limit: z
+        .number()
+        .optional()
+        .describe('Maximum number of save points to return (default: 10)')
+    },
+    async (args) => handleListSavePoints(args, gitDeps)
+  )
+
+  server.tool(
+    'restore_save_point',
+    'Restore the project to a specific save point. This is destructive — all uncommitted changes will be lost.',
+    { hash: z.string().describe('The save point hash to restore to') },
+    async (args) => handleRestoreSavePoint(args, gitDeps)
+  )
+
+  server.tool(
+    'revert_save_point',
+    'Revert a specific save point, undoing its changes while keeping history.',
+    { hash: z.string().describe('The save point hash to revert') },
+    async (args) => handleRevertSavePoint(args, gitDeps)
+  )
+
   server.tool('get_changes', 'Get the current uncommitted changes (git status).', async () =>
     handleGetChanges(gitDeps)
+  )
+
+  // ── Skill tools ──
+
+  server.tool(
+    'activate_skill',
+    'Load the full instructions of an agent skill by name. Use this when a task matches an available skill.',
+    { name: z.string().describe('The skill name to activate') },
+    async (args) => handleActivateSkill(args, skillDeps)
   )
 
   return server
@@ -137,8 +309,10 @@ export async function startMcpServer(
               transports.delete(sid)
               const s = servers.get(sid)
               if (s) {
-                s.close()
+                // Delete before closing to prevent re-entrant recursion:
+                // McpServer.close() -> transport.close() -> onclose -> here again
                 servers.delete(sid)
+                s.close()
               }
             }
           }
@@ -172,8 +346,9 @@ export async function startMcpServer(
           transports.delete(sessionId)
           const s = servers.get(sessionId)
           if (s) {
-            await s.close()
+            // Delete before closing to prevent re-entrant recursion
             servers.delete(sessionId)
+            await s.close()
           }
         } else {
           res.writeHead(404)

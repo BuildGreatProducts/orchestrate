@@ -2,8 +2,12 @@ import { ipcMain, BrowserWindow } from 'electron'
 import Store from 'electron-store'
 import { markChannelRegistered } from './stubs'
 import { Agent } from '../agent/agent'
+import { ClaudeCliAgent } from '../agent/claude-cli-agent'
+import { isClaudeCliInstalled } from '../agent/cli-detection'
 import { createOrchestrateServer, ORCHESTRATE_TOOL_NAMES } from '../agent/tools'
+import { getMcpConfigPath } from '../agent/mcp-config'
 import { SYSTEM_PROMPT } from '../agent/system-prompt'
+import type { AgentMode } from '@shared/types'
 import type { TaskManager } from '../task-manager'
 import type { LoopManager } from '../loop-manager'
 import type { GitManager } from '../git-manager'
@@ -22,10 +26,13 @@ function escapeXml(str: string): string {
 const BUILTIN_TOOLS = ['Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep']
 
 let agentInstance: Agent | null = null
+let cliAgentInstance: ClaudeCliAgent | null = null
 
 export function clearAgentConversation(): void {
   agentInstance?.cancel()
   agentInstance?.clearHistory()
+  cliAgentInstance?.cancel()
+  cliAgentInstance?.clearHistory()
 }
 
 export function registerAgentHandlers(
@@ -42,12 +49,16 @@ export function registerAgentHandlers(
   markChannelRegistered('agent:hasApiKey')
   markChannelRegistered('agent:clearConversation')
   markChannelRegistered('agent:cancel')
+  markChannelRegistered('agent:setMode')
+  markChannelRegistered('agent:getMode')
+  markChannelRegistered('agent:isCliAvailable')
 
-  // Initialize store and agent inside the function (after app is ready)
-  // to avoid module-level side effects that can fail during bundling/HMR
+  // Initialize store and agents inside the function (after app is ready)
   const store = new Store()
   const agent = new Agent()
+  const cliAgent = new ClaudeCliAgent()
   agentInstance = agent
+  cliAgentInstance = cliAgent
 
   // Restore API key from persistent store
   const savedKey = store.get('anthropicApiKey') as string | undefined
@@ -61,6 +72,10 @@ export function registerAgentHandlers(
     ...ORCHESTRATE_TOOL_NAMES.map((name) => `mcp__orchestrate__${name}`)
   ]
 
+  function getMode(): AgentMode {
+    return (store.get('agentMode') as AgentMode) || 'cli'
+  }
+
   let isProcessing = false
 
   // Remove any existing handlers to prevent duplicate accumulation
@@ -69,6 +84,9 @@ export function registerAgentHandlers(
   ipcMain.removeHandler('agent:clearConversation')
   ipcMain.removeHandler('agent:cancel')
   ipcMain.removeHandler('agent:message')
+  ipcMain.removeHandler('agent:setMode')
+  ipcMain.removeHandler('agent:getMode')
+  ipcMain.removeHandler('agent:isCliAvailable')
 
   ipcMain.handle('agent:setApiKey', async (_, key: string) => {
     if (typeof key !== 'string' || key.trim().length === 0) {
@@ -80,15 +98,38 @@ export function registerAgentHandlers(
   })
 
   ipcMain.handle('agent:hasApiKey', async () => {
+    const mode = getMode()
+    if (mode === 'cli') return true // CLI mode doesn't need an API key
     return agent.hasApiKey()
   })
 
   ipcMain.handle('agent:clearConversation', async () => {
     agent.clearHistory()
+    cliAgent.clearHistory()
   })
 
   ipcMain.handle('agent:cancel', async () => {
-    agent.cancel()
+    const mode = getMode()
+    if (mode === 'cli') {
+      cliAgent.cancel()
+    } else {
+      agent.cancel()
+    }
+  })
+
+  ipcMain.handle('agent:setMode', async (_, mode: AgentMode) => {
+    if (mode !== 'cli' && mode !== 'sdk') {
+      throw new Error('Invalid agent mode')
+    }
+    store.set('agentMode', mode)
+  })
+
+  ipcMain.handle('agent:getMode', async () => {
+    return getMode()
+  })
+
+  ipcMain.handle('agent:isCliAvailable', async () => {
+    return isClaudeCliInstalled()
   })
 
   ipcMain.handle('agent:message', async (_, message: string) => {
@@ -106,7 +147,9 @@ export function registerAgentHandlers(
     const win = getWindow()
     if (!win || win.isDestroyed()) return
 
-    if (!agent.hasApiKey()) {
+    const mode = getMode()
+
+    if (mode === 'sdk' && !agent.hasApiKey()) {
       win.webContents.send('agent:response', {
         type: 'error',
         content: 'No API key set. Please set your Anthropic API key first.'
@@ -169,19 +212,32 @@ ${skillsXml}
         }
       }
 
-      const mcpServer = createOrchestrateServer({
-        getCurrentFolder,
-        getTaskManager,
-        getLoopManager,
-        getGitManager,
-        getPtyManager: _getPtyManager,
-        getSkillManager: () => getSkillManager(),
-        getWindow,
-        notifyToolUse,
-        notifyStateChanged
-      })
+      let generator: AsyncGenerator<{ type: string; content?: string; tool?: string; input?: Record<string, unknown> }>
 
-      const generator = agent.sendMessage(message, systemPrompt, mcpServer, folder, allowedTools)
+      if (mode === 'cli') {
+        const mcpConfigPath = getMcpConfigPath()
+        if (!mcpConfigPath) {
+          win.webContents.send('agent:response', {
+            type: 'error',
+            content: 'MCP server not ready. Please wait a moment and try again.'
+          })
+          return
+        }
+        generator = cliAgent.sendMessage(message, systemPrompt, mcpConfigPath, folder)
+      } else {
+        const mcpServer = createOrchestrateServer({
+          getCurrentFolder,
+          getTaskManager,
+          getLoopManager,
+          getGitManager,
+          getPtyManager: _getPtyManager,
+          getSkillManager: () => getSkillManager(),
+          getWindow,
+          notifyToolUse,
+          notifyStateChanged
+        })
+        generator = agent.sendMessage(message, systemPrompt, mcpServer, folder, allowedTools)
+      }
 
       for await (const chunk of generator) {
         if (win.isDestroyed()) break

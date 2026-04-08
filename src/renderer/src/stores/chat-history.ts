@@ -14,6 +14,7 @@ interface ChatHistoryState {
   newConversation: () => Promise<void>
   deleteConversation: (id: string) => Promise<void>
   renameConversation: (id: string, title: string) => Promise<void>
+  pinConversation: (id: string, pinned: boolean) => Promise<void>
   saveCurrentConversation: () => Promise<void>
   setPanelOpen: (open: boolean) => void
   togglePanel: () => void
@@ -123,6 +124,24 @@ export const useChatHistoryStore = create<ChatHistoryState>((set, get) => {
       }
     },
 
+    pinConversation: async (id: string, pinned: boolean) => {
+      // Optimistically update the store so any concurrent saveCurrentConversation
+      // sees the correct pinned state instead of the stale pre-pin value.
+      set({
+        conversations: get().conversations.map((c) =>
+          c.id === id ? { ...c, pinned } : c
+        )
+      })
+
+      try {
+        await window.orchestrate.pinConversation(id, pinned)
+        await get().loadConversations()
+      } catch (err) {
+        console.error('[ChatHistory] Failed to pin conversation:', err)
+        await get().loadConversations() // revert optimistic update on error
+      }
+    },
+
     // Fix #3: reserve ID before async save; Fix #4: rethrow on failure
     saveCurrentConversation: async () => {
       const { messages } = useAgentStore.getState()
@@ -152,11 +171,21 @@ export const useChatHistoryStore = create<ChatHistoryState>((set, get) => {
       }))
 
       const existingConv = get().conversations.find((c) => c.id === id)
+
+      // Only bump updatedAt when the message count has changed (i.e. a new
+      // message was sent or received).  Re-saves that happen when the user
+      // simply switches conversations should keep the original timestamp so
+      // the ordering reflects the last message, not the last view.
+      const messageCountChanged =
+        !existingConv || messages.length !== existingConv.messageCount
+      const updatedAt = messageCountChanged ? now : existingConv.updatedAt
+
       const conversation: ChatConversation = {
         id,
         title: existingConv?.title || title,
         createdAt: existingConv?.createdAt || now,
-        updatedAt: now,
+        updatedAt,
+        pinned: existingConv?.pinned || undefined,
         messages: messageData
       }
 

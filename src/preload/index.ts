@@ -3,6 +3,7 @@ import type {
   OrchestrateAPI,
   FileChangeEvent,
   AgentResponseChunk,
+  AgentMode,
   BrowserTabInfo,
   BrowserBounds,
   BoardState
@@ -119,6 +120,9 @@ const api: OrchestrateAPI = {
   hasApiKey: () => ipcRenderer.invoke('agent:hasApiKey'),
   clearAgentConversation: () => ipcRenderer.invoke('agent:clearConversation'),
   cancelAgentMessage: () => ipcRenderer.invoke('agent:cancel'),
+  setAgentMode: (mode: AgentMode) => ipcRenderer.invoke('agent:setMode', mode),
+  getAgentMode: () => ipcRenderer.invoke('agent:getMode'),
+  isCliAvailable: () => ipcRenderer.invoke('agent:isCliAvailable'),
   onAgentStateChanged: (callback: (domain: string, data?: unknown) => void) => {
     const handler = (_: Electron.IpcRendererEvent, domain: string, data?: unknown): void => {
       callback(domain, data)
@@ -185,6 +189,7 @@ const api: OrchestrateAPI = {
   saveConversation: (conversation) => ipcRenderer.invoke('chatHistory:save', conversation),
   deleteConversation: (id: string) => ipcRenderer.invoke('chatHistory:delete', id),
   renameConversation: (id: string, title: string) => ipcRenderer.invoke('chatHistory:rename', id, title),
+  pinConversation: (id: string, pinned: boolean) => ipcRenderer.invoke('chatHistory:pin', id, pinned),
 
   // Git / History
   isGitRepo: () => ipcRenderer.invoke('git:isRepo'),

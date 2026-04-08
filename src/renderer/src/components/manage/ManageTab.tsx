@@ -8,6 +8,7 @@ import ApiKeyPrompt from './ApiKeyPrompt'
 import ChatMessage from './ChatMessage'
 import ChatInput from './ChatInput'
 import ConversationPanel from './ConversationPanel'
+import AgentModeToggle from './AgentModeToggle'
 
 export default function OrchestrateTab(): React.JSX.Element {
   const currentFolder = useAppStore((s) => s.currentFolder)
@@ -18,6 +19,8 @@ export default function OrchestrateTab(): React.JSX.Element {
   const checkApiKey = useAgentStore((s) => s.checkApiKey)
   const clearConversation = useAgentStore((s) => s.clearConversation)
   const resetState = useAgentStore((s) => s.resetState)
+  const agentMode = useAgentStore((s) => s.agentMode)
+  const cliAvailable = useAgentStore((s) => s.cliAvailable)
 
   const panelOpen = useChatHistoryStore((s) => s.panelOpen)
   const setPanelOpen = useChatHistoryStore((s) => s.setPanelOpen)
@@ -78,21 +81,45 @@ export default function OrchestrateTab(): React.JSX.Element {
     )
   }
 
-  // No API key
-  if (hasApiKey === false) {
+  // In CLI mode: show install prompt if CLI not available
+  if (agentMode === 'cli' && cliAvailable === false) {
     return (
       <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="absolute right-2 top-2 z-10">
+          <AgentModeToggle />
+        </div>
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 px-8 text-center">
+          <h2 className="text-xl font-semibold text-zinc-200">Claude Code CLI Required</h2>
+          <p className="max-w-md text-sm leading-relaxed text-zinc-400">
+            CLI mode uses your Claude Code subscription. Install the CLI to get started, or switch
+            to API mode.
+          </p>
+          <code className="rounded bg-zinc-800 px-3 py-1.5 text-sm text-zinc-300">
+            npm install -g @anthropic-ai/claude-code
+          </code>
+        </div>
+      </div>
+    )
+  }
+
+  // In SDK mode: no API key
+  if (agentMode === 'sdk' && hasApiKey === false) {
+    return (
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="absolute right-2 top-2 z-10">
+          <AgentModeToggle />
+        </div>
         <ApiKeyPrompt />
       </div>
     )
   }
 
-  // Loading API key status
+  // Loading state
   if (hasApiKey === null) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-2">
         <Spinner className="text-zinc-500" />
-        <p className="text-sm text-zinc-500">Loading…</p>
+        <p className="text-sm text-zinc-500">Loading...</p>
       </div>
     )
   }
@@ -102,7 +129,7 @@ export default function OrchestrateTab(): React.JSX.Element {
     <div className="flex flex-1 flex-row overflow-hidden">
       <ConversationPanel />
       <div className="relative flex flex-1 flex-col overflow-hidden">
-        {/* Toggle panel button */}
+        {/* Toggle panel button (left) */}
         <button
           onClick={() => setPanelOpen(!panelOpen)}
           className="absolute left-2 top-2 z-10 rounded p-1.5 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-300"
@@ -110,6 +137,11 @@ export default function OrchestrateTab(): React.JSX.Element {
         >
           <PanelLeft size={16} />
         </button>
+
+        {/* Agent mode toggle (right) */}
+        <div className="absolute right-2 top-2 z-10">
+          <AgentModeToggle />
+        </div>
 
         <div className="flex-1 overflow-y-auto dark-scrollbar">
           <div className="mx-auto w-full max-w-[900px] py-4 pb-24">
@@ -148,7 +180,7 @@ export default function OrchestrateTab(): React.JSX.Element {
                   <div className="stream-dot h-1.5 w-1.5 rounded-full bg-zinc-400" />
                 </div>
                 {streamingItems.length === 0 && (
-                  <span className="text-xs text-zinc-500">Agent is thinking…</span>
+                  <span className="text-xs text-zinc-500">Agent is thinking...</span>
                 )}
               </div>
             )}

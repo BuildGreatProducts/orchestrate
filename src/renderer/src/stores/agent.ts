@@ -6,7 +6,7 @@ import { useFilesStore } from './files'
 import { useTerminalStore } from './terminal'
 import { useAppStore } from './app'
 import { executeLoop } from './loop-execution-engine'
-import type { ChatMessageData, StreamItemData } from '@shared/types'
+import type { ChatMessageData, StreamItemData, AgentMode } from '@shared/types'
 
 export type StreamItem =
   | { kind: 'text'; content: string }
@@ -39,6 +39,8 @@ interface AgentState {
   isStreaming: boolean
   hasApiKey: boolean | null
   streamingItems: StreamItem[]
+  agentMode: AgentMode | null
+  cliAvailable: boolean | null
 
   checkApiKey: () => Promise<void>
   setApiKey: (key: string) => Promise<void>
@@ -47,6 +49,9 @@ interface AgentState {
   clearConversation: () => Promise<void>
   loadMessages: (messages: ChatMessageData[]) => void
   resetState: () => void
+  loadAgentMode: () => Promise<void>
+  setAgentMode: (mode: AgentMode) => Promise<void>
+  checkCliAvailable: () => Promise<void>
 }
 
 // --- Global IPC listeners (registered once) ---
@@ -280,6 +285,8 @@ export const useAgentStore = create<AgentState>((set, get) => {
     isStreaming: false,
     hasApiKey: null,
     streamingItems: [],
+    agentMode: null,
+    cliAvailable: null,
 
     checkApiKey: async () => {
       try {
@@ -361,6 +368,35 @@ export const useAgentStore = create<AgentState>((set, get) => {
         streamingItems: [],
         hasApiKey: null
       })
+    },
+
+    loadAgentMode: async () => {
+      try {
+        const mode = await window.orchestrate.getAgentMode()
+        set({ agentMode: mode })
+        // Re-check API key since it depends on mode
+        const hasKey = await window.orchestrate.hasApiKey()
+        set({ hasApiKey: hasKey })
+      } catch {
+        set({ agentMode: 'sdk' })
+      }
+    },
+
+    setAgentMode: async (mode: AgentMode) => {
+      await window.orchestrate.setAgentMode(mode)
+      set({ agentMode: mode })
+      // Re-check API key since it depends on mode
+      const hasKey = await window.orchestrate.hasApiKey()
+      set({ hasApiKey: hasKey })
+    },
+
+    checkCliAvailable: async () => {
+      try {
+        const available = await window.orchestrate.isCliAvailable()
+        set({ cliAvailable: available })
+      } catch {
+        set({ cliAvailable: false })
+      }
     }
   }
 })

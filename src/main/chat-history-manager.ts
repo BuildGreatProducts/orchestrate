@@ -70,6 +70,7 @@ export class ChatHistoryManager {
           title: conv.title,
           createdAt: conv.createdAt,
           updatedAt: conv.updatedAt,
+          pinned: conv.pinned || false,
           messageCount: conv.messages.length,
           preview
         })
@@ -78,7 +79,13 @@ export class ChatHistoryManager {
       }
     }
 
-    summaries.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+    // Pinned conversations first, then by updatedAt descending
+    summaries.sort((a, b) => {
+      const aPinned = a.pinned ? 1 : 0
+      const bPinned = b.pinned ? 1 : 0
+      if (aPinned !== bPinned) return bPinned - aPinned
+      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    })
     return summaries
   }
 
@@ -123,6 +130,14 @@ export class ChatHistoryManager {
     if (!conv) throw new Error(`Conversation ${id} not found`)
     conv.title = title
     conv.updatedAt = new Date().toISOString()
+    await this.saveConversation(conv)
+  }
+
+  async pinConversation(id: string, pinned: boolean): Promise<void> {
+    this.validateId(id)
+    const conv = await this.loadConversation(id)
+    if (!conv) throw new Error(`Conversation ${id} not found`)
+    conv.pinned = pinned
     await this.saveConversation(conv)
   }
 

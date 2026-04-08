@@ -94,6 +94,7 @@ export interface Loop {
 // ── Agents ──
 
 export type AgentType = 'claude-code' | 'codex'
+export type AgentMode = 'cli' | 'sdk'
 
 export interface AgentResponseChunk {
   type: 'text' | 'tool_use' | 'done' | 'error'
@@ -109,6 +110,7 @@ export interface ChatConversation {
   title: string
   createdAt: string // ISO 8601
   updatedAt: string // ISO 8601
+  pinned?: boolean
   messages: ChatMessageData[]
 }
 
@@ -131,6 +133,7 @@ export interface ChatConversationSummary {
   title: string
   createdAt: string
   updatedAt: string
+  pinned?: boolean
   messageCount: number
   preview: string // last user message truncated to ~80 chars
 }
@@ -268,6 +271,9 @@ export interface OrchestrateAPI {
   clearAgentConversation: () => Promise<void>
   cancelAgentMessage: () => Promise<void>
   onAgentStateChanged: (callback: (domain: string, data?: unknown) => void) => () => void
+  setAgentMode: (mode: AgentMode) => Promise<void>
+  getAgentMode: () => Promise<AgentMode>
+  isCliAvailable: () => Promise<boolean>
 
   // Chat History
   listConversations: () => Promise<ChatConversationSummary[]>
@@ -275,6 +281,7 @@ export interface OrchestrateAPI {
   saveConversation: (conversation: ChatConversation) => Promise<void>
   deleteConversation: (id: string) => Promise<void>
   renameConversation: (id: string, title: string) => Promise<void>
+  pinConversation: (id: string, pinned: boolean) => Promise<void>
 
   // Git / History
   isGitRepo: () => Promise<boolean>

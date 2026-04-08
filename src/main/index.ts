@@ -127,10 +127,10 @@ app.whenReady().then(() => {
   startMcpServer({
     getCurrentFolder,
     getTaskManager,
-    getLoopManager: () => null, // Not exposed via HTTP MCP
+    getLoopManager,
     getGitManager,
-    getPtyManager: () => null, // Not exposed via HTTP MCP
-    getSkillManager: () => null, // Not exposed via HTTP MCP
+    getPtyManager,
+    getSkillManager,
     getWindow: () => mainWindow,
     notifyToolUse: (tool, input) => {
       mainWindow?.webContents.send('agent:toolUse', tool, input)

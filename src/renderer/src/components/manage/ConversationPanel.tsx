@@ -1,4 +1,4 @@
-import { Plus, Trash2, MessageSquare } from 'lucide-react'
+import { Plus, Trash2, MessageSquare, Pin } from 'lucide-react'
 import { useChatHistoryStore } from '../../stores/chat-history'
 import type { ChatConversationSummary } from '@shared/types'
 
@@ -22,13 +22,17 @@ function ConversationItem({
   conversation,
   isActive,
   onSelect,
-  onDelete
+  onDelete,
+  onTogglePin
 }: {
   conversation: ChatConversationSummary
   isActive: boolean
   onSelect: () => void
   onDelete: () => void
+  onTogglePin: () => void
 }): React.JSX.Element {
+  const isPinned = !!conversation.pinned
+
   return (
     <button
       onClick={onSelect}
@@ -37,20 +41,48 @@ function ConversationItem({
       }`}
     >
       <div className="flex items-start justify-between gap-1">
-        <span className="truncate text-sm text-zinc-200">{conversation.title}</span>
-        {/* Fix #11: confirm before deleting */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            if (window.confirm('Delete this conversation?')) {
-              onDelete()
-            }
-          }}
-          className="mt-0.5 flex-shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
-          aria-label="Delete conversation"
-        >
-          <Trash2 size={13} className="text-zinc-500 hover:text-red-400" />
-        </button>
+        <div className="flex min-w-0 items-center gap-1.5">
+          {isPinned && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onTogglePin()
+              }}
+              className="flex-shrink-0 text-zinc-400 transition-colors hover:text-zinc-200"
+              aria-label="Unpin conversation"
+            >
+              <Pin size={11} className="rotate-45" fill="currentColor" />
+            </button>
+          )}
+          <span className="truncate text-sm text-zinc-200">{conversation.title}</span>
+        </div>
+        <div className="mt-0.5 flex flex-shrink-0 items-center gap-0.5">
+          {!isPinned && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onTogglePin()
+              }}
+              className="opacity-0 transition-opacity group-hover:opacity-100"
+              aria-label="Pin conversation"
+            >
+              <Pin size={13} className="rotate-45 text-zinc-500 hover:text-zinc-300" />
+            </button>
+          )}
+          {/* Fix #11: confirm before deleting */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              if (window.confirm('Delete this conversation?')) {
+                onDelete()
+              }
+            }}
+            className="opacity-0 transition-opacity group-hover:opacity-100"
+            aria-label="Delete conversation"
+          >
+            <Trash2 size={13} className="text-zinc-500 hover:text-red-400" />
+          </button>
+        </div>
       </div>
       {conversation.preview && (
         <span className="truncate text-xs text-zinc-500">{conversation.preview}</span>
@@ -67,6 +99,7 @@ export default function ConversationPanel(): React.JSX.Element {
   const newConversation = useChatHistoryStore((s) => s.newConversation)
   const selectConversation = useChatHistoryStore((s) => s.selectConversation)
   const deleteConversation = useChatHistoryStore((s) => s.deleteConversation)
+  const pinConversation = useChatHistoryStore((s) => s.pinConversation)
 
   return (
     <div
@@ -105,6 +138,7 @@ export default function ConversationPanel(): React.JSX.Element {
                   isActive={conv.id === activeConversationId}
                   onSelect={() => selectConversation(conv.id)}
                   onDelete={() => deleteConversation(conv.id)}
+                  onTogglePin={() => pinConversation(conv.id, !conv.pinned)}
                 />
               ))}
             </div>

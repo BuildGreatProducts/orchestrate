@@ -36,6 +36,15 @@ export function registerChatHistoryHandlers(
   markChannelRegistered('chatHistory:save')
   markChannelRegistered('chatHistory:delete')
   markChannelRegistered('chatHistory:rename')
+  markChannelRegistered('chatHistory:pin')
+
+  // Remove any existing handlers to prevent duplicate accumulation on restart
+  ipcMain.removeHandler('chatHistory:list')
+  ipcMain.removeHandler('chatHistory:load')
+  ipcMain.removeHandler('chatHistory:save')
+  ipcMain.removeHandler('chatHistory:delete')
+  ipcMain.removeHandler('chatHistory:rename')
+  ipcMain.removeHandler('chatHistory:pin')
 
   ipcMain.handle('chatHistory:list', async () => {
     const mgr = getManager()
@@ -63,5 +72,11 @@ export function registerChatHistoryHandlers(
     validateConversationId(id)
     const mgr = getManager()
     await mgr.renameConversation(id, title)
+  })
+
+  ipcMain.handle('chatHistory:pin', async (_, id: string, pinned: boolean) => {
+    validateConversationId(id)
+    const mgr = getManager()
+    await mgr.pinConversation(id, pinned)
   })
 }
