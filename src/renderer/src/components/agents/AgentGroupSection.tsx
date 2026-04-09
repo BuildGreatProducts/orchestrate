@@ -6,7 +6,7 @@ import { useTerminalStore, type AgentGroup, type TerminalTab } from '@renderer/s
 import { useAppStore } from '@renderer/stores/app'
 import { toast } from '@renderer/stores/toast'
 import DraggableAgentItem from './DraggableAgentItem'
-import { AGENT_COLORS } from '@renderer/lib/agent-colors'
+import { getAgentColorIndex } from '@renderer/lib/agent-colors'
 
 interface AgentGroupSectionProps {
   group: AgentGroup
@@ -95,7 +95,7 @@ export default function AgentGroupSection({
             }}
             onClick={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}
-            className="min-w-0 flex-1 rounded border border-zinc-600 bg-zinc-900 px-1.5 py-0.5 text-xs font-medium text-zinc-200 outline-none focus:border-zinc-400"
+            className="min-w-0 flex-1 rounded border border-zinc-600 bg-zinc-900 px-1.5 py-0.5 text-sm font-medium text-zinc-200 outline-none focus:border-zinc-400"
           />
         ) : (
           <span
@@ -112,7 +112,7 @@ export default function AgentGroupSection({
               }
             }}
             aria-label={`Rename ${group.name}`}
-            className="flex-1 truncate rounded text-xs font-medium text-zinc-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-zinc-500"
+            className="flex-1 truncate rounded text-sm font-medium text-zinc-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-zinc-500"
           >
             {group.name}
           </span>
@@ -166,7 +166,7 @@ export default function AgentGroupSection({
               <DraggableAgentItem
                 key={tab.id}
                 tab={tab}
-                colorIndex={tabs.findIndex((t) => t.id === tab.id) % AGENT_COLORS.length}
+                colorIndex={getAgentColorIndex(tab.id, tabs)}
                 isActive={tab.id === activeTabId}
                 onSelect={onSelectTab}
                 onClose={onCloseTab}

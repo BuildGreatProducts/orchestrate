@@ -29,7 +29,7 @@ import { NAV_PAGES } from '@shared/types'
 import type { NavPageId } from '@shared/types'
 import DraggableAgentItem from '@renderer/components/agents/DraggableAgentItem'
 import AgentGroupSection from '@renderer/components/agents/AgentGroupSection'
-import { AGENT_COLORS } from '@renderer/lib/agent-colors'
+import { getAgentColorIndex } from '@renderer/lib/agent-colors'
 
 const NAV_ICONS: Record<NavPageId, React.ComponentType<{ size?: number }>> = {
   tasks: LayoutList,
@@ -274,7 +274,7 @@ export default function LeftSidebar(): React.JSX.Element {
                     <DraggableAgentItem
                       key={tab.id}
                       tab={tab}
-                      colorIndex={tabs.findIndex((t) => t.id === tab.id) % AGENT_COLORS.length}
+                      colorIndex={getAgentColorIndex(tab.id, tabs)}
                       isActive={
                         tab.id === activeTabId && contentView.type === 'terminal'
                       }
@@ -309,7 +309,7 @@ export default function LeftSidebar(): React.JSX.Element {
               {activeId && activeTab ? (
                 <DraggableAgentItem
                   tab={activeTab}
-                  colorIndex={tabs.findIndex((t) => t.id === activeTab.id) % AGENT_COLORS.length}
+                  colorIndex={getAgentColorIndex(activeTab.id, tabs)}
                   isActive={false}
                   onSelect={() => {}}
                   onClose={() => {}}
