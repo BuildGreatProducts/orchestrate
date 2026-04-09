@@ -2,9 +2,11 @@ import { useSortable } from '@dnd-kit/sortable'
   import { CSS } from '@dnd-kit/utilities'
   import { Terminal, Trash2 } from 'lucide-react'
   import type { TerminalTab } from '@renderer/stores/terminal'
+  import { AGENT_COLORS, ATTENTION_BG } from '@renderer/lib/agent-colors'
 
   interface DraggableAgentItemProps {
     tab: TerminalTab
+    colorIndex: number
     isActive: boolean
     onSelect: (id: string) => void
     onClose: (id: string) => void
@@ -13,6 +15,7 @@ import { useSortable } from '@dnd-kit/sortable'
 
   export default function DraggableAgentItem({
     tab,
+    colorIndex,
     isActive,
     onSelect,
     onClose,
@@ -51,8 +54,14 @@ import { useSortable } from '@dnd-kit/sortable'
       >
         <Terminal size={14} className="flex-shrink-0 text-zinc-500" />
 
-        {tab.busy && !tab.exited && (
-          <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-green-400 animate-pulse" />
+        {!tab.exited && (
+          tab.bell ? (
+            <div className={`h-1.5 w-1.5 shrink-0 rounded-full ${ATTENTION_BG} ring-2 ring-amber-500/40 animate-pulse`} />
+          ) : tab.busy ? (
+            <div className={`h-1.5 w-1.5 shrink-0 rounded-full ${AGENT_COLORS[colorIndex].bg} animate-pulse`} />
+          ) : (
+            <div className={`h-1.5 w-1.5 shrink-0 rounded-full ${AGENT_COLORS[colorIndex].bg} opacity-30`} />
+          )
         )}
 
         <span className="flex-1 truncate text-left">

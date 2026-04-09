@@ -6,6 +6,7 @@ import { useTerminalStore, type AgentGroup, type TerminalTab } from '@renderer/s
 import { useAppStore } from '@renderer/stores/app'
 import { toast } from '@renderer/stores/toast'
 import DraggableAgentItem from './DraggableAgentItem'
+import { AGENT_COLORS } from '@renderer/lib/agent-colors'
 
 interface AgentGroupSectionProps {
   group: AgentGroup
@@ -165,6 +166,7 @@ export default function AgentGroupSection({
               <DraggableAgentItem
                 key={tab.id}
                 tab={tab}
+                colorIndex={tabs.findIndex((t) => t.id === tab.id) % AGENT_COLORS.length}
                 isActive={tab.id === activeTabId}
                 onSelect={onSelectTab}
                 onClose={onCloseTab}
