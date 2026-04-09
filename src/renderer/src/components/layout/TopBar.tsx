@@ -1,5 +1,7 @@
 import { Settings, Plus, X, Folder } from 'lucide-react'
 import { useAppStore } from '@renderer/stores/app'
+import { useAllProjectsAgentStatus, type AgentDot } from '@renderer/hooks/useProjectAgentStatus'
+import { AGENT_COLORS, ATTENTION_BG } from '@renderer/lib/agent-colors'
 
 function Logo(): React.JSX.Element {
   return (
@@ -16,11 +18,31 @@ function Logo(): React.JSX.Element {
   )
 }
 
+function ProjectIcon({ dots }: { dots?: AgentDot[] }): React.JSX.Element {
+  // Pick the highest-priority dot: attention first, then active
+  const dot = dots?.[0]
+  if (!dot) {
+    return <Folder size={13} className="shrink-0 opacity-50" />
+  }
+  return (
+    <span className="flex h-[13px] w-[13px] shrink-0 items-center justify-center">
+      <span
+        className={`h-2 w-2 rounded-full animate-pulse ${
+          dot.status === 'attention'
+            ? `${ATTENTION_BG} ring-2 ring-amber-500/40`
+            : AGENT_COLORS[dot.colorIndex].bg
+        }`}
+      />
+    </span>
+  )
+}
+
 const isMac = navigator?.userAgent?.includes('Mac')
 
 export default function TopBar(): React.JSX.Element {
   const { currentFolder, setCurrentFolder, projects, addProject, removeProject, contentView, showPage } =
     useAppStore()
+  const agentStatusMap = useAllProjectsAgentStatus()
 
   const handleAddProject = async (): Promise<void> => {
     const folder = await window.orchestrate.selectFolder()
@@ -51,6 +73,7 @@ export default function TopBar(): React.JSX.Element {
         {projects.map((path) => {
           const name = path.split(/[/\\]/).pop()
           const isActive = path === currentFolder
+          const status = agentStatusMap.get(path)
           return (
             <div
               key={path}
@@ -58,7 +81,7 @@ export default function TopBar(): React.JSX.Element {
                 isActive
                   ? 'bg-zinc-700 text-white'
                   : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200'
-              }`}
+              } ${status?.hasAttention ? 'ring-1 ring-amber-500/30' : ''}`}
               style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
             >
               <button
@@ -66,7 +89,7 @@ export default function TopBar(): React.JSX.Element {
                 className="flex items-center gap-1.5 py-1.5 pl-3 pr-1"
                 title={path}
               >
-                <Folder size={13} className="shrink-0 opacity-50" />
+                <ProjectIcon dots={status?.dots} />
                 <span className="max-w-[160px] truncate">{name}</span>
               </button>
               <button
