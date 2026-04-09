@@ -25,7 +25,7 @@ export default function TerminalContentArea(): React.JSX.Element {
         <TerminalPane
           key={tab.id}
           id={tab.id}
-          active={tab.id === activeTabId && contentView.type === 'terminal'}
+          active={tab.id === activeTabId && contentView.type === 'terminal' && tab.projectFolder === currentFolder}
         />
       ))}
     </div>

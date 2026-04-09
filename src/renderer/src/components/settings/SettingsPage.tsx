@@ -7,18 +7,29 @@ export default function SettingsPage(): React.JSX.Element {
 
   useEffect(() => {
     setVersion(navigator.userAgent.match(/Orchestrate\/([^\s]+)/)?.[1] ?? '1.0.0')
-    window.orchestrate.getSetting('defaultBrowserUrl').then((val) => {
-      const url = typeof val === 'string' ? val : 'http://localhost:3000'
-      setDefaultUrl(url)
-      setSavedUrl(url)
-    })
+    window.orchestrate
+      .getSetting('defaultBrowserUrl')
+      .then((val) => {
+        const url = typeof val === 'string' && val.trim() ? val.trim() : 'http://localhost:3000'
+        setDefaultUrl(url)
+        setSavedUrl(url)
+      })
+      .catch(() => {
+        const url = 'http://localhost:3000'
+        setDefaultUrl(url)
+        setSavedUrl(url)
+      })
   }, [])
 
   const handleSaveUrl = async (): Promise<void> => {
     const trimmed = defaultUrl.trim() || 'http://localhost:3000'
-    await window.orchestrate.setSetting('defaultBrowserUrl', trimmed)
-    setDefaultUrl(trimmed)
-    setSavedUrl(trimmed)
+    try {
+      await window.orchestrate.setSetting('defaultBrowserUrl', trimmed)
+      setDefaultUrl(trimmed)
+      setSavedUrl(trimmed)
+    } catch (err) {
+      console.error('[Settings] Failed to save default browser URL:', err)
+    }
   }
 
   const isDirty = defaultUrl !== savedUrl

@@ -1,13 +1,28 @@
 /**
  * HTTP MCP server that exposes Orchestrate tools to CLI agents.
  * Binds to 127.0.0.1 only — no external access.
+ * Mutating tools are protected by a per-process secret.
  */
+import crypto from 'crypto'
 import { createServer, type Server as HttpServer, type IncomingMessage } from 'http'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js'
 import { z } from 'zod'
 import type { ToolExecutorDeps } from './tool-handlers'
+
+// Per-process secret for authenticating mutating tool requests
+const MCP_SECRET = process.env.MCP_SECRET || crypto.randomBytes(32).toString('hex')
+
+function constantTimeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false
+  return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b))
+}
+
+/** Get the MCP secret for passing to CLI agents via config */
+export function getMcpSecret(): string {
+  return MCP_SECRET
+}
 import {
   handleCreateTask,
   handleReadTask,
@@ -282,6 +297,14 @@ export async function startMcpServer(
       return
     }
 
+    // Verify per-process secret on all requests
+    const providedSecret = req.headers['x-mcp-secret'] as string | undefined
+    if (!providedSecret || !constantTimeEqual(providedSecret, MCP_SECRET)) {
+      res.writeHead(403, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ jsonrpc: '2.0', error: { code: -32000, message: 'Forbidden' }, id: null }))
+      return
+    }
+
     try {
       if (req.method === 'POST') {
         const body = await readBody(req)
@@ -312,7 +335,9 @@ export async function startMcpServer(
                 // Delete before closing to prevent re-entrant recursion:
                 // McpServer.close() -> transport.close() -> onclose -> here again
                 servers.delete(sid)
-                s.close()
+                s.close().catch((err) => {
+                  console.error(`[MCP] Error closing server for session ${sid}:`, err)
+                })
               }
             }
           }

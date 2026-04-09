@@ -46,7 +46,7 @@ interface TerminalState {
   removeTabFromGroup: (tabId: string) => void
   reorderTabInGroup: (groupId: string, oldIndex: number, newIndex: number) => void
   createTabInGroup: (cwd: string, groupId: string, name?: string, command?: string) => Promise<string>
-  findOrCreateGroup: (name: string) => string
+  findOrCreateGroup: (name: string, projectFolder: string) => string
 }
 
 // --- Shared IPC dispatcher ---
@@ -293,8 +293,8 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     return tabId
   },
 
-  findOrCreateGroup: (name: string, projectFolder?: string) => {
-    const existing = get().groups.find((g) => g.name === name && (!projectFolder || g.projectFolder === projectFolder))
+  findOrCreateGroup: (name: string, projectFolder: string) => {
+    const existing = get().groups.find((g) => g.name === name && g.projectFolder === projectFolder)
     if (existing) return existing.id
     return get().createGroup(name, projectFolder)
   }

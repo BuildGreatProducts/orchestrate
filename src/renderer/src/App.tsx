@@ -17,13 +17,12 @@ import BrowserTab from '@renderer/components/browser/BrowserTab'
 import SettingsPage from '@renderer/components/settings/SettingsPage'
 import TerminalContentArea from '@renderer/components/agents/TerminalContentArea'
 
-const PAGE_COMPONENTS: Record<NavPageId, React.ComponentType> = {
+const PAGE_COMPONENTS: Partial<Record<NavPageId, React.ComponentType>> = {
   tasks: TasksTab,
   files: FilesTab,
   skills: SkillsSettings,
   history: HistoryTab,
-  browser: BrowserTab,
-  settings: SettingsPage
+  browser: BrowserTab
 }
 
 function App(): React.JSX.Element {
@@ -117,6 +116,7 @@ function App(): React.JSX.Element {
           {/* Page views */}
           {NAV_PAGES.map(({ id }) => {
             const Component = PAGE_COMPONENTS[id]
+            if (!Component) return null
             const isActive = contentView.type === 'page' && contentView.pageId === id
             return (
               <div

@@ -6,6 +6,9 @@ import { useTerminalStore } from './terminal'
 import { useAppStore } from './app'
 import { executeLoop } from './loop-execution-engine'
 
+// Tracks task IDs with in-flight terminal creation to prevent duplicate sends
+const pendingTaskAgents = new Set<string>()
+
 // --- Global IPC listeners (registered once) ---
 // Use a window-level key to survive Vite HMR module reloads.
 // Without this, each HMR update adds another listener, causing duplicates.
@@ -32,8 +35,9 @@ export function ensureGlobalIpcListeners(): void {
             const tasksState = useTasksStore.getState()
             const board = tasksState.board
             if (board?.tasks[taskId]) {
-              // Prevent duplicate sends
-              if (tasksState.activeAgentTasks[taskId]) break
+              // Prevent duplicate sends (check both committed and in-flight)
+              if (tasksState.activeAgentTasks[taskId] || pendingTaskAgents.has(taskId)) break
+              pendingTaskAgents.add(taskId)
 
               const taskTitle = board.tasks[taskId].title
               const agentType = agent === 'codex' ? 'codex' : 'claude-code'
@@ -44,7 +48,7 @@ export function ensureGlobalIpcListeners(): void {
                 if (agentType === 'claude-code') {
                   const mcpConfigPath = await window.orchestrate.getMcpConfigPath().catch(() => null)
                   return mcpConfigPath
-                    ? `claude --mcp-config ${mcpConfigPath} --append-system-prompt ${shellQuote(systemPrompt)} "$(cat tasks/task-${taskId}.md)"`
+                    ? `claude --mcp-config ${shellQuote(mcpConfigPath)} --append-system-prompt ${shellQuote(systemPrompt)} "$(cat tasks/task-${taskId}.md)"`
                     : `claude "$(cat tasks/task-${taskId}.md)"`
                 } else {
                   const codexFlags = await window.orchestrate.getCodexMcpFlags().catch(() => null)
@@ -61,7 +65,7 @@ export function ensureGlobalIpcListeners(): void {
                   const termStore = useTerminalStore.getState()
                   let tabId: string
                   if (groupName) {
-                    const groupId = termStore.findOrCreateGroup(groupName)
+                    const groupId = termStore.findOrCreateGroup(groupName, folder)
                     tabId = await termStore.createTabInGroup(folder, groupId, tabName, cmd)
                   } else {
                     tabId = await termStore.createTab(folder, tabName, cmd)
@@ -74,6 +78,9 @@ export function ensureGlobalIpcListeners(): void {
                 })
                 .catch((err) => {
                   console.error('[IPC] Failed to create terminal for task:', err)
+                })
+                .finally(() => {
+                  pendingTaskAgents.delete(taskId)
                 })
             }
           }

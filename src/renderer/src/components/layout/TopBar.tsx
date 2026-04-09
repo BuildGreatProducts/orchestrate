@@ -55,32 +55,32 @@ export default function TopBar(): React.JSX.Element {
           const name = path.split(/[/\\]/).pop()
           const isActive = path === currentFolder
           return (
-            <button
+            <div
               key={path}
-              onClick={() => setCurrentFolder(path)}
-              className={`group flex shrink-0 items-center gap-1.5 rounded px-3 py-1.5 text-sm font-medium transition-colors ${
+              className={`group flex shrink-0 items-center gap-1.5 rounded text-sm font-medium transition-colors ${
                 isActive
                   ? 'bg-zinc-700 text-white'
                   : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200'
               }`}
-              title={path}
             >
-              <Folder size={13} className="shrink-0 opacity-50" />
-              <span className="max-w-[160px] truncate">{name}</span>
-              <span
-                role="button"
-                tabIndex={0}
+              <button
+                onClick={() => setCurrentFolder(path)}
+                className="flex items-center gap-1.5 py-1.5 pl-3 pr-1"
+                title={path}
+              >
+                <Folder size={13} className="shrink-0 opacity-50" />
+                <span className="max-w-[160px] truncate">{name}</span>
+              </button>
+              <button
                 onClick={(e) => handleRemove(e, path)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleRemove(e as unknown as React.MouseEvent, path)
-                }}
-                className={`shrink-0 rounded p-0.5 transition-opacity hover:bg-zinc-600 ${
+                aria-label={`Close ${name}`}
+                className={`shrink-0 rounded p-0.5 pr-1.5 transition-opacity hover:bg-zinc-600 ${
                   isActive ? 'opacity-60 hover:opacity-100' : 'opacity-0 group-hover:opacity-100'
                 }`}
               >
                 <X size={12} className="text-zinc-400" />
-              </span>
-            </button>
+              </button>
+            </div>
           )
         })}
         <button

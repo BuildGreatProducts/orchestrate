@@ -59,8 +59,8 @@ export async function executeLoop(loopId: string): Promise<void> {
   const runId = nanoid(8)
   const termStore = useTerminalStore.getState()
   const groupId = loop.groupName
-    ? termStore.findOrCreateGroup(loop.groupName)
-    : termStore.createGroup(loop.name)
+    ? termStore.findOrCreateGroup(loop.groupName, folder!)
+    : termStore.createGroup(loop.name, folder ?? undefined)
 
   const run: LoopRun = {
     id: runId,
