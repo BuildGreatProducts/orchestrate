@@ -50,7 +50,7 @@ function writeConfigToDisk(): void {
       }
     }
   }
-  writeFileSync(configPath, JSON.stringify(config, null, 2))
+  writeFileSync(configPath, JSON.stringify(config, null, 2), { mode: 0o600 })
   console.log(`[MCP] Config file written to ${configPath}`)
 }
 

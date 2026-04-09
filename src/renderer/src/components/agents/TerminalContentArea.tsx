@@ -10,16 +10,14 @@ export default function TerminalContentArea(): React.JSX.Element {
 
   const projectTabs = allTabs.filter((t) => t.projectFolder === currentFolder)
 
-  if (projectTabs.length === 0) {
-    return (
-      <div className="flex flex-1 items-center justify-center">
-        <p className="text-sm text-zinc-500">No agents running in this project</p>
-      </div>
-    )
-  }
-
   return (
     <div className="relative flex-1">
+      {/* Empty state overlay */}
+      {projectTabs.length === 0 && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <p className="text-sm text-zinc-500">No agents running in this project</p>
+        </div>
+      )}
       {/* Render all terminals to keep xterm instances alive */}
       {allTabs.map((tab) => (
         <TerminalPane

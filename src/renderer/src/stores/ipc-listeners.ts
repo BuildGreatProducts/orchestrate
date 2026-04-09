@@ -47,9 +47,8 @@ export function ensureGlobalIpcListeners(): void {
               const buildCmd = async (): Promise<string> => {
                 if (agentType === 'claude-code') {
                   const mcpConfigPath = await window.orchestrate.getMcpConfigPath().catch(() => null)
-                  return mcpConfigPath
-                    ? `claude --mcp-config ${shellQuote(mcpConfigPath)} --append-system-prompt ${shellQuote(systemPrompt)} "$(cat tasks/task-${taskId}.md)"`
-                    : `claude "$(cat tasks/task-${taskId}.md)"`
+                  const mcpFlag = mcpConfigPath ? ` --mcp-config ${shellQuote(mcpConfigPath)}` : ''
+                  return `claude${mcpFlag} --append-system-prompt ${shellQuote(systemPrompt)} "$(cat tasks/task-${taskId}.md)"`
                 } else {
                   const codexFlags = await window.orchestrate.getCodexMcpFlags().catch(() => null)
                   return codexFlags
