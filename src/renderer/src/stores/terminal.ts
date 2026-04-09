@@ -40,7 +40,7 @@ interface TerminalState {
   closeAllTabs: () => void
 
   // Group methods
-  createGroup: (name?: string, projectFolder?: string) => string
+  createGroup: (name: string | undefined, projectFolder: string) => string
   deleteGroup: (groupId: string) => void
   renameGroup: (groupId: string, name: string) => void
   toggleGroupCollapsed: (groupId: string) => void
@@ -224,13 +224,12 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
 
   // --- Group methods ---
 
-  createGroup: (name?: string, projectFolder?: string) => {
+  createGroup: (name: string | undefined, projectFolder: string) => {
     const { nextGroupIndex } = get()
     const id = `group-${Date.now()}-${nextGroupIndex}`
     const groupName = name ?? `Group ${nextGroupIndex}`
-    const folder = projectFolder ?? ''
     set((state) => ({
-      groups: [...state.groups, { id, name: groupName, projectFolder: folder, collapsed: false, tabIds: [] }],
+      groups: [...state.groups, { id, name: groupName, projectFolder, collapsed: false, tabIds: [] }],
       nextGroupIndex: state.nextGroupIndex + 1
     }))
     return id

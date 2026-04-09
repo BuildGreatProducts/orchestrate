@@ -321,7 +321,7 @@ export default function LeftSidebar(): React.JSX.Element {
       {/* Bottom buttons */}
       <div className="flex flex-col gap-1.5 px-2.5 pb-2.5">
         <button
-          onClick={() => createGroup(undefined, currentFolder ?? undefined)}
+          onClick={() => currentFolder && createGroup(undefined, currentFolder)}
           disabled={!currentFolder}
           className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-zinc-800/60 px-3 py-2 text-sm text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-200 disabled:opacity-30 disabled:pointer-events-none"
         >

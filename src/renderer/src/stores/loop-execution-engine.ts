@@ -60,7 +60,7 @@ export async function executeLoop(loopId: string): Promise<void> {
   const termStore = useTerminalStore.getState()
   const groupId = loop.groupName
     ? termStore.findOrCreateGroup(loop.groupName, folder!)
-    : termStore.createGroup(loop.name, folder ?? undefined)
+    : termStore.createGroup(loop.name, folder!)
 
   const run: LoopRun = {
     id: runId,
