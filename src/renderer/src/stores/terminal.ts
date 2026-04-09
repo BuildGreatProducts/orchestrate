@@ -27,10 +27,14 @@ interface TerminalState {
   nextIndex: number
   groups: AgentGroup[]
   nextGroupIndex: number
+  pendingCloseTabId: string | null
 
   createTab: (cwd: string, name?: string, command?: string, taskId?: string) => Promise<string>
   getTaskId: (terminalId: string) => string | undefined
   closeTab: (id: string) => void
+  requestCloseTab: (id: string) => void
+  confirmCloseTab: () => void
+  cancelCloseTab: () => void
   setActiveTab: (id: string) => void
   updateTabName: (id: string, name: string) => void
   markBusy: (id: string, busy: boolean) => void
@@ -105,6 +109,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
   nextIndex: 1,
   groups: [],
   nextGroupIndex: 1,
+  pendingCloseTabId: null,
 
   createTab: async (cwd: string, name?: string, command?: string, taskId?: string) => {
     const { nextIndex } = get()
@@ -171,6 +176,29 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
 
       return { tabs: newTabs, activeTabId: newActive, groups: newGroups }
     })
+  },
+
+  requestCloseTab: (id: string) => {
+    const { tabs } = get()
+    const tab = tabs.find((t) => t.id === id)
+    // If already exited, close immediately without confirmation
+    if (tab?.exited) {
+      get().closeTab(id)
+      return
+    }
+    set({ pendingCloseTabId: id })
+  },
+
+  confirmCloseTab: () => {
+    const { pendingCloseTabId } = get()
+    if (pendingCloseTabId) {
+      get().closeTab(pendingCloseTabId)
+      set({ pendingCloseTabId: null })
+    }
+  },
+
+  cancelCloseTab: () => {
+    set({ pendingCloseTabId: null })
   },
 
   setActiveTab: (id: string) => set({ activeTabId: id }),
