@@ -46,11 +46,8 @@ export default function TopBar(): React.JSX.Element {
 
       <div className="mx-2 h-5 w-px bg-zinc-800" />
 
-      {/* Project tabs */}
-      <div
-        className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto scrollbar-hide"
-        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-      >
+      {/* Project tabs — container inherits drag from nav, only tabs are no-drag */}
+      <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto scrollbar-hide">
         {projects.map((path) => {
           const name = path.split(/[/\\]/).pop()
           const isActive = path === currentFolder
@@ -62,6 +59,7 @@ export default function TopBar(): React.JSX.Element {
                   ? 'bg-zinc-700 text-white'
                   : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200'
               }`}
+              style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
             >
               <button
                 onClick={() => setCurrentFolder(path)}
@@ -83,14 +81,16 @@ export default function TopBar(): React.JSX.Element {
             </div>
           )
         })}
-        <button
-          onClick={handleAddProject}
-          className="shrink-0 rounded p-1.5 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-300"
-          title="Add project"
-          aria-label="Add project"
-        >
-          <Plus size={14} />
-        </button>
+        <div style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+          <button
+            onClick={handleAddProject}
+            className="shrink-0 rounded p-1.5 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-300"
+            title="Add project"
+            aria-label="Add project"
+          >
+            <Plus size={14} />
+          </button>
+        </div>
       </div>
 
       <div className="ml-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
