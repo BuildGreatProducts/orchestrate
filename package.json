@@ -5,6 +5,10 @@
   "main": "./out/main/index.js",
   "author": "example.com",
   "homepage": "https://electron-vite.org",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/BuildGreatProducts/orchestrate.git"
+  },
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint --cache .",
@@ -18,7 +22,10 @@
     "build:unpack": "npm run build && electron-builder --dir",
     "build:win": "npm run build && electron-builder --win",
     "build:mac": "electron-vite build && electron-builder --mac",
-    "build:linux": "electron-vite build && electron-builder --linux"
+    "build:mac:arm64": "electron-vite build && electron-builder --mac --arm64",
+    "build:mac:x64": "electron-vite build && electron-builder --mac --x64",
+    "build:linux": "electron-vite build && electron-builder --linux",
+    "release": "electron-vite build && electron-builder --mac --arm64 --x64 --publish always"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
