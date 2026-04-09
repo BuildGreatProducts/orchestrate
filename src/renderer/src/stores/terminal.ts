@@ -174,7 +174,12 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
         g.tabIds.includes(id) ? { ...g, tabIds: g.tabIds.filter((t) => t !== id) } : g
       )
 
-      return { tabs: newTabs, activeTabId: newActive, groups: newGroups }
+      return {
+        tabs: newTabs,
+        activeTabId: newActive,
+        groups: newGroups,
+        pendingCloseTabId: state.pendingCloseTabId === id ? null : state.pendingCloseTabId
+      }
     })
   },
 
@@ -247,7 +252,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
         window.orchestrate.closeTerminal(tab.id)
       }
     }
-    set({ tabs: [], activeTabId: null, groups: [], nextGroupIndex: 1 })
+    set({ tabs: [], activeTabId: null, groups: [], nextGroupIndex: 1, pendingCloseTabId: null })
   },
 
   // --- Group methods ---
