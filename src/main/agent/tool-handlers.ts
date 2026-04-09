@@ -1,6 +1,5 @@
 /**
- * Shared tool handler functions used by both the in-process SDK MCP server
- * (tools.ts) and the HTTP MCP server (mcp-http-server.ts).
+ * Shared tool handler functions used by the HTTP MCP server (mcp-http-server.ts).
  */
 import { readFile, writeFile, unlink, readdir, stat, mkdir, realpath } from 'fs/promises'
 import { dirname, isAbsolute, join, resolve, relative, parse as pathParse } from 'path'
@@ -8,6 +7,18 @@ import type { TaskManager } from '../task-manager'
 import type { GitManager } from '../git-manager'
 import type { LoopManager } from '../loop-manager'
 import type { SkillManager } from '../skill-manager'
+
+// ── Deps interface ──
+
+export interface ToolExecutorDeps {
+  getCurrentFolder: () => string | null
+  getTaskManager: () => TaskManager | null
+  getLoopManager: () => LoopManager | null
+  getGitManager: () => GitManager | null
+  getSkillManager: () => SkillManager | null
+  getWindow: () => import('electron').BrowserWindow | null
+  notifyStateChanged: (domain: string, data?: unknown) => void
+}
 
 // ── Response helpers ──
 

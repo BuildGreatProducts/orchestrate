@@ -72,8 +72,8 @@ export async function executeLoop(loopId: string): Promise<void> {
 
   useLoopsStore.getState().updateLoopRun(loopId, run)
 
-  // Switch to agents tab to show progress
-  useAppStore.getState().setActiveTab('agents')
+  // Switch to terminal view to show progress
+  useAppStore.getState().showTerminal()
 
   try {
     for (const step of loop.steps) {

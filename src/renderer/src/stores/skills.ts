@@ -1,17 +1,6 @@
 import { create } from 'zustand'
 import type { SkillMeta } from '@shared/types'
-import { useAgentStore } from './agent'
 import { toast } from './toast'
-
-async function resetConversation(): Promise<void> {
-  try {
-    await useAgentStore.getState().clearConversation()
-    toast.info('Skills updated — conversation reset.')
-  } catch (err) {
-    console.error('[Skills] Failed to reset conversation:', err)
-    toast.error('Failed to reset conversation.')
-  }
-}
 
 interface SkillsState {
   skills: SkillMeta[]
@@ -46,7 +35,7 @@ export const useSkillsStore = create<SkillsState>((set, get) => ({
     try {
       await window.orchestrate.addSkillFromFolder('', target)
       await get().loadSkills()
-      await resetConversation()
+      toast.info('Skills updated.')
     } catch (err) {
       if (err instanceof Error && err.message === 'No folder selected') return
       set({ error: err instanceof Error ? err.message : String(err) })
@@ -57,7 +46,7 @@ export const useSkillsStore = create<SkillsState>((set, get) => ({
     try {
       await window.orchestrate.addSkillFromZip('', target)
       await get().loadSkills()
-      await resetConversation()
+      toast.info('Skills updated.')
     } catch (err) {
       if (err instanceof Error && err.message === 'No file selected') return
       set({ error: err instanceof Error ? err.message : String(err) })
@@ -68,7 +57,7 @@ export const useSkillsStore = create<SkillsState>((set, get) => ({
     try {
       await window.orchestrate.addSkillFromGit(url, target)
       await get().loadSkills()
-      await resetConversation()
+      toast.info('Skills updated.')
     } catch (err) {
       set({ error: err instanceof Error ? err.message : String(err) })
     }
@@ -78,7 +67,7 @@ export const useSkillsStore = create<SkillsState>((set, get) => ({
     try {
       await window.orchestrate.removeSkill(path)
       await get().loadSkills()
-      await resetConversation()
+      toast.info('Skills updated.')
     } catch (err) {
       set({ error: err instanceof Error ? err.message : String(err) })
     }
@@ -90,7 +79,7 @@ export const useSkillsStore = create<SkillsState>((set, get) => ({
     try {
       await window.orchestrate.setSkillEnabled(path, !skill.enabled)
       await get().loadSkills()
-      await resetConversation()
+      toast.info('Skills updated.')
     } catch (err) {
       set({ error: err instanceof Error ? err.message : String(err) })
     }

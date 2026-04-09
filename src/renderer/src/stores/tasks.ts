@@ -362,8 +362,8 @@ export const useTasksStore = create<TasksState>((set, get) => ({
     }
     get().trackAgentTask(id, tabId, agent)
 
-    // Switch to Agents tab
-    useAppStore.getState().setActiveTab('agents')
+    // Switch to terminal view
+    useAppStore.getState().showTerminal()
   },
 
   trackAgentTask: (taskId: string, terminalId: string, agent: AgentType) => {

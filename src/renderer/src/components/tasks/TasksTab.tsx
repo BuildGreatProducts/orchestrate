@@ -68,9 +68,9 @@ export default function TasksTab(): React.JSX.Element {
     return (
       <div className="flex flex-1 items-center justify-center">
         <div className="text-center">
-          <p className="text-lg text-zinc-200">No folder selected</p>
-          <p className="mt-1 text-sm text-zinc-500">
-            Select a project folder to manage tasks
+          <h2 className="font-ovo text-6xl tracking-tight text-zinc-200">Orchestrate</h2>
+          <p className="mt-3 max-w-xs text-sm text-zinc-500">
+            Plan tasks, coordinate agents, and manage workflows across your project.
           </p>
         </div>
       </div>

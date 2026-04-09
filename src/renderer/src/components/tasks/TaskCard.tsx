@@ -210,7 +210,7 @@ export default function TaskCard({ id, task, isDragOverlay }: TaskCardProps): Re
     if (agentInfo) {
       useTerminalStore.getState().setActiveTab(agentInfo.terminalId)
     }
-    useAppStore.getState().setActiveTab('agents')
+    useAppStore.getState().showTerminal()
   }, [agentInfo])
 
   const handleViewLoopAgent = useCallback((e: React.MouseEvent) => {
@@ -219,7 +219,7 @@ export default function TaskCard({ id, task, isDragOverlay }: TaskCardProps): Re
       // Activate the most recent terminal in the group
       useTerminalStore.getState().setActiveTab(loopGroup.tabIds[loopGroup.tabIds.length - 1])
     }
-    useAppStore.getState().setActiveTab('agents')
+    useAppStore.getState().showTerminal()
   }, [loopGroup])
 
   const running = loop && (isLoopRunning(loop.id) || loop.lastRun?.status === 'running')
