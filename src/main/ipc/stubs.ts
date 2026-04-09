@@ -32,13 +32,6 @@ const stubs: StubDef[] = [
   { channel: 'loop:save', returns: undefined },
   { channel: 'loop:delete', returns: undefined },
 
-  // Agent
-  { channel: 'agent:message', returns: undefined },
-  { channel: 'agent:setApiKey', returns: undefined },
-  { channel: 'agent:hasApiKey', returns: false },
-  { channel: 'agent:clearConversation', returns: undefined },
-  { channel: 'agent:cancel', returns: undefined },
-
   // Git
   { channel: 'git:isRepo', returns: false },
   { channel: 'git:init', returns: undefined },
@@ -64,13 +57,6 @@ const stubs: StubDef[] = [
   { channel: 'browser:hideAll', returns: undefined },
   { channel: 'browser:closeAll', returns: undefined },
   { channel: 'browser:toggleDevTools', returns: undefined },
-
-  // Chat History
-  { channel: 'chatHistory:list', returns: [] },
-  { channel: 'chatHistory:load', returns: null },
-  { channel: 'chatHistory:save', returns: undefined },
-  { channel: 'chatHistory:delete', returns: undefined },
-  { channel: 'chatHistory:rename', returns: undefined },
 
   // Skills
   { channel: 'skill:list', returns: [] },

@@ -59,8 +59,8 @@ export async function executeLoop(loopId: string): Promise<void> {
   const runId = nanoid(8)
   const termStore = useTerminalStore.getState()
   const groupId = loop.groupName
-    ? termStore.findOrCreateGroup(loop.groupName)
-    : termStore.createGroup(loop.name)
+    ? termStore.findOrCreateGroup(loop.groupName, folder!)
+    : termStore.createGroup(loop.name, folder!)
 
   const run: LoopRun = {
     id: runId,
@@ -72,8 +72,8 @@ export async function executeLoop(loopId: string): Promise<void> {
 
   useLoopsStore.getState().updateLoopRun(loopId, run)
 
-  // Switch to agents tab to show progress
-  useAppStore.getState().setActiveTab('agents')
+  // Switch to terminal view to show progress
+  useAppStore.getState().showTerminal()
 
   try {
     for (const step of loop.steps) {

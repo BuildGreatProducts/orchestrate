@@ -349,7 +349,7 @@ export const useTasksStore = create<TasksState>((set, get) => ({
     let tabId: string
     try {
       if (groupName) {
-        const groupId = termStore.findOrCreateGroup(groupName)
+        const groupId = termStore.findOrCreateGroup(groupName, folder)
         tabId = await termStore.createTabInGroup(folder, groupId, tabName, cmd)
       } else {
         tabId = await termStore.createTab(folder, tabName, cmd)
@@ -362,8 +362,8 @@ export const useTasksStore = create<TasksState>((set, get) => ({
     }
     get().trackAgentTask(id, tabId, agent)
 
-    // Switch to Agents tab
-    useAppStore.getState().setActiveTab('agents')
+    // Switch to terminal view
+    useAppStore.getState().showTerminal()
   },
 
   trackAgentTask: (taskId: string, terminalId: string, agent: AgentType) => {

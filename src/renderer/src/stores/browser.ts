@@ -20,7 +20,16 @@ interface BrowserState {
   removeTab: (id: string) => void
 }
 
-const DEFAULT_URL = 'http://localhost:3000'
+const FALLBACK_URL = 'http://localhost:3000'
+
+async function getDefaultUrl(): Promise<string> {
+  try {
+    const url = await window.orchestrate.getSetting('defaultBrowserUrl')
+    return typeof url === 'string' && url.trim() ? url.trim() : FALLBACK_URL
+  } catch {
+    return FALLBACK_URL
+  }
+}
 
 let globalListenersRegistered = false
 
@@ -50,7 +59,7 @@ export const useBrowserStore = create<BrowserState>((set, get) => ({
     ensureGlobalListeners()
     const { nextIndex } = get()
     const id = `browser-${Date.now()}-${nextIndex}`
-    const tabUrl = url ?? DEFAULT_URL
+    const tabUrl = url ?? await getDefaultUrl()
 
     const tab: BrowserTabInfo = {
       id,

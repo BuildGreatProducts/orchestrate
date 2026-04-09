@@ -1,38 +1,39 @@
 import { useEffect } from 'react'
-import TopNav from '@renderer/components/layout/TopNav'
+import TopBar from '@renderer/components/layout/TopBar'
+import LeftSidebar from '@renderer/components/layout/LeftSidebar'
 import ToastContainer from '@renderer/components/ui/ToastContainer'
-import SettingsPanel from '@renderer/components/manage/SettingsPanel'
 import { useAppStore } from '@renderer/stores/app'
 import { useFilesStore } from '@renderer/stores/files'
 import { useTerminalStore } from '@renderer/stores/terminal'
 import { useTasksStore } from '@renderer/stores/tasks'
-import type { TabId } from '@shared/types'
-import OrchestrateTab from '@renderer/components/manage/ManageTab'
-import AgentsTab from '@renderer/components/agents/AgentsTab'
+import { ensureGlobalIpcListeners } from '@renderer/stores/ipc-listeners'
+import { NAV_PAGES } from '@shared/types'
+import type { NavPageId } from '@shared/types'
 import TasksTab from '@renderer/components/tasks/TasksTab'
 import FilesTab from '@renderer/components/files/FilesTab'
+import SkillsSettings from '@renderer/components/settings/SkillsSettings'
 import HistoryTab from '@renderer/components/history/HistoryTab'
 import BrowserTab from '@renderer/components/browser/BrowserTab'
+import SettingsPage from '@renderer/components/settings/SettingsPage'
+import TerminalContentArea from '@renderer/components/agents/TerminalContentArea'
 
-const TABS: { id: TabId; Component: React.ComponentType }[] = [
-  { id: 'orchestrate', Component: OrchestrateTab },
-  { id: 'tasks', Component: TasksTab },
-  { id: 'agents', Component: AgentsTab },
-  { id: 'files', Component: FilesTab },
-  { id: 'history', Component: HistoryTab },
-  { id: 'browser', Component: BrowserTab }
-]
+const PAGE_COMPONENTS: Partial<Record<NavPageId, React.ComponentType>> = {
+  tasks: TasksTab,
+  files: FilesTab,
+  skills: SkillsSettings,
+  history: HistoryTab,
+  browser: BrowserTab
+}
 
 function App(): React.JSX.Element {
-  const activeTab = useAppStore((s) => s.activeTab)
-  const showSettings = useAppStore((s) => s.showSettings)
-  const setShowSettings = useAppStore((s) => s.setShowSettings)
+  const contentView = useAppStore((s) => s.contentView)
   const loadLastFolder = useAppStore((s) => s.loadLastFolder)
   const loadProjects = useAppStore((s) => s.loadProjects)
 
   useEffect(() => {
     loadLastFolder()
     loadProjects()
+    ensureGlobalIpcListeners()
   }, [loadLastFolder, loadProjects])
 
   // Global keyboard shortcuts
@@ -41,31 +42,29 @@ function App(): React.JSX.Element {
       const mod = e.metaKey || e.ctrlKey
       if (!mod) return
 
-      // Don't fire app shortcuts when the settings overlay is visible
-      if (useAppStore.getState().showSettings) return
-
-      // Cmd/Ctrl+1–6: Switch tabs
-      if (e.key >= '1' && e.key <= '6') {
+      // Cmd/Ctrl+1–5: Switch pages
+      const pages: NavPageId[] = ['tasks', 'files', 'skills', 'history', 'browser']
+      if (e.key >= '1' && e.key <= '5') {
         e.preventDefault()
         const idx = parseInt(e.key, 10) - 1
-        if (TABS[idx]) {
-          useAppStore.getState().setActiveTab(TABS[idx].id)
+        if (pages[idx]) {
+          useAppStore.getState().showPage(pages[idx])
         }
         return
       }
 
-      // Cmd/Ctrl+S: Save file (Files tab) or create save point input focus (History tab)
+      // Cmd/Ctrl+S: Save file (Files page) or create save point input focus (History page)
       if (e.key === 's') {
         e.preventDefault()
-        const tab = useAppStore.getState().activeTab
-        if (tab === 'files') {
+        const cv = useAppStore.getState().contentView
+        if (cv.type === 'page' && cv.pageId === 'files') {
           useFilesStore
             .getState()
             .saveActiveFile()
             .catch((err) => {
               console.error('[Shortcut] Failed to save file:', err)
             })
-        } else if (tab === 'history') {
+        } else if (cv.type === 'page' && cv.pageId === 'history') {
           const input = document.querySelector<HTMLInputElement>('[data-save-point-input]')
           input?.focus()
         }
@@ -81,7 +80,7 @@ function App(): React.JSX.Element {
             .getState()
             .createTab(folder)
             .then(() => {
-              useAppStore.getState().setActiveTab('agents')
+              useAppStore.getState().showTerminal()
             })
             .catch((err) => {
               console.error('[Shortcut] Failed to create terminal:', err)
@@ -93,7 +92,7 @@ function App(): React.JSX.Element {
       // Cmd/Ctrl+N: New task
       if (e.key === 'n') {
         e.preventDefault()
-        useAppStore.getState().setActiveTab('tasks')
+        useAppStore.getState().showPage('tasks')
         useTasksStore
           .getState()
           .createTask('planning', 'New task')
@@ -110,29 +109,48 @@ function App(): React.JSX.Element {
 
   return (
     <div className="flex h-screen flex-col bg-black text-white">
-      <TopNav />
-      <main className="relative flex-1 overflow-hidden">
-        {TABS.map(({ id, Component }) => (
+      <TopBar />
+      <div className="flex flex-1 overflow-hidden">
+        <LeftSidebar />
+        <main className="relative flex-1 overflow-hidden">
+          {/* Page views */}
+          {NAV_PAGES.map(({ id }) => {
+            const Component = PAGE_COMPONENTS[id]
+            if (!Component) return null
+            const isActive = contentView.type === 'page' && contentView.pageId === id
+            return (
+              <div
+                key={id}
+                className={
+                  isActive ? 'flex h-full w-full animate-in fade-in duration-150' : 'hidden'
+                }
+              >
+                <Component />
+              </div>
+            )
+          })}
+          {/* Settings page (not in NAV_PAGES, accessed via cog icon) */}
           <div
-            key={id}
             className={
-              id === activeTab ? 'flex h-full w-full animate-in fade-in duration-150' : 'hidden'
+              contentView.type === 'page' && contentView.pageId === 'settings'
+                ? 'flex h-full w-full animate-in fade-in duration-150'
+                : 'hidden'
             }
           >
-            <Component />
+            <SettingsPage />
           </div>
-        ))}
-      </main>
-      {showSettings && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Settings"
-          className="absolute inset-0 top-12 z-50 bg-black"
-        >
-          <SettingsPanel onDone={() => setShowSettings(false)} />
-        </div>
-      )}
+          {/* Terminal view */}
+          <div
+            className={
+              contentView.type === 'terminal'
+                ? 'flex h-full w-full animate-in fade-in duration-150'
+                : 'hidden'
+            }
+          >
+            <TerminalContentArea />
+          </div>
+        </main>
+      </div>
       <ToastContainer />
     </div>
   )

@@ -4,6 +4,7 @@
 import { writeFileSync, unlinkSync, existsSync } from 'fs'
 import { join } from 'path'
 import { app } from 'electron'
+import { getMcpSecret } from './mcp-http-server'
 
 let configPath: string | null = null
 let activePort: number | null = null
@@ -27,7 +28,8 @@ export function getCodexMcpFlags(): string | null {
   if (activePort === null) return null
   const proxyPath = getStdioProxyPath()
   const url = `http://127.0.0.1:${activePort}/mcp`
-  return `-c 'mcp_servers.orchestrate.command="node"' -c 'mcp_servers.orchestrate.args=["${proxyPath}","${url}"]'`
+  const secret = getMcpSecret()
+  return `-c 'mcp_servers.orchestrate.command="node"' -c 'mcp_servers.orchestrate.args=["${proxyPath}","${url}","${secret}"]'`
 }
 
 export function writeMcpConfigFile(port: number): string {
@@ -43,11 +45,12 @@ function writeConfigToDisk(): void {
     mcpServers: {
       orchestrate: {
         type: 'http',
-        url: `http://127.0.0.1:${activePort}/mcp`
+        url: `http://127.0.0.1:${activePort}/mcp`,
+        headers: { 'X-MCP-Secret': getMcpSecret() }
       }
     }
   }
-  writeFileSync(configPath, JSON.stringify(config, null, 2))
+  writeFileSync(configPath, JSON.stringify(config, null, 2), { mode: 0o600 })
   console.log(`[MCP] Config file written to ${configPath}`)
 }
 

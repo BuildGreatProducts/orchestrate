@@ -1,14 +1,14 @@
 import { create } from 'zustand'
-import type { TabId } from '@shared/types'
+import type { ContentView, NavPageId } from '@shared/types'
 
 interface AppState {
-  activeTab: TabId
+  contentView: ContentView
   currentFolder: string | null
   projects: string[]
-  showSettings: boolean
-  setActiveTab: (tab: TabId) => void
+
+  showPage: (pageId: NavPageId) => void
+  showTerminal: () => void
   setCurrentFolder: (folder: string | null) => void
-  setShowSettings: (show: boolean) => void
   loadLastFolder: () => Promise<void>
   loadProjects: () => Promise<void>
   addProject: (path: string) => Promise<void>
@@ -16,18 +16,19 @@ interface AppState {
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
-  activeTab: 'orchestrate',
+  contentView: { type: 'page', pageId: 'tasks' },
   currentFolder: null,
   projects: [],
-  showSettings: false,
-  setActiveTab: (tab) => set({ activeTab: tab }),
+
+  showPage: (pageId) => set({ contentView: { type: 'page', pageId } }),
+  showTerminal: () => set({ contentView: { type: 'terminal' } }),
+
   setCurrentFolder: async (folder) => {
     if (folder) {
       await window.orchestrate.setActiveProject(folder)
     }
     set({ currentFolder: folder })
   },
-  setShowSettings: (show) => set({ showSettings: show }),
   loadLastFolder: async () => {
     const folder = await window.orchestrate.getLastFolder()
     if (folder) {

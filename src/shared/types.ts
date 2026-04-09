@@ -1,15 +1,16 @@
-// ── Tab Navigation ──
+// ── Navigation ──
 
-export type TabId = 'orchestrate' | 'tasks' | 'agents' | 'files' | 'history' | 'browser'
+export type NavPageId = 'tasks' | 'files' | 'skills' | 'history' | 'browser' | 'settings'
 
-export const TAB_LIST: { id: TabId; label: string }[] = [
-  { id: 'orchestrate', label: 'Orchestrate' },
-  { id: 'tasks', label: 'Tasks' },
-  { id: 'agents', label: 'Agents' },
+export const NAV_PAGES: { id: NavPageId; label: string }[] = [
+  { id: 'tasks', label: 'Orchestrate' },
   { id: 'files', label: 'Files' },
+  { id: 'skills', label: 'Skills' },
   { id: 'history', label: 'History' },
   { id: 'browser', label: 'Browser' }
 ]
+
+export type ContentView = { type: 'page'; pageId: NavPageId } | { type: 'terminal' }
 
 // ── File System ──
 
@@ -94,46 +95,6 @@ export interface Loop {
 // ── Agents ──
 
 export type AgentType = 'claude-code' | 'codex'
-
-export interface AgentResponseChunk {
-  type: 'text' | 'tool_use' | 'done' | 'error'
-  content?: string
-  tool?: string
-  input?: Record<string, unknown>
-}
-
-// ── Chat History ──
-
-export interface ChatConversation {
-  id: string
-  title: string
-  createdAt: string // ISO 8601
-  updatedAt: string // ISO 8601
-  messages: ChatMessageData[]
-}
-
-export interface ChatMessageData {
-  id: string
-  role: 'user' | 'assistant' | 'system'
-  content: string
-  toolUses?: { tool: string; input: Record<string, unknown> }[]
-  items?: StreamItemData[]
-  timestamp: number
-}
-
-// Fix #7: discriminated union matching runtime StreamItem
-export type StreamItemData =
-  | { kind: 'text'; content: string }
-  | { kind: 'tool_use'; tool: string; input: Record<string, unknown> }
-
-export interface ChatConversationSummary {
-  id: string
-  title: string
-  createdAt: string
-  updatedAt: string
-  messageCount: number
-  preview: string // last user message truncated to ~80 chars
-}
 
 // ── Git / History ──
 
@@ -259,22 +220,8 @@ export interface OrchestrateAPI {
   onLoopTrigger: (callback: (loopId: string) => void) => () => void
   onTaskScheduleTrigger: (callback: (taskId: string) => void) => () => void
 
-  // Manage Agent
-  sendAgentMessage: (message: string) => Promise<void>
-  onAgentResponse: (callback: (chunk: AgentResponseChunk) => void) => () => void
-  onAgentToolUse: (callback: (tool: string, input: Record<string, unknown>) => void) => () => void
-  setApiKey: (key: string) => Promise<void>
-  hasApiKey: () => Promise<boolean>
-  clearAgentConversation: () => Promise<void>
-  cancelAgentMessage: () => Promise<void>
+  // MCP State Changes (used by MCP server tool handlers)
   onAgentStateChanged: (callback: (domain: string, data?: unknown) => void) => () => void
-
-  // Chat History
-  listConversations: () => Promise<ChatConversationSummary[]>
-  loadConversation: (id: string) => Promise<ChatConversation | null>
-  saveConversation: (conversation: ChatConversation) => Promise<void>
-  deleteConversation: (id: string) => Promise<void>
-  renameConversation: (id: string, title: string) => Promise<void>
 
   // Git / History
   isGitRepo: () => Promise<boolean>
@@ -310,6 +257,10 @@ export interface OrchestrateAPI {
   getMcpServerUrl: () => Promise<string | null>
   getMcpConfigPath: () => Promise<string | null>
   getCodexMcpFlags: () => Promise<string | null>
+
+  // Settings
+  getSetting: (key: string) => Promise<unknown>
+  setSetting: (key: string, value: unknown) => Promise<void>
 
   // Skills
   getSkills: () => Promise<SkillMeta[]>

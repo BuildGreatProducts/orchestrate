@@ -2,7 +2,6 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type {
   OrchestrateAPI,
   FileChangeEvent,
-  AgentResponseChunk,
   BrowserTabInfo,
   BrowserBounds,
   BoardState
@@ -91,34 +90,7 @@ const api: OrchestrateAPI = {
     }
   },
 
-  // Manage Agent
-  sendAgentMessage: (message) => ipcRenderer.invoke('agent:message', message),
-  onAgentResponse: (callback: (chunk: AgentResponseChunk) => void) => {
-    const handler = (_: Electron.IpcRendererEvent, chunk: AgentResponseChunk): void => {
-      callback(chunk)
-    }
-    ipcRenderer.on('agent:response', handler)
-    return () => {
-      ipcRenderer.removeListener('agent:response', handler)
-    }
-  },
-  onAgentToolUse: (callback: (tool: string, input: Record<string, unknown>) => void) => {
-    const handler = (
-      _: Electron.IpcRendererEvent,
-      tool: string,
-      input: Record<string, unknown>
-    ): void => {
-      callback(tool, input)
-    }
-    ipcRenderer.on('agent:toolUse', handler)
-    return () => {
-      ipcRenderer.removeListener('agent:toolUse', handler)
-    }
-  },
-  setApiKey: (key: string) => ipcRenderer.invoke('agent:setApiKey', key),
-  hasApiKey: () => ipcRenderer.invoke('agent:hasApiKey'),
-  clearAgentConversation: () => ipcRenderer.invoke('agent:clearConversation'),
-  cancelAgentMessage: () => ipcRenderer.invoke('agent:cancel'),
+  // MCP State Changes (used by MCP server tool handlers)
   onAgentStateChanged: (callback: (domain: string, data?: unknown) => void) => {
     const handler = (_: Electron.IpcRendererEvent, domain: string, data?: unknown): void => {
       callback(domain, data)
@@ -167,6 +139,10 @@ const api: OrchestrateAPI = {
   getMcpConfigPath: () => ipcRenderer.invoke('mcp:getConfigPath'),
   getCodexMcpFlags: () => ipcRenderer.invoke('mcp:getCodexFlags'),
 
+  // Settings
+  getSetting: (key: string) => ipcRenderer.invoke('settings:get', key),
+  setSetting: (key: string, value: unknown) => ipcRenderer.invoke('settings:set', key, value),
+
   // Skills
   getSkills: () => ipcRenderer.invoke('skill:list'),
   addSkillFromFolder: (sourcePath, target) =>
@@ -178,13 +154,6 @@ const api: OrchestrateAPI = {
     ipcRenderer.invoke('skill:setEnabled', skillPath, enabled),
   getSkillContent: (skillPath) => ipcRenderer.invoke('skill:getContent', skillPath),
   openSkillsFolder: (target) => ipcRenderer.invoke('skill:openFolder', target),
-
-  // Chat History
-  listConversations: () => ipcRenderer.invoke('chatHistory:list'),
-  loadConversation: (id: string) => ipcRenderer.invoke('chatHistory:load', id),
-  saveConversation: (conversation) => ipcRenderer.invoke('chatHistory:save', conversation),
-  deleteConversation: (id: string) => ipcRenderer.invoke('chatHistory:delete', id),
-  renameConversation: (id: string, title: string) => ipcRenderer.invoke('chatHistory:rename', id, title),
 
   // Git / History
   isGitRepo: () => ipcRenderer.invoke('git:isRepo'),

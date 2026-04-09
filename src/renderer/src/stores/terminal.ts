@@ -5,6 +5,7 @@ import { toast } from './toast'
 export interface TerminalTab {
   id: string
   name: string
+  projectFolder: string
   taskId?: string
   exited: boolean
   exitCode?: number
@@ -15,13 +16,7 @@ export interface TerminalTab {
 export interface AgentGroup {
   id: string
   name: string
-  collapsed: boolean
-  tabIds: string[]
-}
-
-export interface AgentGroup {
-  id: string
-  name: string
+  projectFolder: string
   collapsed: boolean
   tabIds: string[]
 }
@@ -45,7 +40,7 @@ interface TerminalState {
   closeAllTabs: () => void
 
   // Group methods
-  createGroup: (name?: string) => string
+  createGroup: (name: string | undefined, projectFolder: string) => string
   deleteGroup: (groupId: string) => void
   renameGroup: (groupId: string, name: string) => void
   toggleGroupCollapsed: (groupId: string) => void
@@ -53,7 +48,7 @@ interface TerminalState {
   removeTabFromGroup: (tabId: string) => void
   reorderTabInGroup: (groupId: string, oldIndex: number, newIndex: number) => void
   createTabInGroup: (cwd: string, groupId: string, name?: string, command?: string) => Promise<string>
-  findOrCreateGroup: (name: string) => string
+  findOrCreateGroup: (name: string, projectFolder: string) => string
 }
 
 // --- Shared IPC dispatcher ---
@@ -126,9 +121,8 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     set((state) => ({
       tabs: [
         ...state.tabs,
-        { id, name: tabName, exited: false, busy: false, bell: false }
+        { id, name: tabName, projectFolder: cwd, taskId, exited: false, busy: false, bell: false }
       ],
-      tabs: [...state.tabs, { id, name: tabName, taskId, exited: false }],
       activeTabId: id,
       nextIndex: state.nextIndex + 1
     }))
@@ -230,12 +224,12 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
 
   // --- Group methods ---
 
-  createGroup: (name?: string) => {
+  createGroup: (name: string | undefined, projectFolder: string) => {
     const { nextGroupIndex } = get()
     const id = `group-${Date.now()}-${nextGroupIndex}`
     const groupName = name ?? `Group ${nextGroupIndex}`
     set((state) => ({
-      groups: [...state.groups, { id, name: groupName, collapsed: false, tabIds: [] }],
+      groups: [...state.groups, { id, name: groupName, projectFolder, collapsed: false, tabIds: [] }],
       nextGroupIndex: state.nextGroupIndex + 1
     }))
     return id
@@ -304,9 +298,9 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     return tabId
   },
 
-  findOrCreateGroup: (name: string) => {
-    const existing = get().groups.find((g) => g.name === name)
+  findOrCreateGroup: (name: string, projectFolder: string) => {
+    const existing = get().groups.find((g) => g.name === name && g.projectFolder === projectFolder)
     if (existing) return existing.id
-    return get().createGroup(name)
+    return get().createGroup(name, projectFolder)
   }
 }))

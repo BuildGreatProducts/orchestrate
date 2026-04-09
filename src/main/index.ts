@@ -9,9 +9,7 @@ import { registerTaskHandlers, getTaskManager } from './ipc/tasks'
 import { registerLoopHandlers, getLoopManager } from './ipc/loops'
 import { LoopScheduler } from './loop-scheduler'
 import { registerGitHandlers, getGitManager } from './ipc/git'
-import { registerAgentHandlers, clearAgentConversation } from './ipc/agent'
 import { registerSkillHandlers } from './ipc/skills'
-import { registerChatHistoryHandlers } from './ipc/chat-history'
 import { registerBrowserHandlers, closeAllBrowserTabs } from './ipc/browser'
 import { registerStubHandlers } from './ipc/stubs'
 import { startWatching, stopWatching } from './file-watcher'
@@ -76,9 +74,7 @@ app.whenReady().then(() => {
   registerFolderHandlers(
     () => mainWindow,
     (folder) => {
-      closeAllTerminals()
       closeAllBrowserTabs()
-      clearAgentConversation()
       loopScheduler.stopAll()
       startWatching(folder, () => mainWindow)
       if (mainWindow && !mainWindow.isDestroyed()) {
@@ -104,19 +100,14 @@ app.whenReady().then(() => {
   registerTaskHandlers(() => mainWindow, getCurrentFolder, getPtyManager, loopScheduler)
   registerLoopHandlers(() => mainWindow, getCurrentFolder)
   registerGitHandlers(() => mainWindow, getCurrentFolder)
-  registerAgentHandlers(
-    () => mainWindow,
-    getCurrentFolder,
-    getTaskManager,
-    getLoopManager,
-    getGitManager,
-    getPtyManager,
-    getSkillManager
-  )
   registerSkillHandlers(() => mainWindow, getCurrentFolder, getSkillManager)
-  registerChatHistoryHandlers(() => mainWindow, getCurrentFolder)
   registerBrowserHandlers(() => mainWindow)
   registerStubHandlers()
+
+  // Register settings IPC handlers
+  const settingsStore = new Store<Record<string, unknown>>({ name: 'settings', defaults: { defaultBrowserUrl: 'http://localhost:3000' } })
+  ipcMain.handle('settings:get', (_event, key: string) => settingsStore.get(key))
+  ipcMain.handle('settings:set', (_event, key: string, value: unknown) => { settingsStore.set(key, value) })
 
   // Register MCP IPC handlers
   ipcMain.handle('mcp:getUrl', () => getMcpServerUrl())
@@ -127,14 +118,10 @@ app.whenReady().then(() => {
   startMcpServer({
     getCurrentFolder,
     getTaskManager,
-    getLoopManager: () => null, // Not exposed via HTTP MCP
+    getLoopManager,
     getGitManager,
-    getPtyManager: () => null, // Not exposed via HTTP MCP
-    getSkillManager: () => null, // Not exposed via HTTP MCP
+    getSkillManager,
     getWindow: () => mainWindow,
-    notifyToolUse: (tool, input) => {
-      mainWindow?.webContents.send('agent:toolUse', tool, input)
-    },
     notifyStateChanged: (domain, data) => {
       mainWindow?.webContents.send('agent:stateChanged', domain, data)
     }
