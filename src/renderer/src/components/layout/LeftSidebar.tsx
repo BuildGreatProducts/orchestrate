@@ -29,6 +29,7 @@ import { NAV_PAGES } from '@shared/types'
 import type { NavPageId } from '@shared/types'
 import DraggableAgentItem from '@renderer/components/agents/DraggableAgentItem'
 import AgentGroupSection from '@renderer/components/agents/AgentGroupSection'
+import ConfirmDialog from '@renderer/components/history/ConfirmDialog'
 import { getAgentColorIndex } from '@renderer/lib/agent-colors'
 
 const NAV_ICONS: Record<NavPageId, React.ComponentType<{ size?: number }>> = {
@@ -66,7 +67,10 @@ export default function LeftSidebar(): React.JSX.Element {
   const activeTabId = useTerminalStore((s) => s.activeTabId)
   const setActiveTerminalTab = useTerminalStore((s) => s.setActiveTab)
   const clearBell = useTerminalStore((s) => s.clearBell)
-  const closeTab = useTerminalStore((s) => s.closeTab)
+  const requestCloseTab = useTerminalStore((s) => s.requestCloseTab)
+  const confirmCloseTab = useTerminalStore((s) => s.confirmCloseTab)
+  const cancelCloseTab = useTerminalStore((s) => s.cancelCloseTab)
+  const pendingCloseTabId = useTerminalStore((s) => s.pendingCloseTabId)
   const createTab = useTerminalStore((s) => s.createTab)
   const allGroups = useTerminalStore((s) => s.groups)
   const createGroup = useTerminalStore((s) => s.createGroup)
@@ -279,7 +283,7 @@ export default function LeftSidebar(): React.JSX.Element {
                         tab.id === activeTabId && contentView.type === 'terminal'
                       }
                       onSelect={handleSelectTab}
-                      onClose={closeTab}
+                      onClose={requestCloseTab}
                     />
                   ))}
                 </SortableContext>
@@ -301,7 +305,7 @@ export default function LeftSidebar(): React.JSX.Element {
                   contentView.type === 'terminal' ? activeTabId : null
                 }
                 onSelectTab={handleSelectTab}
-                onCloseTab={closeTab}
+                onCloseTab={requestCloseTab}
               />
             ))}
 
@@ -340,6 +344,17 @@ export default function LeftSidebar(): React.JSX.Element {
           <span>New agent</span>
         </button>
       </div>
+
+      {pendingCloseTabId !== null && (
+        <ConfirmDialog
+          title="Close Agent"
+          description="This will terminate the running terminal process. Are you sure you want to close this agent?"
+          confirmLabel="Close"
+          variant="danger"
+          onConfirm={confirmCloseTab}
+          onCancel={cancelCloseTab}
+        />
+      )}
     </div>
   )
 }
