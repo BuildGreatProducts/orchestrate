@@ -6,6 +6,7 @@ export interface TerminalTab {
   id: string
   name: string
   projectFolder: string
+  taskId?: string
   exited: boolean
   exitCode?: number
   busy: boolean
@@ -27,7 +28,8 @@ interface TerminalState {
   groups: AgentGroup[]
   nextGroupIndex: number
 
-  createTab: (cwd: string, name?: string, command?: string) => Promise<string>
+  createTab: (cwd: string, name?: string, command?: string, taskId?: string) => Promise<string>
+  getTaskId: (terminalId: string) => string | undefined
   closeTab: (id: string) => void
   setActiveTab: (id: string) => void
   updateTabName: (id: string, name: string) => void
@@ -104,7 +106,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
   groups: [],
   nextGroupIndex: 1,
 
-  createTab: async (cwd: string, name?: string, command?: string) => {
+  createTab: async (cwd: string, name?: string, command?: string, taskId?: string) => {
     const { nextIndex } = get()
     const id = `terminal-${Date.now()}-${nextIndex}`
     const tabName = name ?? `Terminal ${nextIndex}`
@@ -119,7 +121,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     set((state) => ({
       tabs: [
         ...state.tabs,
-        { id, name: tabName, projectFolder: cwd, exited: false, busy: false, bell: false }
+        { id, name: tabName, projectFolder: cwd, taskId, exited: false, busy: false, bell: false }
       ],
       activeTabId: id,
       nextIndex: state.nextIndex + 1
@@ -204,6 +206,10 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     set((state) => ({
       tabs: state.tabs.map((t) => (t.id === id ? { ...t, exited: true, exitCode } : t))
     }))
+  },
+
+  getTaskId: (terminalId: string) => {
+    return get().tabs.find((t) => t.id === terminalId)?.taskId
   },
 
   closeAllTabs: () => {
