@@ -2,6 +2,8 @@ import { nanoid } from 'nanoid'
 import { useTerminalStore } from './terminal'
 import { useLoopsStore } from './loops'
 import { useAppStore } from './app'
+import { useAgentsStore } from './agents'
+import { buildAgentCommand } from '../lib/agent-command-builder'
 import type { LoopRun } from '@shared/types'
 
 interface ActiveExecution {
@@ -54,7 +56,13 @@ export async function executeLoop(loopId: string): Promise<void> {
   // Fetch MCP config once for all steps
   const mcpConfigPath = await window.orchestrate.getMcpConfigPath().catch(() => null)
   const codexMcpFlags = await window.orchestrate.getCodexMcpFlags().catch(() => null)
-  const shellQuote = (s: string): string => "'" + s.replace(/'/g, "'\\''") + "'"
+
+  const agentConfig = useAgentsStore.getState().getAgent(loop.agentType)
+  if (!agentConfig) {
+    console.error('[LoopEngine] Unknown agent type:', loop.agentType)
+    activeExecutions.delete(loopId)
+    return
+  }
 
   const runId = nanoid(8)
   const termStore = useTerminalStore.getState()
@@ -85,18 +93,14 @@ export async function executeLoop(loopId: string): Promise<void> {
       }
 
       const systemPrompt = 'You have orchestrate MCP tools. Use create_save_point to commit your changes.'
-      const escaped = step.prompt.replace(/'/g, "'\\''")
-      let cmd: string
 
-      if (loop.agentType === 'claude-code') {
-        cmd = mcpConfigPath
-          ? `claude --mcp-config ${shellQuote(mcpConfigPath)} --append-system-prompt ${shellQuote(systemPrompt)} '${escaped}'`
-          : `claude '${escaped}'`
-      } else {
-        cmd = codexMcpFlags
-          ? `codex ${codexMcpFlags} '${escaped}'`
-          : `codex '${escaped}'`
-      }
+      const cmd = buildAgentCommand({
+        agent: agentConfig,
+        prompt: step.prompt,
+        systemPrompt,
+        mcpConfigPath,
+        codexMcpFlags
+      })
 
       const stepName = `Step ${loop.steps.indexOf(step) + 1}: ${step.prompt.slice(0, 40)}${step.prompt.length > 40 ? '...' : ''}`
 

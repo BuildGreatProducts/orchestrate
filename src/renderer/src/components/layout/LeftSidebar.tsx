@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import {
   DndContext,
   DragOverlay,
@@ -31,6 +31,8 @@ import DraggableAgentItem from '@renderer/components/agents/DraggableAgentItem'
 import AgentGroupSection from '@renderer/components/agents/AgentGroupSection'
 import ConfirmDialog from '@renderer/components/history/ConfirmDialog'
 import { getAgentColorIndex } from '@renderer/lib/agent-colors'
+import { useAgentsStore } from '@renderer/stores/agents'
+import { buildAgentCommand } from '@renderer/lib/agent-command-builder'
 
 const NAV_ICONS: Record<NavPageId, React.ComponentType<{ size?: number }>> = {
   tasks: LayoutList,
@@ -122,15 +124,46 @@ export default function LeftSidebar(): React.JSX.Element {
     [groups]
   )
 
-  const handleNewAgent = async (): Promise<void> => {
-    if (currentFolder) {
-      try {
-        const tabId = await createTab(currentFolder)
-        setActiveTerminalTab(tabId)
-        showTerminal()
-      } catch (err) {
-        console.error('Failed to create terminal:', err)
+  const allAgents = useAgentsStore((s) => s.agents)
+  const enabledAgents = useMemo(() => allAgents.filter((a) => a.enabled), [allAgents])
+  const [newAgentMenuOpen, setNewAgentMenuOpen] = useState(false)
+  const newAgentMenuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!newAgentMenuOpen) return
+    const handleClick = (e: MouseEvent): void => {
+      if (newAgentMenuRef.current && !newAgentMenuRef.current.contains(e.target as Node)) {
+        setNewAgentMenuOpen(false)
       }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [newAgentMenuOpen])
+
+  const handleNewAgentWithType = async (agentId?: string): Promise<void> => {
+    if (!currentFolder) return
+    setNewAgentMenuOpen(false)
+    try {
+      let tabId: string
+      if (agentId) {
+        const agentConfig = useAgentsStore.getState().getAgent(agentId)
+        if (!agentConfig) return
+        const mcpConfigPath = await window.orchestrate.getMcpConfigPath().catch(() => null)
+        const codexMcpFlags = await window.orchestrate.getCodexMcpFlags().catch(() => null)
+        const cmd = buildAgentCommand({
+          agent: agentConfig,
+          prompt: '',
+          mcpConfigPath,
+          codexMcpFlags
+        })
+        tabId = await createTab(currentFolder, agentConfig.displayName, cmd)
+      } else {
+        tabId = await createTab(currentFolder)
+      }
+      setActiveTerminalTab(tabId)
+      showTerminal()
+    } catch (err) {
+      console.error('Failed to create terminal:', err)
     }
   }
 
@@ -335,14 +368,37 @@ export default function LeftSidebar(): React.JSX.Element {
           <FolderPlus size={14} />
           <span>New group</span>
         </button>
-        <button
-          onClick={handleNewAgent}
-          disabled={!currentFolder}
-          className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-zinc-800 px-3 py-2 text-sm text-zinc-300 transition-colors hover:bg-zinc-700 hover:text-zinc-100 disabled:opacity-30 disabled:pointer-events-none"
-        >
-          <Plus size={14} />
-          <span>New agent</span>
-        </button>
+        <div ref={newAgentMenuRef} className="relative">
+          <button
+            onClick={() => setNewAgentMenuOpen((v) => !v)}
+            disabled={!currentFolder}
+            className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-zinc-800 px-3 py-2 text-sm text-zinc-300 transition-colors hover:bg-zinc-700 hover:text-zinc-100 disabled:opacity-30 disabled:pointer-events-none"
+          >
+            <Plus size={14} />
+            <span>New agent</span>
+          </button>
+          {newAgentMenuOpen && (
+            <div className="absolute bottom-full left-0 right-0 z-50 mb-1 overflow-hidden rounded-md border border-zinc-700 bg-zinc-800 py-1 shadow-xl">
+              {enabledAgents.map((agent) => (
+                <button
+                  key={agent.id}
+                  onClick={() => handleNewAgentWithType(agent.id)}
+                  className="flex w-full items-center px-3 py-1.5 text-left text-sm text-zinc-300 hover:bg-zinc-700"
+                >
+                  {agent.displayName}
+                </button>
+              ))}
+              <div className="my-1 border-t border-zinc-700" />
+              <button
+                onClick={() => handleNewAgentWithType()}
+                className="flex w-full items-center px-3 py-1.5 text-left text-sm text-zinc-400 hover:bg-zinc-700 hover:text-zinc-300"
+              >
+                <Terminal size={14} className="mr-2" />
+                Plain Terminal
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {pendingCloseTabId !== null && (

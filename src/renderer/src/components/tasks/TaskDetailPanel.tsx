@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import Editor from '@monaco-editor/react'
-import type { ColumnId, AgentType } from '@shared/types'
+import type { ColumnId } from '@shared/types'
 import { useTasksStore } from '@renderer/stores/tasks'
 import { useTerminalStore } from '@renderer/stores/terminal'
+import { useAgentsStore } from '@renderer/stores/agents'
+import AgentSelector from '@renderer/components/shared/AgentSelector'
 import MarkdownToggle from '@renderer/components/files/MarkdownToggle'
 import MarkdownPreview from '@renderer/components/files/MarkdownPreview'
 import ConfirmDialog from '@renderer/components/history/ConfirmDialog'
@@ -35,6 +37,8 @@ export default function TaskDetailPanel(): React.JSX.Element | null {
   const updateTaskSchedule = useTasksStore((s) => s.updateTaskSchedule)
   const updateTaskGroup = useTasksStore((s) => s.updateTaskGroup)
   const terminalGroups = useTerminalStore((s) => s.groups)
+  const allAgents = useAgentsStore((s) => s.agents)
+  const enabledAgents = useMemo(() => allAgents.filter((a) => a.enabled), [allAgents])
 
   const [title, setTitle] = useState('')
   const [markdown, setMarkdown] = useState('')
@@ -43,7 +47,7 @@ export default function TaskDetailPanel(): React.JSX.Element | null {
   const [menuOpen, setMenuOpen] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [sendMenuOpen, setSendMenuOpen] = useState(false)
-  const [scheduleAgent, setScheduleAgent] = useState<AgentType>('claude-code')
+  const [scheduleAgent, setScheduleAgent] = useState('claude-code')
   const [scheduleCron, setScheduleCron] = useState('')
   const [schedulePreset, setSchedulePreset] = useState('')
   const [groupSelect, setGroupSelect] = useState('') // '' = none, '__new__' = new, or group name
@@ -174,7 +178,7 @@ export default function TaskDetailPanel(): React.JSX.Element | null {
   }, [])
 
   const handleSendToAgent = useCallback(
-    async (agent: 'claude-code' | 'codex') => {
+    async (agent: string) => {
       if (!selectedTaskId) return
       clearTimeout(saveTimerRef.current)
       await writeMarkdown(selectedTaskId, markdown)
@@ -219,7 +223,7 @@ export default function TaskDetailPanel(): React.JSX.Element | null {
   }, [selectedTaskId, scheduleCron, scheduleAgent, updateTaskSchedule])
 
   const handleScheduleAgentChange = useCallback(
-    (agent: AgentType) => {
+    (agent: string) => {
       if (!selectedTaskId) return
       setScheduleAgent(agent)
       const enabled = schedulePreset !== '' && schedulePreset !== '__custom__'
@@ -418,21 +422,7 @@ export default function TaskDetailPanel(): React.JSX.Element | null {
             {schedulePreset !== '' && (
               <div className="mt-2">
                 <label className="mb-1 block text-xs text-zinc-500">Agent</label>
-                <div className="flex gap-2">
-                  {(['claude-code', 'codex'] as const).map((type) => (
-                    <button
-                      key={type}
-                      onClick={() => handleScheduleAgentChange(type)}
-                      className={`rounded px-3 py-1 text-xs transition-colors ${
-                        scheduleAgent === type
-                          ? 'bg-zinc-700 text-white'
-                          : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700/60 hover:text-zinc-300'
-                      }`}
-                    >
-                      {type === 'claude-code' ? 'Claude Code' : 'Codex'}
-                    </button>
-                  ))}
-                </div>
+                <AgentSelector value={scheduleAgent} onChange={handleScheduleAgentChange} size="sm" />
               </div>
             )}
           </div>
@@ -495,24 +485,18 @@ export default function TaskDetailPanel(): React.JSX.Element | null {
 
           {sendMenuOpen && (
             <div className="absolute bottom-full right-0 z-50 mb-1 w-40 overflow-hidden rounded-md border border-zinc-700 bg-zinc-800 py-1 shadow-xl">
-              <button
-                onClick={() => {
-                  setSendMenuOpen(false)
-                  handleSendToAgent('claude-code')
-                }}
-                className="flex w-full items-center px-3 py-1.5 text-left text-sm text-zinc-300 hover:bg-zinc-700"
-              >
-                Claude Code
-              </button>
-              <button
-                onClick={() => {
-                  setSendMenuOpen(false)
-                  handleSendToAgent('codex')
-                }}
-                className="flex w-full items-center px-3 py-1.5 text-left text-sm text-zinc-300 hover:bg-zinc-700"
-              >
-                Codex
-              </button>
+              {enabledAgents.map((agent) => (
+                <button
+                  key={agent.id}
+                  onClick={() => {
+                    setSendMenuOpen(false)
+                    handleSendToAgent(agent.id)
+                  }}
+                  className="flex w-full items-center px-3 py-1.5 text-left text-sm text-zinc-300 hover:bg-zinc-700"
+                >
+                  {agent.displayName}
+                </button>
+              ))}
             </div>
           )}
         </div>

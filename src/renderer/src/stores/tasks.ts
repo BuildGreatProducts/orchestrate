@@ -4,6 +4,8 @@ import { useTerminalStore } from './terminal'
 import { useAppStore } from './app'
 import { useHistoryStore } from './history'
 import { useLoopsStore } from './loops'
+import { useAgentsStore } from './agents'
+import { buildAgentCommand } from '../lib/agent-command-builder'
 import { toast } from './toast'
 
 const SAFE_ID_RE = /^[A-Za-z0-9_-]{1,64}$/
@@ -25,11 +27,6 @@ const EMPTY_BOARD: BoardState = {
     done: []
   },
   tasks: {}
-}
-
-/** Escape a string for safe use in a bash single-quoted context. */
-function shellQuote(s: string): string {
-  return "'" + s.replace(/'/g, "'\\''") + "'"
 }
 
 interface TasksState {
@@ -326,22 +323,28 @@ export const useTasksStore = create<TasksState>((set, get) => ({
       return
     }
 
-    const taskTitle = board.tasks[id].title
-    const systemPrompt = `You have orchestrate MCP tools. Your task ID is '${id}'. When you finish, call move_task to move it to 'review'. Use create_save_point to commit.`
-    let cmd: string
-
-    if (agent === 'claude-code') {
-      const mcpConfigPath = await window.orchestrate.getMcpConfigPath().catch(() => null)
-      const mcpFlag = mcpConfigPath ? `--mcp-config ${shellQuote(mcpConfigPath)} ` : ''
-      cmd = `claude ${mcpFlag}--append-system-prompt ${shellQuote(systemPrompt)} "$(cat tasks/task-${id}.md)"`
-    } else {
-      const codexFlags = await window.orchestrate.getCodexMcpFlags().catch(() => null)
-      cmd = codexFlags
-        ? `codex ${codexFlags} "$(cat tasks/task-${id}.md)"`
-        : `codex "$(cat tasks/task-${id}.md)"`
+    const agentConfig = useAgentsStore.getState().getAgent(agent)
+    if (!agentConfig) {
+      toast.error(`Unknown agent: ${agent}`)
+      await get().moveTask(id, 'planning', 0)
+      return
     }
 
-    const tabName = `${agent === 'claude-code' ? 'Claude' : 'Codex'}: ${taskTitle}`
+    const taskTitle = board.tasks[id].title
+    const systemPrompt = `You have orchestrate MCP tools. Your task ID is '${id}'. When you finish, call move_task to move it to 'review'. Use create_save_point to commit.`
+    const mcpConfigPath = await window.orchestrate.getMcpConfigPath().catch(() => null)
+    const codexMcpFlags = await window.orchestrate.getCodexMcpFlags().catch(() => null)
+
+    const cmd = buildAgentCommand({
+      agent: agentConfig,
+      prompt: '',
+      systemPrompt,
+      taskFile: `tasks/task-${id}.md`,
+      mcpConfigPath,
+      codexMcpFlags
+    })
+
+    const tabName = `${agentConfig.displayName}: ${taskTitle}`
     const groupName = board.tasks[id].groupName
 
     // Create terminal tab, optionally in a group

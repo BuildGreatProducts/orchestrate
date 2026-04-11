@@ -19,10 +19,11 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { nanoid } from 'nanoid'
 import { CronExpressionParser } from 'cron-parser'
-import type { Loop, LoopStep, AgentType } from '@shared/types'
+import type { LoopStep } from '@shared/types'
 import { useLoopsStore } from '@renderer/stores/loops'
 import { executeLoop, isLoopRunning, abortLoop } from '@renderer/stores/loop-execution-engine'
 import { toast } from '@renderer/stores/toast'
+import AgentSelector from '@renderer/components/shared/AgentSelector'
 import ConfirmDialog from '@renderer/components/history/ConfirmDialog'
 
 const SCHEDULE_PRESETS = [
@@ -99,7 +100,7 @@ export default function LoopDetailPanel(): React.JSX.Element | null {
   const deleteLoop = useLoopsStore((s) => s.deleteLoop)
 
   const [name, setName] = useState('')
-  const [agentType, setAgentType] = useState<AgentType>('claude-code')
+  const [agentType, setAgentType] = useState('claude-code')
   const [steps, setSteps] = useState<LoopStep[]>([{ id: nanoid(6), prompt: '' }])
   const [scheduleEnabled, setScheduleEnabled] = useState(false)
   const [cron, setCron] = useState('')
@@ -322,21 +323,7 @@ export default function LoopDetailPanel(): React.JSX.Element | null {
         {/* Agent type */}
         <div>
           <label className="mb-1 block text-xs text-zinc-500">Agent</label>
-          <div className="flex gap-2">
-            {(['claude-code', 'codex'] as const).map((type) => (
-              <button
-                key={type}
-                onClick={() => setAgentType(type)}
-                className={`rounded px-3 py-1 text-xs transition-colors ${
-                  agentType === type
-                    ? 'bg-zinc-700 text-white'
-                    : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700/60 hover:text-zinc-300'
-                }`}
-              >
-                {type === 'claude-code' ? 'Claude Code' : 'Codex'}
-              </button>
-            ))}
-          </div>
+          <AgentSelector value={agentType} onChange={setAgentType} size="sm" />
         </div>
 
         {/* Schedule */}

@@ -18,8 +18,9 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { nanoid } from 'nanoid'
-import type { Loop, LoopStep, AgentType } from '@shared/types'
+import type { Loop, LoopStep } from '@shared/types'
 import { useTerminalStore } from '@renderer/stores/terminal'
+import AgentSelector from '@renderer/components/shared/AgentSelector'
 
 interface LoopEditorModalProps {
   initial: Partial<Loop> | null
@@ -104,7 +105,7 @@ export default function LoopEditorModal({
   const isEdit = !!initial?.id
 
   const [name, setName] = useState(initial?.name ?? '')
-  const [agentType, setAgentType] = useState<AgentType>(initial?.agentType ?? 'claude-code')
+  const [agentType, setAgentType] = useState(initial?.agentType ?? 'claude-code')
   const [steps, setSteps] = useState<LoopStep[]>(
     initial?.steps?.length
       ? initial.steps
@@ -220,21 +221,7 @@ export default function LoopEditorModal({
           {/* Agent Type */}
           <div>
             <label className="mb-1 block text-xs font-medium text-zinc-400">Agent</label>
-            <div className="flex gap-2">
-              {(['claude-code', 'codex'] as const).map((type) => (
-                <button
-                  key={type}
-                  onClick={() => setAgentType(type)}
-                  className={`rounded px-3 py-1.5 text-sm transition-colors ${
-                    agentType === type
-                      ? 'bg-zinc-700 text-white'
-                      : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700/60 hover:text-zinc-300'
-                  }`}
-                >
-                  {type === 'claude-code' ? 'Claude Code' : 'Codex'}
-                </button>
-              ))}
-            </div>
+            <AgentSelector value={agentType} onChange={setAgentType} />
           </div>
 
           {/* Steps */}
