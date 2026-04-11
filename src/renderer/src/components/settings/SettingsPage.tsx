@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Plus, Pencil, Trash2 } from 'lucide-react'
 import { useAgentsStore } from '@renderer/stores/agents'
+import ConfirmDialog from '@renderer/components/history/ConfirmDialog'
 import type { AgentConfig } from '@shared/types'
 
 function slugify(name: string): string {
@@ -80,6 +81,7 @@ export default function SettingsPage(): React.JSX.Element {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [customName, setCustomName] = useState('')
   const [customCommand, setCustomCommand] = useState('')
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null)
 
   useEffect(() => {
     setVersion(navigator.userAgent.match(/Orchestrate\/([^\s]+)/)?.[1] ?? '1.0.0')
@@ -262,13 +264,15 @@ export default function SettingsPage(): React.JSX.Element {
                           />
                         </div>
                         <button
+                          aria-label={`Edit ${agent.displayName}`}
                           onClick={() => startEdit(agent)}
                           className="rounded p-1 text-zinc-500 transition-colors hover:bg-zinc-700 hover:text-zinc-300"
                         >
                           <Pencil size={14} />
                         </button>
                         <button
-                          onClick={() => removeCustomAgent(agent.id)}
+                          aria-label={`Delete ${agent.displayName}`}
+                          onClick={() => setConfirmingDeleteId(agent.id)}
                           className="rounded p-1 text-zinc-500 transition-colors hover:bg-zinc-700 hover:text-red-400"
                         >
                           <Trash2 size={14} />
@@ -408,6 +412,20 @@ export default function SettingsPage(): React.JSX.Element {
           </div>
         </div>
       </div>
+
+      {confirmingDeleteId && (
+        <ConfirmDialog
+          title="Delete agent"
+          description={`Are you sure you want to delete "${customAgents.find((a) => a.id === confirmingDeleteId)?.displayName ?? confirmingDeleteId}"? This action cannot be undone.`}
+          confirmLabel="Delete"
+          variant="danger"
+          onConfirm={() => {
+            removeCustomAgent(confirmingDeleteId)
+            setConfirmingDeleteId(null)
+          }}
+          onCancel={() => setConfirmingDeleteId(null)}
+        />
+      )}
     </div>
   )
 }
