@@ -7,6 +7,7 @@ import { useFilesStore } from '@renderer/stores/files'
 import { useTerminalStore } from '@renderer/stores/terminal'
 import { useTasksStore } from '@renderer/stores/tasks'
 import { ensureGlobalIpcListeners } from '@renderer/stores/ipc-listeners'
+import { useAgentsStore } from '@renderer/stores/agents'
 import { NAV_PAGES } from '@shared/types'
 import type { NavPageId } from '@shared/types'
 import TasksTab from '@renderer/components/tasks/TasksTab'
@@ -34,6 +35,7 @@ function App(): React.JSX.Element {
     loadLastFolder()
     loadProjects()
     ensureGlobalIpcListeners()
+    useAgentsStore.getState().loadAgents()
   }, [loadLastFolder, loadProjects])
 
   // Global keyboard shortcuts

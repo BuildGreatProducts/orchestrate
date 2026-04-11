@@ -94,7 +94,17 @@ export interface Loop {
 
 // ── Agents ──
 
-export type AgentType = 'claude-code' | 'codex'
+export type AgentType = string
+
+export interface AgentConfig {
+  id: string
+  displayName: string
+  cliCommand: string
+  enabled: boolean
+  builtin: boolean
+  mcpMode: 'config-file' | 'codex-flags' | 'none'
+  commandTemplate: string
+}
 
 // ── Git / History ──
 

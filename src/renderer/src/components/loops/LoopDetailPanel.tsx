@@ -19,10 +19,12 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { nanoid } from 'nanoid'
 import { CronExpressionParser } from 'cron-parser'
-import type { Loop, LoopStep, AgentType } from '@shared/types'
+import type { LoopStep } from '@shared/types'
 import { useLoopsStore } from '@renderer/stores/loops'
+import { useAgentsStore } from '@renderer/stores/agents'
 import { executeLoop, isLoopRunning, abortLoop } from '@renderer/stores/loop-execution-engine'
 import { toast } from '@renderer/stores/toast'
+import AgentSelector from '@renderer/components/shared/AgentSelector'
 import ConfirmDialog from '@renderer/components/history/ConfirmDialog'
 
 const SCHEDULE_PRESETS = [
@@ -98,8 +100,12 @@ export default function LoopDetailPanel(): React.JSX.Element | null {
   const updateLoop = useLoopsStore((s) => s.updateLoop)
   const deleteLoop = useLoopsStore((s) => s.deleteLoop)
 
+  const allAgents = useAgentsStore((s) => s.agents)
   const [name, setName] = useState('')
-  const [agentType, setAgentType] = useState<AgentType>('claude-code')
+  const [agentType, setAgentType] = useState(() => {
+    const first = allAgents.find((a) => a.enabled)
+    return first?.id ?? 'claude-code'
+  })
   const [steps, setSteps] = useState<LoopStep[]>([{ id: nanoid(6), prompt: '' }])
   const [scheduleEnabled, setScheduleEnabled] = useState(false)
   const [cron, setCron] = useState('')
@@ -119,7 +125,9 @@ export default function LoopDetailPanel(): React.JSX.Element | null {
   useEffect(() => {
     if (!editingLoop) return
     setName(editingLoop.name ?? '')
-    setAgentType(editingLoop.agentType ?? 'claude-code')
+    const ids = useAgentsStore.getState().agents.filter((a) => a.enabled).map((a) => a.id)
+    const preferred = editingLoop.agentType
+    setAgentType(preferred && ids.includes(preferred) ? preferred : ids[0] ?? 'claude-code')
     setSteps(
       editingLoop.steps?.length
         ? editingLoop.steps
@@ -199,6 +207,16 @@ export default function LoopDetailPanel(): React.JSX.Element | null {
     const validSteps = steps.filter((s) => s.prompt.trim())
     if (validSteps.length === 0) return
 
+    // Validate agent is still enabled
+    const enabled = useAgentsStore.getState().agents.filter((a) => a.enabled)
+    const validAgent = enabled.some((a) => a.id === agentType)
+      ? agentType
+      : enabled[0]?.id
+    if (!validAgent) {
+      toast.error('No agents enabled — enable one in Settings first')
+      return
+    }
+
     // Validate cron expression before saving
     const cronValue = cron.trim()
     if (scheduleEnabled && cronValue.length > 0) {
@@ -222,14 +240,14 @@ export default function LoopDetailPanel(): React.JSX.Element | null {
           name: trimmedName,
           steps: validSteps,
           schedule: { enabled: scheduleEnabled && cron.trim().length > 0, cron: cron.trim() },
-          agentType
+          agentType: validAgent
         })
       } else {
         await createLoop({
           name: trimmedName,
           steps: validSteps,
           schedule: { enabled: scheduleEnabled && cron.trim().length > 0, cron: cron.trim() },
-          agentType
+          agentType: validAgent
         })
       }
       setEditingLoop(null)
@@ -322,21 +340,7 @@ export default function LoopDetailPanel(): React.JSX.Element | null {
         {/* Agent type */}
         <div>
           <label className="mb-1 block text-xs text-zinc-500">Agent</label>
-          <div className="flex gap-2">
-            {(['claude-code', 'codex'] as const).map((type) => (
-              <button
-                key={type}
-                onClick={() => setAgentType(type)}
-                className={`rounded px-3 py-1 text-xs transition-colors ${
-                  agentType === type
-                    ? 'bg-zinc-700 text-white'
-                    : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700/60 hover:text-zinc-300'
-                }`}
-              >
-                {type === 'claude-code' ? 'Claude Code' : 'Codex'}
-              </button>
-            ))}
-          </div>
+          <AgentSelector value={agentType} onChange={setAgentType} size="sm" />
         </div>
 
         {/* Schedule */}

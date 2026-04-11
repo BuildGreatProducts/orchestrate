@@ -18,8 +18,10 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { nanoid } from 'nanoid'
-import type { Loop, LoopStep, AgentType } from '@shared/types'
+import type { Loop, LoopStep } from '@shared/types'
 import { useTerminalStore } from '@renderer/stores/terminal'
+import { useAgentsStore } from '@renderer/stores/agents'
+import AgentSelector from '@renderer/components/shared/AgentSelector'
 
 interface LoopEditorModalProps {
   initial: Partial<Loop> | null
@@ -103,8 +105,14 @@ export default function LoopEditorModal({
 }: LoopEditorModalProps): React.JSX.Element {
   const isEdit = !!initial?.id
 
+  const allAgents = useAgentsStore((s) => s.agents)
   const [name, setName] = useState(initial?.name ?? '')
-  const [agentType, setAgentType] = useState<AgentType>(initial?.agentType ?? 'claude-code')
+  const [agentType, setAgentType] = useState(() => {
+    const enabled = allAgents.filter((a) => a.enabled)
+    const preferred = initial?.agentType
+    if (preferred && enabled.some((a) => a.id === preferred)) return preferred
+    return enabled[0]?.id ?? 'claude-code'
+  })
   const [steps, setSteps] = useState<LoopStep[]>(
     initial?.steps?.length
       ? initial.steps
@@ -174,13 +182,19 @@ export default function LoopEditorModal({
     const validSteps = steps.filter((s) => s.prompt.trim())
     if (validSteps.length === 0) return
 
+    // Validate agent is still enabled
+    const enabled = useAgentsStore.getState().agents.filter((a) => a.enabled)
+    const validAgent = enabled.some((a) => a.id === agentType)
+      ? agentType
+      : enabled[0]?.id ?? 'claude-code'
+
     try {
       await onSave({
         ...(isEdit ? { id: initial!.id } : {}),
         name: trimmedName,
         steps: validSteps,
         schedule: { enabled: scheduleEnabled && cron.trim().length > 0, cron: cron.trim() },
-        agentType,
+        agentType: validAgent,
         lastRun: initial?.lastRun,
         groupName: resolvedGroupName
       })
@@ -220,21 +234,7 @@ export default function LoopEditorModal({
           {/* Agent Type */}
           <div>
             <label className="mb-1 block text-xs font-medium text-zinc-400">Agent</label>
-            <div className="flex gap-2">
-              {(['claude-code', 'codex'] as const).map((type) => (
-                <button
-                  key={type}
-                  onClick={() => setAgentType(type)}
-                  className={`rounded px-3 py-1.5 text-sm transition-colors ${
-                    agentType === type
-                      ? 'bg-zinc-700 text-white'
-                      : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700/60 hover:text-zinc-300'
-                  }`}
-                >
-                  {type === 'claude-code' ? 'Claude Code' : 'Codex'}
-                </button>
-              ))}
-            </div>
+            <AgentSelector value={agentType} onChange={setAgentType} />
           </div>
 
           {/* Steps */}
