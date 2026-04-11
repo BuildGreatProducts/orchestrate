@@ -43,8 +43,13 @@ function mergeWithBuiltins(saved: AgentConfig[] | null): AgentConfig[] {
   return result
 }
 
-async function persistAgents(agents: AgentConfig[]): Promise<void> {
-  await window.orchestrate.setSetting('agents', agents)
+let persistPromise = Promise.resolve()
+
+function persistAgents(agents: AgentConfig[]): Promise<void> {
+  persistPromise = persistPromise
+    .catch(() => {})
+    .then(() => window.orchestrate.setSetting('agents', agents))
+  return persistPromise
 }
 
 export const useAgentsStore = create<AgentsState>((set, get) => ({
@@ -65,7 +70,7 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
   setAgentEnabled: async (id: string, enabled: boolean) => {
     const agents = get().agents.map((a) => (a.id === id ? { ...a, enabled } : a))
     set({ agents })
-    await persistAgents(agents)
+    await persistAgents(get().agents)
   },
 
   addCustomAgent: async (agent) => {
@@ -75,13 +80,13 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
     }
     const agents = [...existing, { ...agent, builtin: false }]
     set({ agents })
-    await persistAgents(agents)
+    await persistAgents(get().agents)
   },
 
   removeCustomAgent: async (id: string) => {
     const agents = get().agents.filter((a) => !(a.id === id && !a.builtin))
     set({ agents })
-    await persistAgents(agents)
+    await persistAgents(get().agents)
   },
 
   updateCustomAgent: async (id: string, updates) => {
@@ -89,6 +94,6 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
       a.id === id && !a.builtin ? { ...a, ...updates } : a
     )
     set({ agents })
-    await persistAgents(agents)
+    await persistAgents(get().agents)
   }
 }))

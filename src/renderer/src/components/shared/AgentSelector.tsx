@@ -15,6 +15,16 @@ export default function AgentSelector({ value, onChange, size = 'md' }: AgentSel
     ? 'rounded px-3 py-1 text-xs transition-colors'
     : 'rounded px-3 py-1.5 text-sm transition-colors'
 
+  if (agents.length === 0) {
+    return (
+      <div className="flex flex-wrap gap-2">
+        <span className={`${buttonClass} bg-zinc-800 text-zinc-500 cursor-default`}>
+          No agents enabled
+        </span>
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-wrap gap-2">
       {agents.map((agent) => (

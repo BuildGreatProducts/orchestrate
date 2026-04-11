@@ -263,7 +263,7 @@ export async function handleDeleteTask(
 }
 
 export async function handleSendToAgent(
-  args: { task_id: string; agent?: 'claude-code' | 'codex' },
+  args: { task_id: string; agent?: string },
   deps: TaskHandlerDeps
 ): Promise<McpResponse> {
   try {
@@ -307,7 +307,7 @@ export async function handleListLoops(deps: LoopHandlerDeps): Promise<McpRespons
 }
 
 export async function handleCreateLoop(
-  args: { name: string; steps: string[]; agent_type?: 'claude-code' | 'codex'; cron?: string },
+  args: { name: string; steps: string[]; agent_type?: string; cron?: string },
   deps: LoopHandlerDeps
 ): Promise<McpResponse> {
   try {
@@ -325,7 +325,7 @@ export async function handleCreateLoop(
         enabled: !!args.cron,
         cron: args.cron || ''
       },
-      agentType: (args.agent_type || 'claude-code') as 'claude-code' | 'codex',
+      agentType: args.agent_type || 'claude-code',
       createdAt: now,
       updatedAt: now
     }

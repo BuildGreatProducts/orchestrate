@@ -47,7 +47,7 @@ export default function TaskDetailPanel(): React.JSX.Element | null {
   const [menuOpen, setMenuOpen] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [sendMenuOpen, setSendMenuOpen] = useState(false)
-  const [scheduleAgent, setScheduleAgent] = useState('claude-code')
+  const [scheduleAgent, setScheduleAgent] = useState(() => enabledAgents[0]?.id ?? 'claude-code')
   const [scheduleCron, setScheduleCron] = useState('')
   const [schedulePreset, setSchedulePreset] = useState('')
   const [groupSelect, setGroupSelect] = useState('') // '' = none, '__new__' = new, or group name
@@ -90,7 +90,9 @@ export default function TaskDetailPanel(): React.JSX.Element | null {
     }
 
     // Sync schedule state
-    setScheduleAgent(task.agentType ?? 'claude-code')
+    const ids = useAgentsStore.getState().agents.filter((a) => a.enabled).map((a) => a.id)
+    const preferred = task.agentType
+    setScheduleAgent(preferred && ids.includes(preferred) ? preferred : ids[0] ?? 'claude-code')
     const cron = task.schedule?.cron ?? ''
     setScheduleCron(cron)
     if (!task.schedule?.enabled || !cron) {

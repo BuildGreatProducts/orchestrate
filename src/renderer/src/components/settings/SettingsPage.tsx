@@ -26,6 +26,9 @@ function AgentToggle({
         {note && <p className="text-xs text-zinc-500">{note}</p>}
       </div>
       <button
+        role="switch"
+        aria-checked={agent.enabled}
+        aria-label={`Toggle ${agent.displayName}`}
         onClick={() => onToggle(agent.id, !agent.enabled)}
         className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors ${
           agent.enabled ? 'bg-white' : 'bg-zinc-700'
@@ -92,6 +95,10 @@ export default function SettingsPage(): React.JSX.Element {
     const command = customCommand.trim()
     if (!name || !command) return
     const id = slugify(name)
+    if (!id) {
+      console.error('[Settings] Agent name must contain at least one letter or number')
+      return
+    }
     if (agents.some((a) => a.id === id)) {
       console.error('[Settings] Agent with this name already exists')
       return
@@ -230,6 +237,9 @@ export default function SettingsPage(): React.JSX.Element {
                       </div>
                       <div className="flex items-center gap-1">
                         <button
+                          role="switch"
+                          aria-checked={agent.enabled}
+                          aria-label={`Toggle ${agent.displayName}`}
                           onClick={() => setAgentEnabled(agent.id, !agent.enabled)}
                           className={`relative mr-2 inline-flex h-5 w-9 shrink-0 rounded-full transition-colors ${
                             agent.enabled ? 'bg-white' : 'bg-zinc-700'

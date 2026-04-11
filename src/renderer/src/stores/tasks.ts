@@ -296,6 +296,19 @@ export const useTasksStore = create<TasksState>((set, get) => ({
       return
     }
 
+    // Validate agent and folder before any side effects
+    const folder = useAppStore.getState().currentFolder
+    if (!folder) {
+      toast.error('No project folder selected')
+      return
+    }
+
+    const agentConfig = useAgentsStore.getState().getAgent(agent)
+    if (!agentConfig) {
+      toast.error(`Unknown agent: ${agent}`)
+      return
+    }
+
     // Notify main process (triggers auto-save if git repo)
     await window.orchestrate.sendToAgent(id, agent)
 
@@ -313,21 +326,6 @@ export const useTasksStore = create<TasksState>((set, get) => ({
     }
     if (currentColumn && currentColumn !== 'in-progress') {
       await moveTask(id, 'in-progress', 0)
-    }
-
-    // Build the interactive agent command
-    const folder = useAppStore.getState().currentFolder
-    if (!folder) {
-      // No folder — can't run agent, move back to planning
-      await get().moveTask(id, 'planning', 0)
-      return
-    }
-
-    const agentConfig = useAgentsStore.getState().getAgent(agent)
-    if (!agentConfig) {
-      toast.error(`Unknown agent: ${agent}`)
-      await get().moveTask(id, 'planning', 0)
-      return
     }
 
     const taskTitle = board.tasks[id].title

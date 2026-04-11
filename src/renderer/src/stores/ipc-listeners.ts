@@ -4,6 +4,8 @@ import { useHistoryStore } from './history'
 import { useFilesStore } from './files'
 import { useTerminalStore } from './terminal'
 import { useAppStore } from './app'
+import { useAgentsStore } from './agents'
+import { buildAgentCommand } from '../lib/agent-command-builder'
 import { executeLoop } from './loop-execution-engine'
 
 // Tracks task IDs with in-flight terminal creation to prevent duplicate sends
@@ -40,26 +42,30 @@ export function ensureGlobalIpcListeners(): void {
               pendingTaskAgents.add(taskId)
 
               const taskTitle = board.tasks[taskId].title
-              const agentType = agent === 'codex' ? 'codex' : 'claude-code'
+              const agentConfig = useAgentsStore.getState().getAgent(agent)
+              if (!agentConfig) {
+                console.error('[IPC] Unknown agent type:', agent)
+                pendingTaskAgents.delete(taskId)
+                break
+              }
               const systemPrompt = `You have orchestrate MCP tools. Your task ID is '${taskId}'. When you finish, call move_task to move it to 'review'. Use create_save_point to commit.`
-              const shellQuote = (s: string): string => "'" + s.replace(/'/g, "'\\''") + "'"
 
               const buildCmd = async (): Promise<string> => {
-                if (agentType === 'claude-code') {
-                  const mcpConfigPath = await window.orchestrate.getMcpConfigPath().catch(() => null)
-                  const mcpFlag = mcpConfigPath ? ` --mcp-config ${shellQuote(mcpConfigPath)}` : ''
-                  return `claude${mcpFlag} --append-system-prompt ${shellQuote(systemPrompt)} "$(cat tasks/task-${taskId}.md)"`
-                } else {
-                  const codexFlags = await window.orchestrate.getCodexMcpFlags().catch(() => null)
-                  return codexFlags
-                    ? `codex ${codexFlags} "$(cat tasks/task-${taskId}.md)"`
-                    : `codex "$(cat tasks/task-${taskId}.md)"`
-                }
+                const mcpConfigPath = await window.orchestrate.getMcpConfigPath().catch(() => null)
+                const codexMcpFlags = await window.orchestrate.getCodexMcpFlags().catch(() => null)
+                return buildAgentCommand({
+                  agent: agentConfig,
+                  prompt: '',
+                  systemPrompt,
+                  taskFile: `tasks/task-${taskId}.md`,
+                  mcpConfigPath,
+                  codexMcpFlags
+                })
               }
 
               buildCmd()
                 .then(async (cmd) => {
-                  const tabName = `${agentType === 'codex' ? 'Codex' : 'Claude'}: ${taskTitle}`
+                  const tabName = `${agentConfig.displayName}: ${taskTitle}`
                   const groupName = board!.tasks[taskId].groupName
                   const termStore = useTerminalStore.getState()
                   let tabId: string
@@ -72,7 +78,7 @@ export function ensureGlobalIpcListeners(): void {
                   return tabId
                 })
                 .then((tabId) => {
-                  useTasksStore.getState().trackAgentTask(taskId, tabId, agentType as 'claude-code' | 'codex')
+                  useTasksStore.getState().trackAgentTask(taskId, tabId, agent)
                   useAppStore.getState().showTerminal()
                 })
                 .catch((err) => {

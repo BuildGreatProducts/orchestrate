@@ -36,7 +36,7 @@ export function buildAgentCommand(opts: BuildCommandOptions): string {
   const quotedPrompt = prompt
     ? "'" + prompt.replace(/'/g, "'\\''") + "'"
     : ''
-  const taskFileRef = taskFile ? `"$(cat ${taskFile})"` : ''
+  const taskFileRef = taskFile ? `"$(cat ${shellQuote(taskFile)})"` : ''
   // The effective prompt is either the inline prompt or the task file contents
   const effectivePrompt = quotedPrompt || taskFileRef
 

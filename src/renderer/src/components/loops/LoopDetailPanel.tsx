@@ -21,6 +21,7 @@ import { nanoid } from 'nanoid'
 import { CronExpressionParser } from 'cron-parser'
 import type { LoopStep } from '@shared/types'
 import { useLoopsStore } from '@renderer/stores/loops'
+import { useAgentsStore } from '@renderer/stores/agents'
 import { executeLoop, isLoopRunning, abortLoop } from '@renderer/stores/loop-execution-engine'
 import { toast } from '@renderer/stores/toast'
 import AgentSelector from '@renderer/components/shared/AgentSelector'
@@ -99,8 +100,12 @@ export default function LoopDetailPanel(): React.JSX.Element | null {
   const updateLoop = useLoopsStore((s) => s.updateLoop)
   const deleteLoop = useLoopsStore((s) => s.deleteLoop)
 
+  const allAgents = useAgentsStore((s) => s.agents)
   const [name, setName] = useState('')
-  const [agentType, setAgentType] = useState('claude-code')
+  const [agentType, setAgentType] = useState(() => {
+    const first = allAgents.find((a) => a.enabled)
+    return first?.id ?? 'claude-code'
+  })
   const [steps, setSteps] = useState<LoopStep[]>([{ id: nanoid(6), prompt: '' }])
   const [scheduleEnabled, setScheduleEnabled] = useState(false)
   const [cron, setCron] = useState('')
@@ -120,7 +125,9 @@ export default function LoopDetailPanel(): React.JSX.Element | null {
   useEffect(() => {
     if (!editingLoop) return
     setName(editingLoop.name ?? '')
-    setAgentType(editingLoop.agentType ?? 'claude-code')
+    const ids = useAgentsStore.getState().agents.filter((a) => a.enabled).map((a) => a.id)
+    const preferred = editingLoop.agentType
+    setAgentType(preferred && ids.includes(preferred) ? preferred : ids[0] ?? 'claude-code')
     setSteps(
       editingLoop.steps?.length
         ? editingLoop.steps

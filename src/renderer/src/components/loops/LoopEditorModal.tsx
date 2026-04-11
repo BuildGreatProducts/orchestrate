@@ -20,6 +20,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { nanoid } from 'nanoid'
 import type { Loop, LoopStep } from '@shared/types'
 import { useTerminalStore } from '@renderer/stores/terminal'
+import { useAgentsStore } from '@renderer/stores/agents'
 import AgentSelector from '@renderer/components/shared/AgentSelector'
 
 interface LoopEditorModalProps {
@@ -104,8 +105,14 @@ export default function LoopEditorModal({
 }: LoopEditorModalProps): React.JSX.Element {
   const isEdit = !!initial?.id
 
+  const allAgents = useAgentsStore((s) => s.agents)
   const [name, setName] = useState(initial?.name ?? '')
-  const [agentType, setAgentType] = useState(initial?.agentType ?? 'claude-code')
+  const [agentType, setAgentType] = useState(() => {
+    const enabled = allAgents.filter((a) => a.enabled)
+    const preferred = initial?.agentType
+    if (preferred && enabled.some((a) => a.id === preferred)) return preferred
+    return enabled[0]?.id ?? 'claude-code'
+  })
   const [steps, setSteps] = useState<LoopStep[]>(
     initial?.steps?.length
       ? initial.steps
