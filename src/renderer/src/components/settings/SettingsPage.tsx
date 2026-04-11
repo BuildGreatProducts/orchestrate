@@ -10,6 +10,34 @@ function slugify(name: string): string {
     .replace(/^-|-$/g, '')
 }
 
+function ToggleSwitch({
+  enabled,
+  label,
+  onToggle
+}: {
+  enabled: boolean
+  label: string
+  onToggle: () => void
+}): React.JSX.Element {
+  return (
+    <button
+      role="switch"
+      aria-checked={enabled}
+      aria-label={label}
+      onClick={onToggle}
+      className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors ${
+        enabled ? 'bg-white' : 'bg-zinc-700'
+      }`}
+    >
+      <span
+        className={`pointer-events-none absolute top-0.5 left-0.5 h-4 w-4 rounded-full transition-all ${
+          enabled ? 'translate-x-4 bg-zinc-900' : 'translate-x-0 bg-zinc-500'
+        }`}
+      />
+    </button>
+  )
+}
+
 function AgentToggle({
   agent,
   onToggle,
@@ -25,21 +53,11 @@ function AgentToggle({
         <span className="text-sm text-zinc-300">{agent.displayName}</span>
         {note && <p className="text-xs text-zinc-500">{note}</p>}
       </div>
-      <button
-        role="switch"
-        aria-checked={agent.enabled}
-        aria-label={`Toggle ${agent.displayName}`}
-        onClick={() => onToggle(agent.id, !agent.enabled)}
-        className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors ${
-          agent.enabled ? 'bg-white' : 'bg-zinc-700'
-        }`}
-      >
-        <span
-          className={`pointer-events-none absolute top-0.5 left-0.5 h-4 w-4 rounded-full transition-all ${
-            agent.enabled ? 'translate-x-4 bg-zinc-900' : 'translate-x-0 bg-zinc-500'
-          }`}
-        />
-      </button>
+      <ToggleSwitch
+        enabled={agent.enabled}
+        label={`Toggle ${agent.displayName}`}
+        onToggle={() => onToggle(agent.id, !agent.enabled)}
+      />
     </div>
   )
 }
@@ -236,21 +254,13 @@ export default function SettingsPage(): React.JSX.Element {
                         <span className="ml-2 text-xs text-zinc-500">{agent.cliCommand}</span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <button
-                          role="switch"
-                          aria-checked={agent.enabled}
-                          aria-label={`Toggle ${agent.displayName}`}
-                          onClick={() => setAgentEnabled(agent.id, !agent.enabled)}
-                          className={`relative mr-2 inline-flex h-5 w-9 shrink-0 rounded-full transition-colors ${
-                            agent.enabled ? 'bg-white' : 'bg-zinc-700'
-                          }`}
-                        >
-                          <span
-                            className={`pointer-events-none absolute top-0.5 left-0.5 h-4 w-4 rounded-full transition-all ${
-                              agent.enabled ? 'translate-x-4 bg-zinc-900' : 'translate-x-0 bg-zinc-500'
-                            }`}
+                        <div className="mr-2">
+                          <ToggleSwitch
+                            enabled={agent.enabled}
+                            label={`Toggle ${agent.displayName}`}
+                            onToggle={() => setAgentEnabled(agent.id, !agent.enabled)}
                           />
-                        </button>
+                        </div>
                         <button
                           onClick={() => startEdit(agent)}
                           className="rounded p-1 text-zinc-500 transition-colors hover:bg-zinc-700 hover:text-zinc-300"

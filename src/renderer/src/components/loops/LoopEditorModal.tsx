@@ -182,13 +182,19 @@ export default function LoopEditorModal({
     const validSteps = steps.filter((s) => s.prompt.trim())
     if (validSteps.length === 0) return
 
+    // Validate agent is still enabled
+    const enabled = useAgentsStore.getState().agents.filter((a) => a.enabled)
+    const validAgent = enabled.some((a) => a.id === agentType)
+      ? agentType
+      : enabled[0]?.id ?? 'claude-code'
+
     try {
       await onSave({
         ...(isEdit ? { id: initial!.id } : {}),
         name: trimmedName,
         steps: validSteps,
         schedule: { enabled: scheduleEnabled && cron.trim().length > 0, cron: cron.trim() },
-        agentType,
+        agentType: validAgent,
         lastRun: initial?.lastRun,
         groupName: resolvedGroupName
       })

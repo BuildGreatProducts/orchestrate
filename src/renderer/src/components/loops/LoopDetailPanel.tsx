@@ -207,6 +207,16 @@ export default function LoopDetailPanel(): React.JSX.Element | null {
     const validSteps = steps.filter((s) => s.prompt.trim())
     if (validSteps.length === 0) return
 
+    // Validate agent is still enabled
+    const enabled = useAgentsStore.getState().agents.filter((a) => a.enabled)
+    const validAgent = enabled.some((a) => a.id === agentType)
+      ? agentType
+      : enabled[0]?.id
+    if (!validAgent) {
+      toast.error('No agents enabled — enable one in Settings first')
+      return
+    }
+
     // Validate cron expression before saving
     const cronValue = cron.trim()
     if (scheduleEnabled && cronValue.length > 0) {
@@ -230,14 +240,14 @@ export default function LoopDetailPanel(): React.JSX.Element | null {
           name: trimmedName,
           steps: validSteps,
           schedule: { enabled: scheduleEnabled && cron.trim().length > 0, cron: cron.trim() },
-          agentType
+          agentType: validAgent
         })
       } else {
         await createLoop({
           name: trimmedName,
           steps: validSteps,
           schedule: { enabled: scheduleEnabled && cron.trim().length > 0, cron: cron.trim() },
-          agentType
+          agentType: validAgent
         })
       }
       setEditingLoop(null)
