@@ -81,9 +81,19 @@ function appendToBuffer(id: string, data: string): void {
   const bytes = data.length * 2 // approximate: JS strings are UTF-16
   buf.entries.push({ text: data, bytes })
   buf.totalBytes += bytes
-  while (buf.totalBytes > MAX_OUTPUT_BUFFER_BYTES && buf.entries.length > 1) {
-    const removed = buf.entries.shift()!
-    buf.totalBytes -= removed.bytes
+  while (buf.totalBytes > MAX_OUTPUT_BUFFER_BYTES) {
+    if (buf.entries.length > 1) {
+      const removed = buf.entries.shift()!
+      buf.totalBytes -= removed.bytes
+    } else {
+      // Single oversized entry — truncate to fit
+      const entry = buf.entries[0]
+      const maxChars = Math.floor(MAX_OUTPUT_BUFFER_BYTES / 2)
+      entry.text = entry.text.slice(-maxChars)
+      entry.bytes = entry.text.length * 2
+      buf.totalBytes = entry.bytes
+      break
+    }
   }
 }
 

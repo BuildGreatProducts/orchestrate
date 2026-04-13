@@ -66,8 +66,13 @@ export const useCommandsStore = create<CommandsState>((set, get) => ({
 
   updateCommand: async (command) => {
     const updated = { ...command, updatedAt: new Date().toISOString() }
+    const existing = get().commands.find((c) => c.id === command.id)
+    const scopeChanged = existing && existing.scope !== updated.scope
     try {
       await window.orchestrate.saveCommand(updated)
+      if (scopeChanged) {
+        await window.orchestrate.deleteCommand(existing.id, existing.scope)
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       toast.error(`Failed to update command: ${msg}`)

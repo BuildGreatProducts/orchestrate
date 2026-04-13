@@ -15,7 +15,7 @@ interface AppState {
   showTerminal: (folder?: string) => Promise<void>
   toggleProjectExpanded: (folder: string) => void
   setProjectExpanded: (folder: string, expanded: boolean) => void
-  setCurrentFolder: (folder: string | null) => void
+  setCurrentFolder: (folder: string | null) => Promise<void>
   loadLastFolder: () => Promise<void>
   loadProjects: () => Promise<void>
   addProject: (path: string) => Promise<void>

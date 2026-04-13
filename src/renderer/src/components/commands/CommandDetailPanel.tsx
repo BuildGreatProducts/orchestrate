@@ -400,10 +400,14 @@ export default function CommandDetailPanel(): React.JSX.Element | null {
           description={`Are you sure you want to delete "${existingCommand.name}"? This action cannot be undone.`}
           confirmLabel="Delete"
           variant="danger"
-          onConfirm={() => {
-            setConfirmingDelete(false)
-            deleteCommand(existingCommand.id, existingCommand.scope)
-            setEditingCommand(null)
+          onConfirm={async () => {
+            try {
+              await deleteCommand(existingCommand.id, existingCommand.scope)
+              setConfirmingDelete(false)
+              setEditingCommand(null)
+            } catch {
+              setConfirmingDelete(false)
+            }
           }}
           onCancel={() => setConfirmingDelete(false)}
         />

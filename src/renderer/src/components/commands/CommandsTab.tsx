@@ -17,10 +17,9 @@ export default function CommandsTab(): React.JSX.Element {
 
   useEffect(() => {
     setEditingCommand(null)
+    resetCommands()
     if (currentFolder) {
       loadCommands(currentFolder)
-    } else {
-      resetCommands()
     }
   }, [currentFolder, loadCommands, resetCommands, setEditingCommand])
 
