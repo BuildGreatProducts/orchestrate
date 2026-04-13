@@ -91,13 +91,13 @@ function App(): React.JSX.Element {
         const folder = useAppStore.getState().currentFolder
         if (folder) {
           useAppStore.getState().showProjectDetail(folder, 'tasks')
+          useTasksStore
+            .getState()
+            .createTask('planning', 'New task')
+            .catch((err) => {
+              console.error('[Shortcut] Failed to create task:', err)
+            })
         }
-        useTasksStore
-          .getState()
-          .createTask('planning', 'New task')
-          .catch((err) => {
-            console.error('[Shortcut] Failed to create task:', err)
-          })
         return
       }
     }

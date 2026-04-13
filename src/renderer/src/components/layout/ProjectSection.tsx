@@ -158,7 +158,7 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
         tabId = await createTab(folder)
       }
       setActiveTerminalTab(tabId)
-      showTerminal(folder)
+      await showTerminal(folder)
     } catch (err) {
       toast.error(`Failed to create terminal: ${err instanceof Error ? err.message : String(err)}`)
     }
@@ -258,7 +258,9 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
   return (
     <div>
       {/* Project header */}
-      <div className="group/project flex items-center gap-1 rounded-md px-1.5 py-1.5 hover:bg-zinc-800/50">
+      <div className={`group/project flex items-center gap-1 rounded-md px-1.5 py-1.5 ${
+        isProjectActive ? 'bg-zinc-800' : 'hover:bg-zinc-800/50'
+      }`}>
         <button
           onClick={() => toggleExpanded(folder)}
           className="flex-shrink-0 text-zinc-500 hover:text-zinc-300"

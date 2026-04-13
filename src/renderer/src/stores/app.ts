@@ -10,7 +10,7 @@ interface AppState {
 
   showPage: (pageId: NavPageId) => void
   showOrchestrate: () => void
-  showProjectDetail: (folder: string, tab?: ProjectDetailTabId) => void
+  showProjectDetail: (folder: string, tab?: ProjectDetailTabId) => Promise<void>
   setProjectDetailTab: (tab: ProjectDetailTabId) => void
   showTerminal: (folder?: string) => Promise<void>
   toggleProjectExpanded: (folder: string) => void
@@ -63,7 +63,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((state) => ({
       expandedProjects: {
         ...state.expandedProjects,
-        [folder]: !state.expandedProjects[folder]
+        [folder]: !(state.expandedProjects[folder] ?? true)
       }
     }))
   },
