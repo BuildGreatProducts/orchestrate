@@ -1,8 +1,5 @@
-import { Settings, Plus, X, Folder } from 'lucide-react'
+import { Settings } from 'lucide-react'
 import { useAppStore } from '@renderer/stores/app'
-import { useTerminalStore } from '@renderer/stores/terminal'
-import { useAllProjectsAgentStatus, type AgentDot } from '@renderer/hooks/useProjectAgentStatus'
-import { AGENT_COLORS, ATTENTION_BG } from '@renderer/lib/agent-colors'
 
 function Logo(): React.JSX.Element {
   return (
@@ -19,120 +16,23 @@ function Logo(): React.JSX.Element {
   )
 }
 
-function ProjectIcon({ dots }: { dots?: AgentDot[] }): React.JSX.Element {
-  // Pick the highest-priority dot: attention first, then active
-  const dot = dots?.[0]
-  if (!dot) {
-    return <Folder size={13} className="shrink-0 opacity-50" />
-  }
-  return (
-    <span className="flex h-[13px] w-[13px] shrink-0 items-center justify-center">
-      <span
-        className={`h-2 w-2 rounded-full animate-pulse ${
-          dot.status === 'attention'
-            ? `${ATTENTION_BG} ring-2 ring-amber-500/40`
-            : AGENT_COLORS[dot.colorIndex].bg
-        }`}
-      />
-    </span>
-  )
-}
-
 const isMac = navigator?.userAgent?.includes('Mac')
 
 export default function TopBar(): React.JSX.Element {
-  const { currentFolder, setCurrentFolder, projects, addProject, removeProject, contentView, showPage, showOrchestrate } =
-    useAppStore()
-  const agentStatusMap = useAllProjectsAgentStatus()
-  const anyBell = useTerminalStore((s) => s.tabs.some((t) => t.bell && !t.exited))
-
-  const handleAddProject = async (): Promise<void> => {
-    const folder = await window.orchestrate.selectFolder()
-    if (folder) {
-      await addProject(folder)
-      setCurrentFolder(folder)
-    }
-  }
-
-  const handleRemove = async (e: React.MouseEvent, path: string): Promise<void> => {
-    e.stopPropagation()
-    await removeProject(path)
-  }
+  const { contentView, showPage } = useAppStore()
 
   return (
     <nav
       className={`flex h-12 items-center border-b border-zinc-800 bg-zinc-900 pr-4 ${isMac ? 'pl-[96px]' : 'pl-4'}`}
       style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
     >
+      <div className="flex items-center gap-2 px-1.5 py-1.5">
+        <Logo />
+      </div>
+
+      <div className="flex-1" />
+
       <div style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-        <button
-          onClick={() => showOrchestrate()}
-          className={`relative rounded px-1.5 py-1.5 transition-colors ${
-            contentView.type === 'page' && contentView.pageId === 'orchestrate'
-              ? 'bg-zinc-700'
-              : 'hover:bg-zinc-800'
-          }`}
-          title="Orchestrate"
-          aria-label="Orchestrate feed"
-        >
-          <Logo />
-          {anyBell && (
-            <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-500 animate-pulse ring-2 ring-amber-500/40" />
-          )}
-        </button>
-      </div>
-
-      <div className="mx-2 h-5 w-px bg-zinc-800" />
-
-      {/* Project tabs — container inherits drag from nav, only tabs are no-drag */}
-      <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto scrollbar-hide">
-        {projects.map((path) => {
-          const name = path.split(/[/\\]/).pop()
-          const isActive = path === currentFolder
-          const status = agentStatusMap.get(path)
-          return (
-            <div
-              key={path}
-              className={`group flex shrink-0 items-center gap-1.5 rounded text-sm font-medium transition-colors ${
-                isActive
-                  ? 'bg-zinc-700 text-white'
-                  : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200'
-              }`}
-              style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-            >
-              <button
-                onClick={() => setCurrentFolder(path)}
-                className="flex items-center gap-1.5 py-1.5 pl-3 pr-1"
-                title={path}
-              >
-                <ProjectIcon dots={status?.dots} />
-                <span className="max-w-[160px] truncate">{name}</span>
-              </button>
-              <button
-                onClick={(e) => handleRemove(e, path)}
-                aria-label={`Close ${name}`}
-                className={`shrink-0 rounded p-0.5 pr-1.5 transition-opacity hover:bg-zinc-600 ${
-                  isActive ? 'opacity-60 hover:opacity-100' : 'opacity-0 group-hover:opacity-100'
-                }`}
-              >
-                <X size={12} className="text-zinc-400" />
-              </button>
-            </div>
-          )
-        })}
-        <div style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-          <button
-            onClick={handleAddProject}
-            className="shrink-0 rounded p-1.5 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-300"
-            title="Add project"
-            aria-label="Add project"
-          >
-            <Plus size={14} />
-          </button>
-        </div>
-      </div>
-
-      <div className="ml-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
         <button
           onClick={() => showPage('settings')}
           className={`rounded p-1.5 transition-colors ${

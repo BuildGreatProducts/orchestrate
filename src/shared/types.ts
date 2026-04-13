@@ -1,16 +1,19 @@
 // ── Navigation ──
 
-export type NavPageId = 'orchestrate' | 'tasks' | 'files' | 'skills' | 'history' | 'browser' | 'settings'
+export type NavPageId = 'skills' | 'browser' | 'settings'
 
 export const NAV_PAGES: { id: NavPageId; label: string }[] = [
-  { id: 'tasks', label: 'Tasks' },
-  { id: 'files', label: 'Files' },
   { id: 'skills', label: 'Skills' },
-  { id: 'history', label: 'History' },
   { id: 'browser', label: 'Browser' }
 ]
 
-export type ContentView = { type: 'page'; pageId: NavPageId } | { type: 'terminal' }
+export type ProjectDetailTabId = 'tasks' | 'files' | 'history'
+
+export type ContentView =
+  | { type: 'orchestrate' }
+  | { type: 'project-detail' }
+  | { type: 'terminal' }
+  | { type: 'page'; pageId: NavPageId }
 
 // ── File System ──
 

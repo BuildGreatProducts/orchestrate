@@ -3,7 +3,6 @@ import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { ChevronRight, ChevronDown, Plus, Trash2 } from 'lucide-react'
 import { useTerminalStore, type AgentGroup, type TerminalTab } from '@renderer/stores/terminal'
-import { useAppStore } from '@renderer/stores/app'
 import { toast } from '@renderer/stores/toast'
 import DraggableAgentItem from './DraggableAgentItem'
 import { getAgentColorIndex } from '@renderer/lib/agent-colors'
@@ -12,6 +11,7 @@ interface AgentGroupSectionProps {
   group: AgentGroup
   tabs: TerminalTab[]
   activeTabId: string | null
+  projectFolder: string
   onSelectTab: (id: string) => void
   onCloseTab: (id: string) => void
 }
@@ -20,6 +20,7 @@ export default function AgentGroupSection({
   group,
   tabs,
   activeTabId,
+  projectFolder,
   onSelectTab,
   onCloseTab
 }: AgentGroupSectionProps): React.JSX.Element {
@@ -28,7 +29,6 @@ export default function AgentGroupSection({
   const deleteGroup = useTerminalStore((s) => s.deleteGroup)
   const removeTabFromGroup = useTerminalStore((s) => s.removeTabFromGroup)
   const createTabInGroup = useTerminalStore((s) => s.createTabInGroup)
-  const currentFolder = useAppStore((s) => s.currentFolder)
 
   const [isRenaming, setIsRenaming] = useState(false)
   const [renameValue, setRenameValue] = useState(group.name)
@@ -52,13 +52,11 @@ export default function AgentGroupSection({
   }
 
   const handleAddAgent = async (): Promise<void> => {
-    if (currentFolder) {
-      try {
-        await createTabInGroup(currentFolder, group.id)
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err)
-        toast.error(`Failed to create terminal: ${msg}`)
-      }
+    try {
+      await createTabInGroup(projectFolder, group.id)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      toast.error(`Failed to create terminal: ${msg}`)
     }
   }
 
@@ -130,10 +128,8 @@ export default function AgentGroupSection({
 
         <button
           onClick={handleAddAgent}
-          disabled={!currentFolder}
           aria-label="Add agent to group"
-          title={currentFolder ? undefined : 'Select a project folder first'}
-          className="flex-shrink-0 rounded p-0.5 text-zinc-600 opacity-0 transition-opacity hover:bg-zinc-700 hover:text-zinc-300 group-hover/header:opacity-100 focus-visible:opacity-100 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-zinc-600"
+          className="flex-shrink-0 rounded p-0.5 text-zinc-600 opacity-0 transition-opacity hover:bg-zinc-700 hover:text-zinc-300 group-hover/header:opacity-100 focus-visible:opacity-100"
         >
           <Plus size={13} />
         </button>
