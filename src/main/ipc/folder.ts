@@ -79,7 +79,11 @@ export function registerFolderHandlers(
     return projects
   })
 
-  ipcMain.handle('folder:setActive', (_event, folderPath: string) => {
+  ipcMain.handle('folder:setActive', (_event, folderPath: string | null) => {
+    if (folderPath === null) {
+      store.set('lastFolder', null)
+      return null
+    }
     const resolved = path.resolve(folderPath)
     store.set('lastFolder', resolved)
     onFolderChange?.(resolved)

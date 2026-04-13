@@ -152,8 +152,18 @@ export function useTerminal({ id, active }: UseTerminalOptions): UseTerminalResu
 
     // Register with shared dispatcher (multi-subscriber broadcast)
     let idleTimer: ReturnType<typeof setTimeout> | null = null
-    let attentionTimer: ReturnType<typeof setTimeout> | null = null
     let bellClearTimer: ReturnType<typeof setTimeout> | null = null
+
+    // Arm attention timer immediately so agents that never emit output
+    // (e.g. waiting for input from the start) still trigger attention.
+    let attentionTimer: ReturnType<typeof setTimeout> | null = setTimeout(() => {
+      const s = useTerminalStore.getState()
+      const t = s.tabs.find((tab) => tab.id === id)
+      if (t && t.isAgent && !t.exited) {
+        s.markBell(id)
+      }
+    }, 3000)
+
     const unsubscribeOutput = addOutputSubscriber(id, (data) => {
       term.write(data)
 
@@ -249,6 +259,7 @@ export function useTerminal({ id, active }: UseTerminalOptions): UseTerminalResu
         const dims = fitAddonRef.current?.proposeDimensions()
         if (dims && dims.cols > 0 && dims.rows > 0) {
           window.orchestrate.resizeTerminal(id, dims.cols, dims.rows)
+          setPtyDimensions(id, dims.cols, dims.rows)
         }
       } catch {
         // ignore

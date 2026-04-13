@@ -31,6 +31,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       currentFolder: null,
       contentView: { type: 'page', pageId: 'orchestrate' }
     })
+    window.orchestrate.setActiveProject(null)
   },
 
   showTerminal: () => set({ contentView: { type: 'terminal' } }),

@@ -92,11 +92,13 @@ export default function FeedItem({ tab, projectName }: FeedItemProps): React.JSX
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Send a message to this agent..."
+          aria-label="Message to agent"
           className="h-[34px] flex-1 rounded-md border border-zinc-700 bg-zinc-800 px-3 text-sm text-zinc-200 placeholder-zinc-500 outline-none transition-colors focus:border-zinc-500"
         />
         <button
           onClick={handleSend}
           disabled={!message.trim()}
+          aria-label="Send message"
           className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded bg-white text-zinc-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_1px_3px_rgba(0,0,0,0.4),0_0px_1px_rgba(0,0,0,0.3)] transition-colors hover:bg-zinc-100 active:bg-zinc-200 active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.2)] disabled:opacity-40 disabled:pointer-events-none"
         >
           <Send size={14} />

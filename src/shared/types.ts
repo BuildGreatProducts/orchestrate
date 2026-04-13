@@ -195,7 +195,7 @@ export interface OrchestrateAPI {
   getProjects: () => Promise<string[]>
   addProject: (path: string) => Promise<string[]>
   removeProject: (path: string) => Promise<string[]>
-  setActiveProject: (path: string) => Promise<string>
+  setActiveProject: (path: string | null) => Promise<string | null>
 
   // Files
   readFile: (path: string) => Promise<string>

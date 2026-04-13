@@ -116,16 +116,12 @@ function App(): React.JSX.Element {
     <div className="flex h-screen flex-col bg-black text-white">
       <TopBar />
       <div className="flex flex-1 overflow-hidden">
-        {/* Orchestrate page — full-width, no sidebar */}
-        <div
-          className={
-            isOrchestrate
-              ? 'flex h-full w-full animate-in fade-in duration-150'
-              : 'hidden'
-          }
-        >
-          <OrchestrateTab />
-        </div>
+        {/* Orchestrate page — full-width, no sidebar; conditionally mounted */}
+        {isOrchestrate && (
+          <div className="flex h-full w-full animate-in fade-in duration-150">
+            <OrchestrateTab />
+          </div>
+        )}
 
         {/* Project UI — sidebar + main content (hidden when on Orchestrate) */}
         <div className={isOrchestrate ? 'hidden' : 'flex flex-1 overflow-hidden'}>

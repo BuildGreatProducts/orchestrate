@@ -148,8 +148,6 @@ export function registerExitHandler(id: string, handler: (exitCode: number) => v
 export function unregisterTerminalHandlers(id: string): void {
   outputSubscribers.delete(id)
   exitHandlers.delete(id)
-  clearOutputBuffer(id)
-  ptyDimensions.delete(id)
 }
 
 // --- Readiness handshake ---
@@ -220,6 +218,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       window.orchestrate.closeTerminal(id)
     }
     clearOutputBuffer(id)
+    ptyDimensions.delete(id)
 
     set((state) => {
       const newTabs = state.tabs.filter((t) => t.id !== id)
@@ -323,6 +322,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
         window.orchestrate.closeTerminal(tab.id)
       }
       clearOutputBuffer(tab.id)
+      ptyDimensions.delete(tab.id)
     }
     set({ tabs: [], activeTabId: null, groups: [], nextGroupIndex: 1, pendingCloseTabId: null })
   },

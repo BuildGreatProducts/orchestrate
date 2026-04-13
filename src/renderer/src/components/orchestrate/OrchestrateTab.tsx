@@ -12,7 +12,7 @@ export default function OrchestrateTab(): React.JSX.Element {
   const bellTabs = useMemo(
     () =>
       tabs
-        .filter((t) => t.bell && !t.exited)
+        .filter((t) => t.bell && !t.exited && t.isAgent)
         .sort((a, b) => (b.bellAt ?? 0) - (a.bellAt ?? 0)),
     [tabs]
   )
