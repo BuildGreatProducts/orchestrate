@@ -36,6 +36,7 @@ export function registerCommandHandlers(
   })
 
   ipcMain.handle('command:save', async (_, command: SavedCommand, projectFolder?: string) => {
+    validateCommandId(command.id)
     await saveCommand(command, resolveFolder(projectFolder))
   })
 

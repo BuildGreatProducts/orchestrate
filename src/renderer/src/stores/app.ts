@@ -9,7 +9,7 @@ interface AppState {
   projectDetailTab: ProjectDetailTabId
 
   showPage: (pageId: NavPageId) => void
-  showOrchestrate: () => void
+  showOrchestrate: () => Promise<void>
   showProjectDetail: (folder: string, tab?: ProjectDetailTabId) => Promise<void>
   setProjectDetailTab: (tab: ProjectDetailTabId) => void
   showTerminal: (folder?: string) => Promise<void>
@@ -31,12 +31,12 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   showPage: (pageId) => set({ contentView: { type: 'page', pageId } }),
 
-  showOrchestrate: () => {
+  showOrchestrate: async () => {
     set({
       currentFolder: null,
       contentView: { type: 'orchestrate' }
     })
-    window.orchestrate.setActiveProject(null)
+    await window.orchestrate.setActiveProject(null)
   },
 
   showProjectDetail: async (folder, tab) => {
@@ -78,9 +78,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   setCurrentFolder: async (folder) => {
-    if (folder) {
-      await window.orchestrate.setActiveProject(folder)
-    }
+    await window.orchestrate.setActiveProject(folder)
     const state = get()
     // When switching back to a project from Orchestrate, go to project detail
     const contentView =
@@ -113,6 +111,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   removeProject: async (path) => {
     const projects = await window.orchestrate.removeProject(path)
+    const wasActive = get().currentFolder === path
     set((state) => {
       const { [path]: _, ...rest } = state.expandedProjects
       return {
@@ -121,5 +120,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         ...(state.currentFolder === path ? { currentFolder: null } : {})
       }
     })
+    if (wasActive) {
+      await window.orchestrate.setActiveProject(null)
+    }
   }
 }))

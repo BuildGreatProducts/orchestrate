@@ -28,7 +28,10 @@ export default function CommandCard({ command, onSelect, onDelete, isSelected }:
       tabIndex={0}
       onClick={() => onSelect(command)}
       onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') onSelect(command)
+        if (e.key === 'Enter' || e.key === ' ') {
+          if (e.key === ' ') e.preventDefault()
+          onSelect(command)
+        }
       }}
       className={`flex cursor-pointer flex-col gap-3 rounded-lg border p-4 transition-colors ${
         isSelected

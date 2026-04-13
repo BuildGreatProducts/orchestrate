@@ -1,10 +1,14 @@
 import { useCommandsStore } from '@renderer/stores/commands'
 import { useTerminalStore } from '@renderer/stores/terminal'
 import { useAppStore } from '@renderer/stores/app'
+import { toast } from '@renderer/stores/toast'
 
-export async function executeSavedCommand(commandId: string, folder: string): Promise<void> {
+export async function executeSavedCommand(commandId: string, folder: string): Promise<boolean> {
   const command = useCommandsStore.getState().commands.find((c) => c.id === commandId)
-  if (!command) return
+  if (!command) {
+    toast.error('Command not found — it may have been deleted')
+    return false
+  }
 
   const termStore = useTerminalStore.getState()
   const groupId = termStore.findOrCreateGroup(command.name, folder)
@@ -20,4 +24,5 @@ export async function executeSavedCommand(commandId: string, folder: string): Pr
     termStore.setActiveTab(firstTabId)
   }
   await useAppStore.getState().showTerminal(folder)
+  return true
 }

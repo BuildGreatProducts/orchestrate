@@ -66,14 +66,26 @@ export const useCommandsStore = create<CommandsState>((set, get) => ({
 
   updateCommand: async (command) => {
     const updated = { ...command, updatedAt: new Date().toISOString() }
-    await window.orchestrate.saveCommand(updated)
+    try {
+      await window.orchestrate.saveCommand(updated)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      toast.error(`Failed to update command: ${msg}`)
+      throw err
+    }
     set((state) => ({
       commands: state.commands.map((c) => (c.id === command.id ? updated : c))
     }))
   },
 
   deleteCommand: async (id, scope) => {
-    await window.orchestrate.deleteCommand(id, scope)
+    try {
+      await window.orchestrate.deleteCommand(id, scope)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      toast.error(`Failed to delete command: ${msg}`)
+      throw err
+    }
     set((state) => ({
       commands: state.commands.filter((c) => c.id !== id),
       editingCommand: state.editingCommand?.id === id ? null : state.editingCommand

@@ -34,9 +34,9 @@ function App(): React.JSX.Element {
       const mod = e.metaKey || e.ctrlKey
       if (!mod) return
 
-      // Cmd/Ctrl+1–3: Switch project detail tabs (when viewing project detail)
-      const detailTabs: ProjectDetailTabId[] = ['tasks', 'files', 'history']
-      if (e.key >= '1' && e.key <= '3') {
+      // Cmd/Ctrl+1–4: Switch project detail tabs (when viewing project detail)
+      const detailTabs: ProjectDetailTabId[] = ['tasks', 'commands', 'files', 'history']
+      if (e.key >= '1' && e.key <= '4') {
         const cv = useAppStore.getState().contentView
         if (cv.type === 'project-detail') {
           e.preventDefault()
@@ -90,10 +90,10 @@ function App(): React.JSX.Element {
         e.preventDefault()
         const folder = useAppStore.getState().currentFolder
         if (folder) {
-          useAppStore.getState().showProjectDetail(folder, 'tasks')
-          useTasksStore
+          useAppStore
             .getState()
-            .createTask('planning', 'New task')
+            .showProjectDetail(folder, 'tasks')
+            .then(() => useTasksStore.getState().createTask('planning', 'New task'))
             .catch((err) => {
               console.error('[Shortcut] Failed to create task:', err)
             })

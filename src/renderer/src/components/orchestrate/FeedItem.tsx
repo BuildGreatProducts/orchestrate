@@ -80,6 +80,9 @@ export default function FeedItem({ tab, projectName }: FeedItemProps): React.JSX
       {/* Mini terminal */}
       <div
         ref={containerRef}
+        tabIndex={0}
+        role="region"
+        aria-label="Terminal preview"
         className="h-[240px] overflow-hidden"
         style={{ padding: '4px 0 0 4px' }}
       />

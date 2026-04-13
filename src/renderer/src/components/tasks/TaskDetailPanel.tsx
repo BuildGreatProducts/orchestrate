@@ -476,8 +476,10 @@ export default function TaskDetailPanel(): React.JSX.Element | null {
       <div className="flex justify-end border-t border-zinc-800 px-4 py-3">
         <div ref={sendMenuRef} className="relative">
           <button
-            onClick={() => setSendMenuOpen((v) => !v)}
-            className="flex items-center gap-1.5 rounded bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_1px_3px_rgba(0,0,0,0.4),0_0px_1px_rgba(0,0,0,0.3)] transition-colors hover:bg-zinc-100 active:bg-zinc-200 active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.2)]"
+            onClick={() => { if (enabledAgents.length > 0) setSendMenuOpen((v) => !v) }}
+            disabled={enabledAgents.length === 0}
+            title={enabledAgents.length === 0 ? 'No agents enabled' : undefined}
+            className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-sm font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_1px_3px_rgba(0,0,0,0.4),0_0px_1px_rgba(0,0,0,0.3)] transition-colors ${enabledAgents.length === 0 ? 'cursor-not-allowed bg-zinc-700 text-zinc-500' : 'bg-white text-zinc-900 hover:bg-zinc-100 active:bg-zinc-200 active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.2)]'}`}
           >
             Send to
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-zinc-500">

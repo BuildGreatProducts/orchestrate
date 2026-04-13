@@ -14,12 +14,28 @@ interface AgentsState {
   updateCustomAgent: (id: string, updates: Partial<Pick<AgentConfig, 'displayName' | 'cliCommand' | 'commandTemplate' | 'enabled'>>) => Promise<void>
 }
 
-function mergeWithBuiltins(saved: AgentConfig[] | null): AgentConfig[] {
+function isValidAgentConfig(a: unknown): a is AgentConfig {
+  if (!a || typeof a !== 'object') return false
+  const obj = a as Record<string, unknown>
+  return typeof obj.id === 'string' && obj.id.length > 0 &&
+    typeof obj.displayName === 'string' &&
+    typeof obj.cliCommand === 'string'
+}
+
+function mergeWithBuiltins(saved: unknown): AgentConfig[] {
   const result: AgentConfig[] = []
   const savedById = new Map<string, AgentConfig>()
 
-  if (saved) {
-    for (const a of saved) savedById.set(a.id, a)
+  if (Array.isArray(saved)) {
+    for (const a of saved) {
+      if (isValidAgentConfig(a)) {
+        savedById.set(a.id, {
+          ...a,
+          enabled: typeof a.enabled === 'boolean' ? a.enabled : false,
+          builtin: typeof a.builtin === 'boolean' ? a.builtin : false
+        })
+      }
+    }
   }
 
   // Add built-in agents, preserving user's enabled state if previously saved
@@ -57,7 +73,7 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
   isLoaded: false,
 
   loadAgents: async () => {
-    const saved = (await window.orchestrate.getSetting('agents')) as AgentConfig[] | null
+    const saved = await window.orchestrate.getSetting('agents')
     const agents = mergeWithBuiltins(saved)
     set({ agents, isLoaded: true })
     await persistAgents(agents)

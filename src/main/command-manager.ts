@@ -52,12 +52,22 @@ async function scanDirectory(dir: string, scope: CommandScope): Promise<SavedCom
     if (!file.endsWith('.json')) continue
     try {
       const raw = await readFile(join(dir, file), 'utf-8')
-      const cmd: SavedCommand = JSON.parse(raw)
-      if (!cmd.id || !cmd.name) continue
+      const cmd = JSON.parse(raw)
+      if (
+        !cmd || typeof cmd !== 'object' ||
+        typeof cmd.id !== 'string' || !cmd.id ||
+        typeof cmd.name !== 'string' || !cmd.name ||
+        !Array.isArray(cmd.commands) ||
+        typeof cmd.createdAt !== 'string' ||
+        typeof cmd.updatedAt !== 'string'
+      ) {
+        console.warn(`[Commands] Skipping malformed file: ${file}`)
+        continue
+      }
       cmd.scope = scope
-      commands.push(cmd)
+      commands.push(cmd as SavedCommand)
     } catch {
-      // Skip malformed files
+      console.warn(`[Commands] Skipping unreadable file: ${file}`)
     }
   }
   return commands
@@ -81,9 +91,20 @@ export async function loadCommand(id: string, scope: CommandScope, projectFolder
   validateId(id, dir)
   try {
     const raw = await readFile(join(dir, `${id}.json`), 'utf-8')
-    const cmd: SavedCommand = JSON.parse(raw)
+    const cmd = JSON.parse(raw)
+    if (
+      !cmd || typeof cmd !== 'object' ||
+      typeof cmd.id !== 'string' || !cmd.id ||
+      typeof cmd.name !== 'string' || !cmd.name ||
+      !Array.isArray(cmd.commands) ||
+      typeof cmd.createdAt !== 'string' ||
+      typeof cmd.updatedAt !== 'string'
+    ) {
+      console.warn(`[Commands] Malformed command file: ${id}.json`)
+      return null
+    }
     cmd.scope = scope
-    return cmd
+    return cmd as SavedCommand
   } catch (err) {
     if (isNodeError(err) && err.code === 'ENOENT') return null
     throw err

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Plus, X, GripVertical, Play, Globe, FolderOpen } from 'lucide-react'
 import {
   DndContext,
@@ -117,6 +117,7 @@ export default function CommandDetailPanel(): React.JSX.Element | null {
   ])
   const [menuOpen, setMenuOpen] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   const isEdit = !!editingCommand?.id
   const commandId = editingCommand?.id ?? null
@@ -134,6 +135,18 @@ export default function CommandDetailPanel(): React.JSX.Element | null {
     setMenuOpen(false)
     setConfirmingDelete(false)
   }, [editingCommand])
+
+  // Close menu on outside click
+  useEffect(() => {
+    if (!menuOpen) return
+    const handleClick = (e: MouseEvent): void => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [menuOpen])
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -236,7 +249,7 @@ export default function CommandDetailPanel(): React.JSX.Element | null {
         />
         <div className="mt-1 flex flex-shrink-0 items-center gap-1">
           {isEdit && (
-            <div className="relative">
+            <div ref={menuRef} className="relative">
               <button
                 onClick={() => setMenuOpen((v) => !v)}
                 aria-label="More actions"
@@ -363,7 +376,9 @@ export default function CommandDetailPanel(): React.JSX.Element | null {
           {isEdit && (
             <button
               onClick={handleRun}
-              className="flex items-center gap-1.5 rounded px-3 py-1.5 text-sm text-green-400 hover:bg-zinc-800"
+              disabled={!currentFolder}
+              title={currentFolder ? undefined : 'Select a folder to run'}
+              className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-sm ${currentFolder ? 'text-green-400 hover:bg-zinc-800' : 'cursor-not-allowed text-zinc-600'}`}
             >
               <Play size={12} />
               Run

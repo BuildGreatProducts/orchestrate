@@ -29,6 +29,7 @@ export default function AgentSelector({ value, onChange, size = 'md' }: AgentSel
     <div className="flex flex-wrap gap-2">
       {agents.map((agent) => (
         <button
+          type="button"
           key={agent.id}
           onClick={() => onChange(agent.id)}
           className={`${buttonClass} ${

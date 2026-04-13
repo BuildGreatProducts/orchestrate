@@ -61,6 +61,7 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
   const moveTabToGroup = useTerminalStore((s) => s.moveTabToGroup)
   const removeTabFromGroup = useTerminalStore((s) => s.removeTabFromGroup)
   const reorderTabInGroup = useTerminalStore((s) => s.reorderTabInGroup)
+  const reorderTabs = useTerminalStore((s) => s.reorderTabs)
 
   // Filter tabs and groups to this project
   const tabs = useMemo(
@@ -180,9 +181,13 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
   }
 
   // DnD handlers
+  const dragOriginRef = useRef<{ tabId: string; container: string } | null>(null)
+
   const handleDragStart = useCallback((event: DragStartEvent) => {
-    setActiveId(event.active.id as string)
-  }, [])
+    const tabId = event.active.id as string
+    dragOriginRef.current = { tabId, container: findContainer(tabId) }
+    setActiveId(tabId)
+  }, [findContainer])
 
   const handleDragOver = useCallback(
     (event: DragOverEvent) => {
@@ -228,6 +233,7 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
+      dragOriginRef.current = null
       setActiveId(null)
       const { active, over } = event
       if (!over) return
@@ -237,7 +243,14 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
       if (dragTabId === overId) return
 
       const container = findContainer(dragTabId)
-      if (container !== 'ungrouped') {
+      if (container === 'ungrouped') {
+        const allStoreTabs = useTerminalStore.getState().tabs
+        const oldIdx = allStoreTabs.findIndex((t) => t.id === dragTabId)
+        const newIdx = allStoreTabs.findIndex((t) => t.id === overId)
+        if (oldIdx !== -1 && newIdx !== -1 && oldIdx !== newIdx) {
+          reorderTabs(oldIdx, newIdx)
+        }
+      } else {
         const group = groups.find((g) => g.id === container)
         if (!group) return
         const oldIdx = group.tabIds.indexOf(dragTabId)
@@ -247,12 +260,24 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
         }
       }
     },
-    [groups, findContainer, reorderTabInGroup]
+    [groups, findContainer, reorderTabInGroup, reorderTabs]
   )
 
   const handleDragCancel = useCallback(() => {
+    if (dragOriginRef.current) {
+      const { tabId, container } = dragOriginRef.current
+      const currentContainer = findContainer(tabId)
+      if (currentContainer !== container) {
+        if (container === 'ungrouped') {
+          removeTabFromGroup(tabId)
+        } else {
+          moveTabToGroup(tabId, container)
+        }
+      }
+      dragOriginRef.current = null
+    }
     setActiveId(null)
-  }, [])
+  }, [findContainer, moveTabToGroup, removeTabFromGroup])
 
   const activeTab = activeId ? tabs.find((t) => t.id === activeId) : null
 
