@@ -146,7 +146,6 @@ export function registerExitHandler(id: string, handler: (exitCode: number) => v
 }
 
 export function unregisterTerminalHandlers(id: string): void {
-  outputSubscribers.delete(id)
   exitHandlers.delete(id)
 }
 
