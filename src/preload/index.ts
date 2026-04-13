@@ -71,6 +71,12 @@ const api: OrchestrateAPI = {
   loadLoop: (id) => ipcRenderer.invoke('loop:load', id),
   saveLoop: (loop) => ipcRenderer.invoke('loop:save', loop),
   deleteLoop: (id) => ipcRenderer.invoke('loop:delete', id),
+  // Saved Commands
+  listCommands: (projectFolder?) => ipcRenderer.invoke('command:list', projectFolder),
+  loadCommand: (id, scope, projectFolder?) => ipcRenderer.invoke('command:load', id, scope, projectFolder),
+  saveCommand: (command, projectFolder?) => ipcRenderer.invoke('command:save', command, projectFolder),
+  deleteCommand: (id, scope, projectFolder?) => ipcRenderer.invoke('command:delete', id, scope, projectFolder),
+
   onLoopTrigger: (callback: (loopId: string) => void) => {
     const handler = (_: Electron.IpcRendererEvent, loopId: string): void => {
       callback(loopId)

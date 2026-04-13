@@ -1,18 +1,21 @@
-import { LayoutList, FolderOpen, History } from 'lucide-react'
+import { LayoutList, FolderOpen, History, TerminalSquare } from 'lucide-react'
 import { useAppStore } from '@renderer/stores/app'
 import type { ProjectDetailTabId } from '@shared/types'
 import TasksTab from '@renderer/components/tasks/TasksTab'
 import FilesTab from '@renderer/components/files/FilesTab'
 import HistoryTab from '@renderer/components/history/HistoryTab'
+import CommandsTab from '@renderer/components/commands/CommandsTab'
 
 const TABS: { id: ProjectDetailTabId; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
   { id: 'tasks', label: 'Tasks', icon: LayoutList },
+  { id: 'commands', label: 'Commands', icon: TerminalSquare },
   { id: 'files', label: 'Files', icon: FolderOpen },
   { id: 'history', label: 'History', icon: History }
 ]
 
 const TAB_COMPONENTS: Record<ProjectDetailTabId, React.ComponentType> = {
   tasks: TasksTab,
+  commands: CommandsTab,
   files: FilesTab,
   history: HistoryTab
 }

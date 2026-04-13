@@ -10,6 +10,7 @@ import { registerLoopHandlers, getLoopManager } from './ipc/loops'
 import { LoopScheduler } from './loop-scheduler'
 import { registerGitHandlers, getGitManager } from './ipc/git'
 import { registerSkillHandlers } from './ipc/skills'
+import { registerCommandHandlers } from './ipc/commands'
 import { registerBrowserHandlers, closeAllBrowserTabs } from './ipc/browser'
 import { registerStubHandlers } from './ipc/stubs'
 import { startWatching, stopWatching } from './file-watcher'
@@ -101,6 +102,7 @@ app.whenReady().then(() => {
   registerLoopHandlers(() => mainWindow, getCurrentFolder)
   registerGitHandlers(() => mainWindow, getCurrentFolder)
   registerSkillHandlers(() => mainWindow, getCurrentFolder, getSkillManager)
+  registerCommandHandlers(() => mainWindow, getCurrentFolder)
   registerBrowserHandlers(() => mainWindow)
   registerStubHandlers()
 

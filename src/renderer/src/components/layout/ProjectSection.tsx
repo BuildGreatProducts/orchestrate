@@ -21,7 +21,9 @@ import AgentGroupSection from '@renderer/components/agents/AgentGroupSection'
 import { getAgentColorIndex } from '@renderer/lib/agent-colors'
 import { useAgentsStore } from '@renderer/stores/agents'
 import { buildAgentCommand } from '@renderer/lib/agent-command-builder'
+import { executeSavedCommand } from '@renderer/lib/command-execution'
 import { toast } from '@renderer/stores/toast'
+import type { SavedCommand } from '@shared/types'
 import { useAllProjectsAgentStatus } from '@renderer/hooks/useProjectAgentStatus'
 import { AGENT_COLORS, ATTENTION_BG } from '@renderer/lib/agent-colors'
 
@@ -111,7 +113,10 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
   const newAgentBtnRef = useRef<HTMLButtonElement>(null)
   const newAgentMenuRef = useRef<HTMLDivElement>(null)
 
+  const [savedCommands, setSavedCommands] = useState<SavedCommand[]>([])
+
   const openAgentMenu = (): void => {
+    window.orchestrate.listCommands(folder).then(setSavedCommands).catch(() => {})
     if (newAgentBtnRef.current) {
       const rect = newAgentBtnRef.current.getBoundingClientRect()
       setMenuStyle({
@@ -137,6 +142,11 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
   }, [newAgentMenuOpen])
+
+  const handleExecuteSavedCommand = async (commandId: string): Promise<void> => {
+    setNewAgentMenuOpen(false)
+    await executeSavedCommand(commandId, folder)
+  }
 
   const handleNewAgentWithType = async (agentId?: string): Promise<void> => {
     setNewAgentMenuOpen(false)
@@ -339,6 +349,22 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
                   {agent.displayName}
                 </button>
               ))}
+              {savedCommands.length > 0 && (
+                <>
+                  <div className="my-1 border-t border-zinc-700" />
+                  <div className="px-3 py-1 text-[11px] font-medium text-zinc-500">Saved Commands</div>
+                  {savedCommands.map((cmd) => (
+                    <button
+                      key={cmd.id}
+                      onClick={() => handleExecuteSavedCommand(cmd.id)}
+                      className="flex w-full items-center px-3 py-1.5 text-left text-sm text-zinc-300 hover:bg-zinc-700"
+                    >
+                      <Terminal size={14} className="mr-2 text-zinc-500" />
+                      <span className="truncate">{cmd.name}</span>
+                    </button>
+                  ))}
+                </>
+              )}
               <div className="my-1 border-t border-zinc-700" />
               <button
                 onClick={() => handleNewAgentWithType()}

@@ -7,7 +7,7 @@ export const NAV_PAGES: { id: NavPageId; label: string }[] = [
   { id: 'browser', label: 'Browser' }
 ]
 
-export type ProjectDetailTabId = 'tasks' | 'files' | 'history'
+export type ProjectDetailTabId = 'tasks' | 'files' | 'history' | 'commands'
 
 export type ContentView =
   | { type: 'orchestrate' }
@@ -93,6 +93,24 @@ export interface Loop {
   updatedAt: string
   lastRun?: LoopRun
   groupName?: string // agent group to place step tabs in (defaults to loop name)
+}
+
+// ── Saved Commands ──
+
+export interface SavedCommandEntry {
+  label?: string
+  command: string
+}
+
+export type CommandScope = 'project' | 'global'
+
+export interface SavedCommand {
+  id: string
+  name: string
+  scope: CommandScope
+  commands: SavedCommandEntry[]
+  createdAt: string
+  updatedAt: string
 }
 
 // ── Agents ──
@@ -232,6 +250,12 @@ export interface OrchestrateAPI {
   deleteLoop: (id: string) => Promise<void>
   onLoopTrigger: (callback: (loopId: string) => void) => () => void
   onTaskScheduleTrigger: (callback: (taskId: string) => void) => () => void
+
+  // Saved Commands
+  listCommands: (projectFolder?: string) => Promise<SavedCommand[]>
+  loadCommand: (id: string, scope: CommandScope, projectFolder?: string) => Promise<SavedCommand | null>
+  saveCommand: (command: SavedCommand, projectFolder?: string) => Promise<void>
+  deleteCommand: (id: string, scope: CommandScope, projectFolder?: string) => Promise<void>
 
   // MCP State Changes (used by MCP server tool handlers)
   onAgentStateChanged: (callback: (domain: string, data?: unknown) => void) => () => void
