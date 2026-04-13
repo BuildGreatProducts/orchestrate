@@ -142,7 +142,7 @@ export default function KanbanBoard(): React.JSX.Element {
   if (totalTasks === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4 p-4 text-center">
-        <h2 className="font-ovo text-6xl tracking-tight text-zinc-200">Orchestrate</h2>
+        <h2 className="font-ovo text-6xl tracking-tight text-zinc-200">Tasks</h2>
         <p className="max-w-xs text-sm text-zinc-500">
           Plan tasks, coordinate agents, and manage workflows across your project.
         </p>

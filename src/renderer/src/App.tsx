@@ -10,6 +10,7 @@ import { ensureGlobalIpcListeners } from '@renderer/stores/ipc-listeners'
 import { useAgentsStore } from '@renderer/stores/agents'
 import { NAV_PAGES } from '@shared/types'
 import type { NavPageId } from '@shared/types'
+import OrchestrateTab from '@renderer/components/orchestrate/OrchestrateTab'
 import TasksTab from '@renderer/components/tasks/TasksTab'
 import FilesTab from '@renderer/components/files/FilesTab'
 import SkillsSettings from '@renderer/components/settings/SkillsSettings'
@@ -109,49 +110,61 @@ function App(): React.JSX.Element {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
+  const isOrchestrate = contentView.type === 'page' && contentView.pageId === 'orchestrate'
+
   return (
     <div className="flex h-screen flex-col bg-black text-white">
       <TopBar />
       <div className="flex flex-1 overflow-hidden">
-        <LeftSidebar />
-        <main className="relative flex-1 overflow-hidden">
-          {/* Page views */}
-          {NAV_PAGES.map(({ id }) => {
-            const Component = PAGE_COMPONENTS[id]
-            if (!Component) return null
-            const isActive = contentView.type === 'page' && contentView.pageId === id
-            return (
-              <div
-                key={id}
-                className={
-                  isActive ? 'flex h-full w-full animate-in fade-in duration-150' : 'hidden'
-                }
-              >
-                <Component />
-              </div>
-            )
-          })}
-          {/* Settings page (not in NAV_PAGES, accessed via cog icon) */}
-          <div
-            className={
-              contentView.type === 'page' && contentView.pageId === 'settings'
-                ? 'flex h-full w-full animate-in fade-in duration-150'
-                : 'hidden'
-            }
-          >
-            <SettingsPage />
+        {/* Orchestrate page — full-width, no sidebar; conditionally mounted */}
+        {isOrchestrate && (
+          <div className="flex h-full w-full animate-in fade-in duration-150">
+            <OrchestrateTab />
           </div>
-          {/* Terminal view */}
-          <div
-            className={
-              contentView.type === 'terminal'
-                ? 'flex h-full w-full animate-in fade-in duration-150'
-                : 'hidden'
-            }
-          >
-            <TerminalContentArea />
-          </div>
-        </main>
+        )}
+
+        {/* Project UI — sidebar + main content (hidden when on Orchestrate) */}
+        <div className={isOrchestrate ? 'hidden' : 'flex flex-1 overflow-hidden'}>
+          <LeftSidebar />
+          <main className="relative flex-1 overflow-hidden">
+            {/* Page views */}
+            {NAV_PAGES.map(({ id }) => {
+              const Component = PAGE_COMPONENTS[id]
+              if (!Component) return null
+              const isActive = contentView.type === 'page' && contentView.pageId === id
+              return (
+                <div
+                  key={id}
+                  className={
+                    isActive ? 'flex h-full w-full animate-in fade-in duration-150' : 'hidden'
+                  }
+                >
+                  <Component />
+                </div>
+              )
+            })}
+            {/* Settings page (not in NAV_PAGES, accessed via cog icon) */}
+            <div
+              className={
+                contentView.type === 'page' && contentView.pageId === 'settings'
+                  ? 'flex h-full w-full animate-in fade-in duration-150'
+                  : 'hidden'
+              }
+            >
+              <SettingsPage />
+            </div>
+            {/* Terminal view */}
+            <div
+              className={
+                contentView.type === 'terminal'
+                  ? 'flex h-full w-full animate-in fade-in duration-150'
+                  : 'hidden'
+              }
+            >
+              <TerminalContentArea />
+            </div>
+          </main>
+        </div>
       </div>
       <ToastContainer />
     </div>

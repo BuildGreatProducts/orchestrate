@@ -68,7 +68,7 @@ export default function TasksTab(): React.JSX.Element {
     return (
       <div className="flex flex-1 items-center justify-center">
         <div className="text-center">
-          <h2 className="font-ovo text-6xl tracking-tight text-zinc-200">Orchestrate</h2>
+          <h2 className="font-ovo text-6xl tracking-tight text-zinc-200">Tasks</h2>
           <p className="mt-3 max-w-xs text-sm text-zinc-500">
             Plan tasks, coordinate agents, and manage workflows across your project.
           </p>

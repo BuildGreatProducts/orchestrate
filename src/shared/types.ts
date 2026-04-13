@@ -1,9 +1,9 @@
 // ── Navigation ──
 
-export type NavPageId = 'tasks' | 'files' | 'skills' | 'history' | 'browser' | 'settings'
+export type NavPageId = 'orchestrate' | 'tasks' | 'files' | 'skills' | 'history' | 'browser' | 'settings'
 
 export const NAV_PAGES: { id: NavPageId; label: string }[] = [
-  { id: 'tasks', label: 'Orchestrate' },
+  { id: 'tasks', label: 'Tasks' },
   { id: 'files', label: 'Files' },
   { id: 'skills', label: 'Skills' },
   { id: 'history', label: 'History' },
@@ -195,7 +195,7 @@ export interface OrchestrateAPI {
   getProjects: () => Promise<string[]>
   addProject: (path: string) => Promise<string[]>
   removeProject: (path: string) => Promise<string[]>
-  setActiveProject: (path: string) => Promise<string>
+  setActiveProject: (path: string | null) => Promise<string | null>
 
   // Files
   readFile: (path: string) => Promise<string>

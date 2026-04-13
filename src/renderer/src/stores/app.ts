@@ -7,6 +7,7 @@ interface AppState {
   projects: string[]
 
   showPage: (pageId: NavPageId) => void
+  showOrchestrate: () => void
   showTerminal: () => void
   setCurrentFolder: (folder: string | null) => void
   loadLastFolder: () => Promise<void>
@@ -21,13 +22,28 @@ export const useAppStore = create<AppState>((set, get) => ({
   projects: [],
 
   showPage: (pageId) => set({ contentView: { type: 'page', pageId } }),
+
+  showOrchestrate: () => {
+    set({
+      currentFolder: null,
+      contentView: { type: 'page', pageId: 'orchestrate' }
+    })
+    window.orchestrate.setActiveProject(null)
+  },
+
   showTerminal: () => set({ contentView: { type: 'terminal' } }),
 
   setCurrentFolder: async (folder) => {
     if (folder) {
       await window.orchestrate.setActiveProject(folder)
     }
-    set({ currentFolder: folder })
+    const state = get()
+    // When switching back to a project from Orchestrate, restore to last page
+    const contentView =
+      state.contentView.type === 'page' && state.contentView.pageId === 'orchestrate'
+        ? ({ type: 'page', pageId: 'tasks' } as ContentView)
+        : state.contentView
+    set({ currentFolder: folder, contentView })
   },
   loadLastFolder: async () => {
     const folder = await window.orchestrate.getLastFolder()

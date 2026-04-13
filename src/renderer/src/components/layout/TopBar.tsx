@@ -1,5 +1,6 @@
 import { Settings, Plus, X, Folder } from 'lucide-react'
 import { useAppStore } from '@renderer/stores/app'
+import { useTerminalStore } from '@renderer/stores/terminal'
 import { useAllProjectsAgentStatus, type AgentDot } from '@renderer/hooks/useProjectAgentStatus'
 import { AGENT_COLORS, ATTENTION_BG } from '@renderer/lib/agent-colors'
 
@@ -40,9 +41,10 @@ function ProjectIcon({ dots }: { dots?: AgentDot[] }): React.JSX.Element {
 const isMac = navigator?.userAgent?.includes('Mac')
 
 export default function TopBar(): React.JSX.Element {
-  const { currentFolder, setCurrentFolder, projects, addProject, removeProject, contentView, showPage } =
+  const { currentFolder, setCurrentFolder, projects, addProject, removeProject, contentView, showPage, showOrchestrate } =
     useAppStore()
   const agentStatusMap = useAllProjectsAgentStatus()
+  const anyBell = useTerminalStore((s) => s.tabs.some((t) => t.bell && !t.exited))
 
   const handleAddProject = async (): Promise<void> => {
     const folder = await window.orchestrate.selectFolder()
@@ -63,7 +65,21 @@ export default function TopBar(): React.JSX.Element {
       style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
     >
       <div style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-        <Logo />
+        <button
+          onClick={() => showOrchestrate()}
+          className={`relative rounded px-1.5 py-1.5 transition-colors ${
+            contentView.type === 'page' && contentView.pageId === 'orchestrate'
+              ? 'bg-zinc-700'
+              : 'hover:bg-zinc-800'
+          }`}
+          title="Orchestrate"
+          aria-label="Orchestrate feed"
+        >
+          <Logo />
+          {anyBell && (
+            <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-500 animate-pulse ring-2 ring-amber-500/40" />
+          )}
+        </button>
       </div>
 
       <div className="mx-2 h-5 w-px bg-zinc-800" />
@@ -81,7 +97,7 @@ export default function TopBar(): React.JSX.Element {
                 isActive
                   ? 'bg-zinc-700 text-white'
                   : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200'
-              } ${status?.hasAttention ? 'ring-1 ring-amber-500/30' : ''}`}
+              }`}
               style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
             >
               <button
