@@ -21,7 +21,9 @@ import AgentGroupSection from '@renderer/components/agents/AgentGroupSection'
 import { getAgentColorIndex } from '@renderer/lib/agent-colors'
 import { useAgentsStore } from '@renderer/stores/agents'
 import { buildAgentCommand } from '@renderer/lib/agent-command-builder'
+import { executeSavedCommand } from '@renderer/lib/command-execution'
 import { toast } from '@renderer/stores/toast'
+import type { SavedCommand } from '@shared/types'
 import { useAllProjectsAgentStatus } from '@renderer/hooks/useProjectAgentStatus'
 import { AGENT_COLORS, ATTENTION_BG } from '@renderer/lib/agent-colors'
 
@@ -59,6 +61,7 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
   const moveTabToGroup = useTerminalStore((s) => s.moveTabToGroup)
   const removeTabFromGroup = useTerminalStore((s) => s.removeTabFromGroup)
   const reorderTabInGroup = useTerminalStore((s) => s.reorderTabInGroup)
+  const reorderTabs = useTerminalStore((s) => s.reorderTabs)
 
   // Filter tabs and groups to this project
   const tabs = useMemo(
@@ -111,7 +114,10 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
   const newAgentBtnRef = useRef<HTMLButtonElement>(null)
   const newAgentMenuRef = useRef<HTMLDivElement>(null)
 
+  const [savedCommands, setSavedCommands] = useState<SavedCommand[]>([])
+
   const openAgentMenu = (): void => {
+    window.orchestrate.listCommands(folder).then(setSavedCommands).catch(() => {})
     if (newAgentBtnRef.current) {
       const rect = newAgentBtnRef.current.getBoundingClientRect()
       setMenuStyle({
@@ -137,6 +143,11 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
   }, [newAgentMenuOpen])
+
+  const handleExecuteSavedCommand = async (commandId: string): Promise<void> => {
+    setNewAgentMenuOpen(false)
+    await executeSavedCommand(commandId, folder)
+  }
 
   const handleNewAgentWithType = async (agentId?: string): Promise<void> => {
     setNewAgentMenuOpen(false)
@@ -170,9 +181,13 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
   }
 
   // DnD handlers
+  const dragOriginRef = useRef<{ tabId: string; container: string } | null>(null)
+
   const handleDragStart = useCallback((event: DragStartEvent) => {
-    setActiveId(event.active.id as string)
-  }, [])
+    const tabId = event.active.id as string
+    dragOriginRef.current = { tabId, container: findContainer(tabId) }
+    setActiveId(tabId)
+  }, [findContainer])
 
   const handleDragOver = useCallback(
     (event: DragOverEvent) => {
@@ -218,6 +233,7 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
+      dragOriginRef.current = null
       setActiveId(null)
       const { active, over } = event
       if (!over) return
@@ -227,7 +243,14 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
       if (dragTabId === overId) return
 
       const container = findContainer(dragTabId)
-      if (container !== 'ungrouped') {
+      if (container === 'ungrouped') {
+        const allStoreTabs = useTerminalStore.getState().tabs
+        const oldIdx = allStoreTabs.findIndex((t) => t.id === dragTabId)
+        const newIdx = allStoreTabs.findIndex((t) => t.id === overId)
+        if (oldIdx !== -1 && newIdx !== -1 && oldIdx !== newIdx) {
+          reorderTabs(oldIdx, newIdx)
+        }
+      } else {
         const group = groups.find((g) => g.id === container)
         if (!group) return
         const oldIdx = group.tabIds.indexOf(dragTabId)
@@ -237,12 +260,24 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
         }
       }
     },
-    [groups, findContainer, reorderTabInGroup]
+    [groups, findContainer, reorderTabInGroup, reorderTabs]
   )
 
   const handleDragCancel = useCallback(() => {
+    if (dragOriginRef.current) {
+      const { tabId, container } = dragOriginRef.current
+      const currentContainer = findContainer(tabId)
+      if (currentContainer !== container) {
+        if (container === 'ungrouped') {
+          removeTabFromGroup(tabId)
+        } else {
+          moveTabToGroup(tabId, container)
+        }
+      }
+      dragOriginRef.current = null
+    }
     setActiveId(null)
-  }, [])
+  }, [findContainer, moveTabToGroup, removeTabFromGroup])
 
   const activeTab = activeId ? tabs.find((t) => t.id === activeId) : null
 
@@ -339,6 +374,22 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
                   {agent.displayName}
                 </button>
               ))}
+              {savedCommands.length > 0 && (
+                <>
+                  <div className="my-1 border-t border-zinc-700" />
+                  <div className="px-3 py-1 text-[11px] font-medium text-zinc-500">Saved Commands</div>
+                  {savedCommands.map((cmd) => (
+                    <button
+                      key={cmd.id}
+                      onClick={() => handleExecuteSavedCommand(cmd.id)}
+                      className="flex w-full items-center px-3 py-1.5 text-left text-sm text-zinc-300 hover:bg-zinc-700"
+                    >
+                      <Terminal size={14} className="mr-2 text-zinc-500" />
+                      <span className="truncate">{cmd.name}</span>
+                    </button>
+                  ))}
+                </>
+              )}
               <div className="my-1 border-t border-zinc-700" />
               <button
                 onClick={() => handleNewAgentWithType()}

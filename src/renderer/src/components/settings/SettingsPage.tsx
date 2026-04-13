@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Plus, Pencil, Trash2 } from 'lucide-react'
 import { useAgentsStore } from '@renderer/stores/agents'
+import { toast } from '@renderer/stores/toast'
 import ConfirmDialog from '@renderer/components/history/ConfirmDialog'
 import type { AgentConfig } from '@shared/types'
 
@@ -116,11 +117,11 @@ export default function SettingsPage(): React.JSX.Element {
     if (!name || !command) return
     const id = slugify(name)
     if (!id) {
-      console.error('[Settings] Agent name must contain at least one letter or number')
+      toast.error('Agent name must contain at least one letter or number')
       return
     }
     if (agents.some((a) => a.id === id)) {
-      console.error('[Settings] Agent with this name already exists')
+      toast.error('An agent with this name already exists')
       return
     }
     await addCustomAgent({
@@ -399,7 +400,7 @@ export default function SettingsPage(): React.JSX.Element {
               { keys: '\u2318/Ctrl + T', action: 'New agent' },
               { keys: '\u2318/Ctrl + N', action: 'New task' },
               { keys: '\u2318/Ctrl + S', action: 'Save file / focus save point' },
-              { keys: '\u2318/Ctrl + 1-5', action: 'Switch pages' }
+              { keys: '\u2318/Ctrl + 1-4', action: 'Switch pages' }
             ].map(({ keys, action }) => (
               <div
                 key={action}

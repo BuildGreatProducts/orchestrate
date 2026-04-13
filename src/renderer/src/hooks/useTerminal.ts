@@ -76,7 +76,7 @@ export function useTerminal({ id, active }: UseTerminalOptions): UseTerminalResu
               const dims = fitAddon?.proposeDimensions()
               if (dims && dims.cols > 0 && dims.rows > 0) {
                 window.orchestrate.resizeTerminal(id, dims.cols, dims.rows)
-            setPtyDimensions(id, dims.cols, dims.rows)
+                setPtyDimensions(id, dims.cols, dims.rows)
               }
             }
           } catch {

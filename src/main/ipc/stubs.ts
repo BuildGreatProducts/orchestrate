@@ -32,6 +32,12 @@ const stubs: StubDef[] = [
   { channel: 'loop:save', returns: undefined },
   { channel: 'loop:delete', returns: undefined },
 
+  // Saved Commands
+  { channel: 'command:list', returns: [] },
+  { channel: 'command:load', returns: null },
+  { channel: 'command:save', returns: undefined },
+  { channel: 'command:delete', returns: undefined },
+
   // Git
   { channel: 'git:isRepo', returns: false },
   { channel: 'git:init', returns: undefined },

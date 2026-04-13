@@ -21,6 +21,7 @@ import { nanoid } from 'nanoid'
 import type { Loop, LoopStep } from '@shared/types'
 import { useTerminalStore } from '@renderer/stores/terminal'
 import { useAgentsStore } from '@renderer/stores/agents'
+import { toast } from '@renderer/stores/toast'
 import AgentSelector from '@renderer/components/shared/AgentSelector'
 
 interface LoopEditorModalProps {
@@ -184,9 +185,13 @@ export default function LoopEditorModal({
 
     // Validate agent is still enabled
     const enabled = useAgentsStore.getState().agents.filter((a) => a.enabled)
+    if (enabled.length === 0) {
+      toast.error('No agents enabled — enable one in Settings first')
+      return
+    }
     const validAgent = enabled.some((a) => a.id === agentType)
       ? agentType
-      : enabled[0]?.id ?? 'claude-code'
+      : enabled[0].id
 
     try {
       await onSave({

@@ -33,9 +33,7 @@ export function buildAgentCommand(opts: BuildCommandOptions): string {
     return mcpFlags ? `${agent.cliCommand} ${mcpFlags}` : agent.cliCommand
   }
 
-  const quotedPrompt = prompt
-    ? "'" + prompt.replace(/'/g, "'\\''") + "'"
-    : ''
+  const quotedPrompt = prompt ? shellQuote(prompt) : ''
   const taskFileRef = taskFile ? `"$(cat ${shellQuote(taskFile)})"` : ''
   // The effective prompt is either the inline prompt or the task file contents
   const effectivePrompt = quotedPrompt || taskFileRef

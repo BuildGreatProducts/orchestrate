@@ -54,6 +54,7 @@ interface TerminalState {
   moveTabToGroup: (tabId: string, groupId: string, index?: number) => void
   removeTabFromGroup: (tabId: string) => void
   reorderTabInGroup: (groupId: string, oldIndex: number, newIndex: number) => void
+  reorderTabs: (oldIndex: number, newIndex: number) => void
   createTabInGroup: (cwd: string, groupId: string, name?: string, command?: string) => Promise<string>
   findOrCreateGroup: (name: string, projectFolder: string) => string
 }
@@ -67,23 +68,38 @@ const exitHandlers = new Map<string, (exitCode: number) => void>()
 
 // --- Output ring buffer ---
 // Stores recent output per terminal so mirror terminals can replay history on mount.
-const outputBuffers = new Map<string, string[]>()
-const OUTPUT_BUFFER_MAX_CHUNKS = 500
+// Budget is byte-based to prevent memory bloat from large chunks.
+const MAX_OUTPUT_BUFFER_BYTES = 512 * 1024 // 512 KB per terminal
+const outputBuffers = new Map<string, { entries: { text: string; bytes: number }[]; totalBytes: number }>()
 
 function appendToBuffer(id: string, data: string): void {
   let buf = outputBuffers.get(id)
   if (!buf) {
-    buf = []
+    buf = { entries: [], totalBytes: 0 }
     outputBuffers.set(id, buf)
   }
-  buf.push(data)
-  if (buf.length > OUTPUT_BUFFER_MAX_CHUNKS) {
-    buf.splice(0, buf.length - OUTPUT_BUFFER_MAX_CHUNKS)
+  const bytes = data.length * 2 // approximate: JS strings are UTF-16
+  buf.entries.push({ text: data, bytes })
+  buf.totalBytes += bytes
+  while (buf.totalBytes > MAX_OUTPUT_BUFFER_BYTES) {
+    if (buf.entries.length > 1) {
+      const removed = buf.entries.shift()!
+      buf.totalBytes -= removed.bytes
+    } else {
+      // Single oversized entry — truncate to fit
+      const entry = buf.entries[0]
+      const maxChars = Math.floor(MAX_OUTPUT_BUFFER_BYTES / 2)
+      entry.text = entry.text.slice(-maxChars)
+      entry.bytes = entry.text.length * 2
+      buf.totalBytes = entry.bytes
+      break
+    }
   }
 }
 
 export function getOutputBuffer(id: string): string {
-  return (outputBuffers.get(id) ?? []).join('')
+  const buf = outputBuffers.get(id)
+  return buf ? buf.entries.map((e) => e.text).join('') : ''
 }
 
 // --- PTY dimensions ---
@@ -393,6 +409,12 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       groups: state.groups.map((g) =>
         g.id === groupId ? { ...g, tabIds: arrayMove(g.tabIds, oldIndex, newIndex) } : g
       )
+    }))
+  },
+
+  reorderTabs: (oldIndex: number, newIndex: number) => {
+    set((state) => ({
+      tabs: arrayMove(state.tabs, oldIndex, newIndex)
     }))
   },
 
