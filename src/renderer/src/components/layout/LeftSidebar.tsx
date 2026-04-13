@@ -35,6 +35,7 @@ import { useAgentsStore } from '@renderer/stores/agents'
 import { buildAgentCommand } from '@renderer/lib/agent-command-builder'
 
 const NAV_ICONS: Record<NavPageId, React.ComponentType<{ size?: number }>> = {
+  orchestrate: LayoutList, // not rendered in sidebar, but needed for type completeness
   tasks: LayoutList,
   files: FolderOpen,
   skills: Puzzle,
@@ -68,7 +69,6 @@ export default function LeftSidebar(): React.JSX.Element {
   const allTabs = useTerminalStore((s) => s.tabs)
   const activeTabId = useTerminalStore((s) => s.activeTabId)
   const setActiveTerminalTab = useTerminalStore((s) => s.setActiveTab)
-  const clearBell = useTerminalStore((s) => s.clearBell)
   const requestCloseTab = useTerminalStore((s) => s.requestCloseTab)
   const confirmCloseTab = useTerminalStore((s) => s.confirmCloseTab)
   const cancelCloseTab = useTerminalStore((s) => s.cancelCloseTab)
@@ -169,7 +169,6 @@ export default function LeftSidebar(): React.JSX.Element {
 
   const handleSelectTab = (id: string): void => {
     setActiveTerminalTab(id)
-    clearBell(id)
     showTerminal()
   }
 

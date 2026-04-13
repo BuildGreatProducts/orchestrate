@@ -1,16 +1,19 @@
 import { create } from 'zustand'
 import { arrayMove } from '@dnd-kit/sortable'
 import { toast } from './toast'
+import { useAppStore } from './app'
 
 export interface TerminalTab {
   id: string
   name: string
   projectFolder: string
   taskId?: string
+  isAgent: boolean
   exited: boolean
   exitCode?: number
   busy: boolean
   bell: boolean
+  bellAt?: number
 }
 
 export interface AgentGroup {
@@ -59,8 +62,45 @@ interface TerminalState {
 // Single global listeners forward events to per-terminal callbacks,
 // avoiding a growing listener count on ipcRenderer.
 
-const outputHandlers = new Map<string, (data: string) => void>()
+const outputSubscribers = new Map<string, Set<(data: string) => void>>()
 const exitHandlers = new Map<string, (exitCode: number) => void>()
+
+// --- Output ring buffer ---
+// Stores recent output per terminal so mirror terminals can replay history on mount.
+const outputBuffers = new Map<string, string[]>()
+const OUTPUT_BUFFER_MAX_CHUNKS = 500
+
+function appendToBuffer(id: string, data: string): void {
+  let buf = outputBuffers.get(id)
+  if (!buf) {
+    buf = []
+    outputBuffers.set(id, buf)
+  }
+  buf.push(data)
+  if (buf.length > OUTPUT_BUFFER_MAX_CHUNKS) {
+    buf.splice(0, buf.length - OUTPUT_BUFFER_MAX_CHUNKS)
+  }
+}
+
+export function getOutputBuffer(id: string): string {
+  return (outputBuffers.get(id) ?? []).join('')
+}
+
+// --- PTY dimensions ---
+// Tracks the actual PTY column/row count so mirror terminals can match it.
+const ptyDimensions = new Map<string, { cols: number; rows: number }>()
+
+export function setPtyDimensions(id: string, cols: number, rows: number): void {
+  ptyDimensions.set(id, { cols, rows })
+}
+
+export function getPtyDimensions(id: string): { cols: number; rows: number } | undefined {
+  return ptyDimensions.get(id)
+}
+
+export function clearOutputBuffer(id: string): void {
+  outputBuffers.delete(id)
+}
 
 let globalListenersRegistered = false
 
@@ -69,7 +109,13 @@ function ensureGlobalListeners(): void {
   globalListenersRegistered = true
 
   window.orchestrate.onTerminalOutput((id, data) => {
-    outputHandlers.get(id)?.(data)
+    appendToBuffer(id, data)
+    const subs = outputSubscribers.get(id)
+    if (subs) {
+      for (const handler of subs) {
+        handler(data)
+      }
+    }
   })
 
   window.orchestrate.onTerminalExit((id, exitCode) => {
@@ -77,9 +123,21 @@ function ensureGlobalListeners(): void {
   })
 }
 
-export function registerOutputHandler(id: string, handler: (data: string) => void): void {
+/** Subscribe to terminal output. Returns an unsubscribe function. */
+export function addOutputSubscriber(id: string, handler: (data: string) => void): () => void {
   ensureGlobalListeners()
-  outputHandlers.set(id, handler)
+  let subs = outputSubscribers.get(id)
+  if (!subs) {
+    subs = new Set()
+    outputSubscribers.set(id, subs)
+  }
+  subs.add(handler)
+  return () => {
+    subs!.delete(handler)
+    if (subs!.size === 0) {
+      outputSubscribers.delete(id)
+    }
+  }
 }
 
 export function registerExitHandler(id: string, handler: (exitCode: number) => void): void {
@@ -88,8 +146,10 @@ export function registerExitHandler(id: string, handler: (exitCode: number) => v
 }
 
 export function unregisterTerminalHandlers(id: string): void {
-  outputHandlers.delete(id)
+  outputSubscribers.delete(id)
   exitHandlers.delete(id)
+  clearOutputBuffer(id)
+  ptyDimensions.delete(id)
 }
 
 // --- Readiness handshake ---
@@ -126,7 +186,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     set((state) => ({
       tabs: [
         ...state.tabs,
-        { id, name: tabName, projectFolder: cwd, taskId, exited: false, busy: false, bell: false }
+        { id, name: tabName, projectFolder: cwd, taskId, isAgent: !!command, exited: false, busy: false, bell: false }
       ],
       activeTabId: id,
       nextIndex: state.nextIndex + 1
@@ -159,6 +219,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     if (tab && !tab.exited) {
       window.orchestrate.closeTerminal(id)
     }
+    clearOutputBuffer(id)
 
     set((state) => {
       const newTabs = state.tabs.filter((t) => t.id !== id)
@@ -221,11 +282,21 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
   },
 
   markBell: (id: string) => {
-    const { activeTabId } = get()
-    // Only show bell if the tab isn't currently active
-    if (id === activeTabId) return
+    const { activeTabId, tabs } = get()
+    const tab = tabs.find((t) => t.id === id)
+    if (!tab || tab.exited || tab.bell) return
+    // Only suppress if the terminal is truly visible: active tab + terminal view + correct project
+    if (id === activeTabId) {
+      const appState = useAppStore.getState()
+      if (
+        appState.contentView.type === 'terminal' &&
+        appState.currentFolder === tab.projectFolder
+      ) {
+        return
+      }
+    }
     set((state) => ({
-      tabs: state.tabs.map((t) => (t.id === id ? { ...t, bell: true } : t))
+      tabs: state.tabs.map((t) => (t.id === id ? { ...t, bell: true, bellAt: Date.now() } : t))
     }))
   },
 
@@ -251,6 +322,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       if (!tab.exited) {
         window.orchestrate.closeTerminal(tab.id)
       }
+      clearOutputBuffer(tab.id)
     }
     set({ tabs: [], activeTabId: null, groups: [], nextGroupIndex: 1, pendingCloseTabId: null })
   },

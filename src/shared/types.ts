@@ -1,9 +1,9 @@
 // ── Navigation ──
 
-export type NavPageId = 'tasks' | 'files' | 'skills' | 'history' | 'browser' | 'settings'
+export type NavPageId = 'orchestrate' | 'tasks' | 'files' | 'skills' | 'history' | 'browser' | 'settings'
 
 export const NAV_PAGES: { id: NavPageId; label: string }[] = [
-  { id: 'tasks', label: 'Orchestrate' },
+  { id: 'tasks', label: 'Tasks' },
   { id: 'files', label: 'Files' },
   { id: 'skills', label: 'Skills' },
   { id: 'history', label: 'History' },
