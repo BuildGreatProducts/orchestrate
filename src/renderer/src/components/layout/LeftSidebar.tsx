@@ -1,4 +1,4 @@
-import { Music, Puzzle, Globe, FolderPlus } from 'lucide-react'
+import { CirclePile, Puzzle, Globe, FolderPlus } from 'lucide-react'
 import { useTerminalStore } from '@renderer/stores/terminal'
 import { useAppStore } from '@renderer/stores/app'
 import type { NavPageId } from '@shared/types'
@@ -6,7 +6,7 @@ import ConfirmDialog from '@renderer/components/history/ConfirmDialog'
 import ProjectSection from './ProjectSection'
 
 const GLOBAL_NAV: { id: NavPageId | 'orchestrate'; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
-  { id: 'orchestrate', label: 'Orchestrate', icon: Music },
+  { id: 'orchestrate', label: 'Orchestrate', icon: CirclePile },
   { id: 'skills', label: 'Skills', icon: Puzzle },
   { id: 'browser', label: 'Browser', icon: Globe }
 ]
