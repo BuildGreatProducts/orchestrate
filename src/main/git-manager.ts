@@ -1,5 +1,5 @@
 import simpleGit, { type SimpleGit, type DefaultLogFields, type ListLogLine } from 'simple-git'
-import type { SavePoint, SavePointDetail, GitStatus, FileDiff, CommitNode, BranchInfo } from '@shared/types'
+import type { SavePoint, SavePointDetail, GitStatus, FileDiff, CommitNode, BranchInfo, WorktreeInfo } from '@shared/types'
 
 export class GitManager {
   private git: SimpleGit
@@ -206,6 +206,138 @@ export class GitManager {
     } catch (err) {
       console.error('[GitManager] Failed to load branches:', err)
       return []
+    }
+  }
+
+  // ── Worktrees ──
+
+  async listWorktrees(): Promise<WorktreeInfo[]> {
+    const raw = await this.git.raw(['worktree', 'list', '--porcelain'])
+    if (!raw.trim()) return []
+
+    const worktrees: WorktreeInfo[] = []
+    const blocks = raw.trim().split('\n\n')
+
+    for (const block of blocks) {
+      const lines = block.trim().split('\n')
+      let path = ''
+      let commit = ''
+      let branch = ''
+      let isMain = false
+      let isDetached = false
+
+      for (const line of lines) {
+        if (line.startsWith('worktree ')) {
+          path = line.slice('worktree '.length)
+        } else if (line.startsWith('HEAD ')) {
+          commit = line.slice('HEAD '.length)
+        } else if (line.startsWith('branch ')) {
+          branch = line.slice('branch '.length).replace('refs/heads/', '')
+        } else if (line === 'detached') {
+          isDetached = true
+          branch = commit.slice(0, 8)
+        }
+      }
+
+      // The first worktree listed is always the main one
+      if (worktrees.length === 0) isMain = true
+
+      if (path) {
+        worktrees.push({ path, branch, commit, isMain, isDetached })
+      }
+    }
+
+    return worktrees
+  }
+
+  async addWorktree(worktreePath: string, branch: string, createBranch: boolean): Promise<void> {
+    const args = ['worktree', 'add']
+    if (createBranch) {
+      args.push('-b', branch, worktreePath)
+    } else {
+      args.push(worktreePath, branch)
+    }
+    await this.git.raw(args)
+  }
+
+  async removeWorktree(worktreePath: string, force?: boolean): Promise<void> {
+    const args = ['worktree', 'remove']
+    if (force) args.push('--force')
+    args.push(worktreePath)
+    await this.git.raw(args)
+  }
+
+  // ── Branch Diff & Merge ──
+
+  async diffBranches(baseBranch: string, compareBranch: string): Promise<FileDiff[]> {
+    const statusRaw = await this.git.raw(['diff', '--name-status', `${baseBranch}...${compareBranch}`])
+    const statusMap: Record<string, FileDiff['status']> = {}
+    for (const line of statusRaw.trim().split('\n')) {
+      if (!line) continue
+      const match = line.match(/^([MADR])\d*\t([^\t]+)(?:\t([^\t]+))?$/)
+      if (match) {
+        const status = match[1].charAt(0) as FileDiff['status']
+        // For renames, use the new path (3rd capture) as key to match --numstat output
+        const key = match[3] ?? match[2]
+        statusMap[key] = status
+      }
+    }
+
+    const numstatRaw = await this.git.raw(['diff', '--numstat', `${baseBranch}...${compareBranch}`])
+    const files: FileDiff[] = []
+    for (const line of numstatRaw.trim().split('\n')) {
+      if (!line) continue
+      const match = line.match(/^(\d+|-)\s+(\d+|-)\s+(.+)$/)
+      if (match) {
+        files.push({
+          path: match[3],
+          status: statusMap[match[3]] ?? 'M',
+          insertions: match[1] === '-' ? 0 : parseInt(match[1], 10),
+          deletions: match[2] === '-' ? 0 : parseInt(match[2], 10)
+        })
+      }
+    }
+    return files
+  }
+
+  async getFileDiffBetweenBranches(
+    baseBranch: string,
+    compareBranch: string,
+    filePath: string
+  ): Promise<{ before: string; after: string }> {
+    let before = ''
+    let after = ''
+    try {
+      before = await this.git.show([`${baseBranch}:${filePath}`])
+    } catch {
+      before = ''
+    }
+    try {
+      after = await this.git.show([`${compareBranch}:${filePath}`])
+    } catch {
+      after = ''
+    }
+    return { before, after }
+  }
+
+  async mergeWorktreeBranch(branch: string): Promise<{ success: boolean; conflicts?: string[] }> {
+    try {
+      await this.git.merge([branch, '--no-edit'])
+      return { success: true }
+    } catch (err) {
+      // Check if this is a merge conflict
+      try {
+        const status = await this.git.status()
+        if (status.conflicted.length > 0) {
+          // Abort the failed merge to leave repo clean
+          await this.git.raw(['merge', '--abort'])
+          return { success: false, conflicts: status.conflicted }
+        }
+      } catch {
+        // status check failed, try to abort anyway
+        try { await this.git.raw(['merge', '--abort']) } catch { /* ignore */ }
+      }
+      throw err
     }
   }
 

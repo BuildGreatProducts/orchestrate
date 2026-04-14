@@ -47,7 +47,7 @@ export default function LeftSidebar(): React.JSX.Element {
   }
 
   return (
-    <div className="flex h-full w-64 shrink-0 flex-col border-r border-zinc-800 bg-zinc-900">
+    <div className="flex h-full w-64 shrink-0 flex-col bg-zinc-900">
       {/* Global navigation links */}
       <div className="flex flex-col gap-0.5 p-1.5">
         {GLOBAL_NAV.map(({ id, label, icon: Icon }) => (

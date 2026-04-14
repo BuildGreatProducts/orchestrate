@@ -12,6 +12,7 @@ interface AppState {
   showOrchestrate: () => Promise<void>
   showProjectDetail: (folder: string, tab?: ProjectDetailTabId) => Promise<void>
   setProjectDetailTab: (tab: ProjectDetailTabId) => void
+  showWorktreeDetail: (folder: string, worktreePath: string) => Promise<void>
   showTerminal: (folder?: string) => Promise<void>
   toggleProjectExpanded: (folder: string) => void
   setProjectExpanded: (folder: string, expanded: boolean) => void
@@ -49,6 +50,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   setProjectDetailTab: (tab) => set({ projectDetailTab: tab }),
+
+  showWorktreeDetail: async (folder, worktreePath) => {
+    await window.orchestrate.setActiveProject(folder)
+    set({ currentFolder: folder, contentView: { type: 'worktree-detail', worktreePath } })
+  },
 
   showTerminal: async (folder) => {
     if (folder) {

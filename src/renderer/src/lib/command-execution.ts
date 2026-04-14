@@ -4,7 +4,7 @@ import { useAppStore } from '@renderer/stores/app'
 import { toast } from '@renderer/stores/toast'
 import type { SavedCommand } from '@shared/types'
 
-export async function executeSavedCommand(commandOrId: SavedCommand | string, folder: string): Promise<boolean> {
+export async function executeSavedCommand(commandOrId: SavedCommand | string, folder: string, worktreePath?: string): Promise<boolean> {
   let command: SavedCommand | undefined
 
   if (typeof commandOrId === 'string') {
@@ -33,7 +33,7 @@ export async function executeSavedCommand(commandOrId: SavedCommand | string, fo
   let firstTabId: string | null = null
   for (const entry of command.commands) {
     const tabName = entry.label || entry.command
-    const tabId = await termStore.createTabInGroup(folder, groupId, tabName, entry.command)
+    const tabId = await termStore.createTabInGroup(folder, groupId, tabName, entry.command, worktreePath)
     if (!firstTabId) firstTabId = tabId
   }
 
