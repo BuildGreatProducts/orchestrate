@@ -3,7 +3,7 @@ import { Plus, Pencil, Trash2 } from 'lucide-react'
 import { useAgentsStore } from '@renderer/stores/agents'
 import { toast } from '@renderer/stores/toast'
 import ConfirmDialog from '@renderer/components/history/ConfirmDialog'
-import type { AgentConfig } from '@shared/types'
+import type { AgentConfig, UpdateState } from '@shared/types'
 
 function slugify(name: string): string {
   return name
@@ -68,6 +68,7 @@ export default function SettingsPage(): React.JSX.Element {
   const [version, setVersion] = useState<string>('')
   const [defaultUrl, setDefaultUrl] = useState<string>('')
   const [savedUrl, setSavedUrl] = useState<string>('')
+  const [updateState, setUpdateState] = useState<UpdateState>({ status: 'idle' })
 
   const agents = useAgentsStore((s) => s.agents)
   const setAgentEnabled = useAgentsStore((s) => s.setAgentEnabled)
@@ -98,6 +99,7 @@ export default function SettingsPage(): React.JSX.Element {
         setDefaultUrl(url)
         setSavedUrl(url)
       })
+    return window.orchestrate.onUpdateState(setUpdateState)
   }, [])
 
   const handleSaveUrl = async (): Promise<void> => {
@@ -387,6 +389,82 @@ export default function SettingsPage(): React.JSX.Element {
             <p className="mt-1 text-xs text-zinc-500">
               AI agent orchestration for your projects.
             </p>
+
+            <div className="mt-3 border-t border-zinc-800 pt-3">
+              {updateState.status === 'idle' && (
+                <button
+                  onClick={() => window.orchestrate.checkForUpdates()}
+                  className="rounded bg-white px-3 py-1 text-xs font-medium text-zinc-900 transition-colors hover:bg-zinc-100"
+                >
+                  Check for updates
+                </button>
+              )}
+
+              {updateState.status === 'checking' && (
+                <span className="text-xs text-zinc-400">Checking for updates...</span>
+              )}
+
+              {updateState.status === 'not-available' && (
+                <span className="text-xs text-zinc-400">You&apos;re up to date.</span>
+              )}
+
+              {updateState.status === 'available' && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-zinc-300">
+                    v{updateState.info?.version} available
+                  </span>
+                  <button
+                    onClick={() => window.orchestrate.downloadUpdate()}
+                    className="rounded bg-white px-3 py-1 text-xs font-medium text-zinc-900 transition-colors hover:bg-zinc-100"
+                  >
+                    Download
+                  </button>
+                </div>
+              )}
+
+              {updateState.status === 'downloading' && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-zinc-400">Downloading...</span>
+                    <span className="text-xs text-zinc-500">
+                      {Math.round(updateState.progress?.percent ?? 0)}%
+                    </span>
+                  </div>
+                  <div className="h-1 overflow-hidden rounded-full bg-zinc-700">
+                    <div
+                      className="h-full rounded-full bg-white transition-all"
+                      style={{ width: `${updateState.progress?.percent ?? 0}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {updateState.status === 'downloaded' && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-zinc-300">
+                    v{updateState.info?.version} ready to install
+                  </span>
+                  <button
+                    onClick={() => window.orchestrate.quitAndInstall()}
+                    className="rounded bg-white px-3 py-1 text-xs font-medium text-zinc-900 transition-colors hover:bg-zinc-100"
+                  >
+                    Restart &amp; Update
+                  </button>
+                </div>
+              )}
+
+              {updateState.status === 'error' && (
+                <div className="space-y-1.5">
+                  <button
+                    onClick={() => window.orchestrate.checkForUpdates()}
+                    className="rounded bg-white px-3 py-1 text-xs font-medium text-zinc-900 transition-colors hover:bg-zinc-100"
+                  >
+                    Check for updates
+                  </button>
+                  <p className="text-xs text-red-400">{updateState.error}</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

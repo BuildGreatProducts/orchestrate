@@ -4,7 +4,8 @@ import type {
   FileChangeEvent,
   BrowserTabInfo,
   BrowserBounds,
-  BoardState
+  BoardState,
+  UpdateState
 } from '@shared/types'
 
 const api: OrchestrateAPI = {
@@ -144,6 +145,20 @@ const api: OrchestrateAPI = {
   getMcpServerUrl: () => ipcRenderer.invoke('mcp:getUrl'),
   getMcpConfigPath: () => ipcRenderer.invoke('mcp:getConfigPath'),
   getCodexMcpFlags: () => ipcRenderer.invoke('mcp:getCodexFlags'),
+
+  // Updates
+  checkForUpdates: () => ipcRenderer.invoke('updater:check'),
+  downloadUpdate: () => ipcRenderer.invoke('updater:download'),
+  quitAndInstall: () => ipcRenderer.send('updater:install'),
+  onUpdateState: (callback: (state: UpdateState) => void) => {
+    const handler = (_: Electron.IpcRendererEvent, state: UpdateState): void => {
+      callback(state)
+    }
+    ipcRenderer.on('updater:state', handler)
+    return () => {
+      ipcRenderer.removeListener('updater:state', handler)
+    }
+  },
 
   // Settings
   getSetting: (key: string) => ipcRenderer.invoke('settings:get', key),
