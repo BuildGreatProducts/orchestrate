@@ -29,6 +29,7 @@ import { AGENT_COLORS, ATTENTION_BG } from '@renderer/lib/agent-colors'
 import { useWorktreeStore } from '@renderer/stores/worktree'
 import WorktreeSection from '@renderer/components/agents/WorktreeSection'
 import AddWorktreeDialog from '@renderer/components/agents/AddWorktreeDialog'
+import BranchSwitcher from '@renderer/components/layout/BranchSwitcher'
 
 const EMPTY_WORKTREES: import('@shared/types').WorktreeInfo[] = []
 
@@ -483,11 +484,18 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
           )}
       </div>
 
+      {/* Branch indicator */}
+      {isGitRepo && (
+        <div className="ml-6 -mt-0.5 mb-0.5">
+          <BranchSwitcher projectFolder={folder} />
+        </div>
+      )}
+
       {/* Expanded: agent list */}
       {expanded && (
         <div className="ml-3 pb-1">
           {tabs.length === 0 && groups.length === 0 && displayWorktrees.length === 0 ? (
-            <div className="py-2 pl-3 text-xs text-zinc-600">No agents</div>
+            <div className="py-2 pl-4 text-xs text-zinc-600">No agents</div>
           ) : (
             <DndContext
               sensors={sensors}
@@ -516,7 +524,7 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
                 </UngroupedDropZone>
               )}
 
-              {ungroupedTabs.length === 0 && groupedTabIds.size > 0 && (
+              {ungroupedTabs.length === 0 && groupedTabIds.size > 0 && activeId && (
                 <UngroupedDropZone>
                   <div className="min-h-[8px]" />
                 </UngroupedDropZone>

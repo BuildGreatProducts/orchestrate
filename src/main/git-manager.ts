@@ -209,6 +209,18 @@ export class GitManager {
     }
   }
 
+  async checkout(branch: string): Promise<void> {
+    await this.git.checkout(branch)
+  }
+
+  async createBranch(branch: string): Promise<void> {
+    await this.git.checkoutLocalBranch(branch)
+  }
+
+  async deleteBranch(branch: string, force?: boolean): Promise<void> {
+    await this.git.deleteLocalBranch(branch, force)
+  }
+
   // ── Worktrees ──
 
   async listWorktrees(): Promise<WorktreeInfo[]> {

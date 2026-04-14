@@ -175,6 +175,12 @@ const api: OrchestrateAPI = {
   getCommitGraph: (limit?, branch?) => ipcRenderer.invoke('git:commitGraph', limit, branch),
   getBranches: () => ipcRenderer.invoke('git:branches'),
 
+  // Branches (project-specific)
+  listBranches: (projectFolder) => ipcRenderer.invoke('branch:list', projectFolder),
+  checkoutBranch: (projectFolder, branch) => ipcRenderer.invoke('branch:checkout', projectFolder, branch),
+  createBranch: (projectFolder, branch) => ipcRenderer.invoke('branch:create', projectFolder, branch),
+  deleteBranch: (projectFolder, branch, force?) => ipcRenderer.invoke('branch:delete', projectFolder, branch, force),
+
   // Worktrees
   listWorktrees: (projectFolder) => ipcRenderer.invoke('worktree:list', projectFolder),
   addWorktree: (projectFolder, path, branch, createBranch) =>

@@ -24,6 +24,8 @@ export default function HistoryTab(): React.JSX.Element {
   const confirmAndRestore = useHistoryStore((s) => s.confirmAndRestore)
   const cancelRestore = useHistoryStore((s) => s.cancelRestore)
 
+  const diffModal = useHistoryStore((s) => s.diffModal)
+
   const showUncommittedDialog = useHistoryStore((s) => s.showUncommittedDialog)
   const dismissUncommittedDialog = useHistoryStore((s) => s.dismissUncommittedDialog)
 
@@ -83,10 +85,7 @@ export default function HistoryTab(): React.JSX.Element {
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      <BranchGraphView />
-
-      {/* Modals */}
-      <DiffViewer />
+      {diffModal ? <DiffViewer /> : <BranchGraphView />}
 
       {confirmRevert !== null && (
         <ConfirmDialog

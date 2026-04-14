@@ -1,11 +1,17 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo, type CSSProperties } from 'react'
+import { createPortal } from 'react-dom'
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { ChevronRight, ChevronDown, Plus, Trash2 } from 'lucide-react'
+import { ChevronRight, ChevronDown, Plus, Trash2, Terminal, Folder } from 'lucide-react'
 import { useTerminalStore, type AgentGroup, type TerminalTab } from '@renderer/stores/terminal'
+import { useAgentsStore } from '@renderer/stores/agents'
+import { useAppStore } from '@renderer/stores/app'
+import { buildAgentCommand } from '@renderer/lib/agent-command-builder'
+import { executeSavedCommand } from '@renderer/lib/command-execution'
 import { toast } from '@renderer/stores/toast'
 import DraggableAgentItem from './DraggableAgentItem'
 import { getAgentColorIndex } from '@renderer/lib/agent-colors'
+import type { SavedCommand } from '@shared/types'
 
 interface AgentGroupSectionProps {
   group: AgentGroup
@@ -29,10 +35,21 @@ export default function AgentGroupSection({
   const deleteGroup = useTerminalStore((s) => s.deleteGroup)
   const removeTabFromGroup = useTerminalStore((s) => s.removeTabFromGroup)
   const createTabInGroup = useTerminalStore((s) => s.createTabInGroup)
+  const setActiveTab = useTerminalStore((s) => s.setActiveTab)
+  const showTerminal = useAppStore((s) => s.showTerminal)
+
+  const allAgents = useAgentsStore((s) => s.agents)
+  const enabledAgents = useMemo(() => allAgents.filter((a) => a.enabled), [allAgents])
 
   const [isRenaming, setIsRenaming] = useState(false)
   const [renameValue, setRenameValue] = useState(group.name)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [menuStyle, setMenuStyle] = useState<CSSProperties>({})
+  const addBtnRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const [savedCommands, setSavedCommands] = useState<SavedCommand[]>([])
 
   const { isOver, setNodeRef } = useDroppable({ id: group.id })
 
@@ -43,6 +60,21 @@ export default function AgentGroupSection({
     }
   }, [isRenaming])
 
+  // Close menu on click outside
+  useEffect(() => {
+    if (!menuOpen) return
+    const handleClick = (e: MouseEvent): void => {
+      if (
+        menuRef.current && !menuRef.current.contains(e.target as Node) &&
+        addBtnRef.current && !addBtnRef.current.contains(e.target as Node)
+      ) {
+        setMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [menuOpen])
+
   const commitRename = (): void => {
     const trimmed = renameValue.trim()
     if (trimmed && trimmed !== group.name) {
@@ -51,13 +83,39 @@ export default function AgentGroupSection({
     setIsRenaming(false)
   }
 
-  const handleAddAgent = async (): Promise<void> => {
-    try {
-      await createTabInGroup(projectFolder, group.id)
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      toast.error(`Failed to create terminal: ${msg}`)
+  const openAgentMenu = (): void => {
+    window.orchestrate.listCommands(projectFolder).then(setSavedCommands).catch(() => {})
+    if (addBtnRef.current) {
+      const rect = addBtnRef.current.getBoundingClientRect()
+      setMenuStyle({ position: 'fixed', top: rect.bottom + 4, left: rect.left, zIndex: 9999 })
     }
+    setMenuOpen(true)
+  }
+
+  const handleNewAgent = async (agentId?: string): Promise<void> => {
+    setMenuOpen(false)
+    try {
+      let tabId: string
+      if (agentId) {
+        const agentConfig = useAgentsStore.getState().getAgent(agentId)
+        if (!agentConfig) return
+        const mcpConfigPath = await window.orchestrate.getMcpConfigPath().catch(() => null)
+        const codexMcpFlags = await window.orchestrate.getCodexMcpFlags().catch(() => null)
+        const cmd = buildAgentCommand({ agent: agentConfig, prompt: '', mcpConfigPath, codexMcpFlags })
+        tabId = await createTabInGroup(projectFolder, group.id, agentConfig.displayName, cmd)
+      } else {
+        tabId = await createTabInGroup(projectFolder, group.id)
+      }
+      setActiveTab(tabId)
+      await showTerminal(projectFolder)
+    } catch (err) {
+      toast.error(`Failed to create terminal: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
+  const handleExecuteSavedCommand = async (commandId: string): Promise<void> => {
+    setMenuOpen(false)
+    await executeSavedCommand(commandId, projectFolder)
   }
 
   // Filter tabs to only those in this group, preserving group order
@@ -77,6 +135,8 @@ export default function AgentGroupSection({
         >
           {group.collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
         </button>
+
+        <Folder size={13} className="flex-shrink-0 text-purple-500" />
 
         {isRenaming ? (
           <input
@@ -117,7 +177,7 @@ export default function AgentGroupSection({
         )}
 
         <span
-          className={`rounded-full px-1.5 py-0.5 text-[10px] ${
+          className={`flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] leading-none ${
             groupTabs.length > 0
               ? 'bg-zinc-700 text-zinc-300'
               : 'bg-zinc-800 text-zinc-600'
@@ -127,7 +187,11 @@ export default function AgentGroupSection({
         </span>
 
         <button
-          onClick={handleAddAgent}
+          ref={addBtnRef}
+          onClick={(e) => {
+            e.stopPropagation()
+            menuOpen ? setMenuOpen(false) : openAgentMenu()
+          }}
           aria-label="Add agent to group"
           className="flex-shrink-0 rounded p-0.5 text-zinc-600 opacity-0 transition-opacity hover:bg-zinc-700 hover:text-zinc-300 group-hover/header:opacity-100 focus-visible:opacity-100"
         >
@@ -147,6 +211,50 @@ export default function AgentGroupSection({
         >
           <Trash2 size={13} />
         </button>
+
+        {menuOpen &&
+          createPortal(
+            <div
+              ref={menuRef}
+              style={menuStyle}
+              className="w-44 overflow-hidden rounded-md border border-zinc-700 bg-zinc-800 py-1 shadow-xl"
+            >
+              {enabledAgents.map((agent) => (
+                <button
+                  key={agent.id}
+                  onClick={() => handleNewAgent(agent.id)}
+                  className="flex w-full items-center px-3 py-1.5 text-left text-sm text-zinc-300 hover:bg-zinc-700"
+                >
+                  {agent.displayName}
+                </button>
+              ))}
+              {savedCommands.length > 0 && (
+                <>
+                  <div className="my-1 border-t border-zinc-700" />
+                  <div className="px-3 py-1 text-[11px] font-medium text-zinc-500">Saved Commands</div>
+                  {savedCommands.map((cmd) => (
+                    <button
+                      key={cmd.id}
+                      onClick={() => handleExecuteSavedCommand(cmd.id)}
+                      className="flex w-full items-center px-3 py-1.5 text-left text-sm text-zinc-300 hover:bg-zinc-700"
+                    >
+                      <Terminal size={14} className="mr-2 text-zinc-500" />
+                      <span className="truncate">{cmd.name}</span>
+                    </button>
+                  ))}
+                </>
+              )}
+              <div className="my-1 border-t border-zinc-700" />
+              <button
+                onClick={() => handleNewAgent()}
+                className="flex w-full items-center px-3 py-1.5 text-left text-sm text-zinc-400 hover:bg-zinc-700 hover:text-zinc-300"
+              >
+                <Terminal size={14} className="mr-2" />
+                Plain Terminal
+              </button>
+            </div>,
+            document.body
+          )}
       </div>
 
       {/* Group body */}
@@ -155,7 +263,7 @@ export default function AgentGroupSection({
           ref={setNodeRef}
           className={`ml-3 flex flex-col gap-0.5 rounded-md py-0.5 transition-colors ${
             isOver ? 'bg-zinc-800/40' : ''
-          } ${groupTabs.length === 0 ? 'min-h-[32px] border border-dashed border-zinc-800' : ''}`}
+          }`}
         >
           <SortableContext items={groupTabs.map((t) => t.id)} strategy={verticalListSortingStrategy}>
             {groupTabs.map((tab) => (
