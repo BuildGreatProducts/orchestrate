@@ -14,6 +14,7 @@ import { registerCommandHandlers } from './ipc/commands'
 import { registerWorktreeHandlers } from './ipc/worktree'
 import { registerBranchHandlers } from './ipc/branch'
 import { registerBrowserHandlers, closeAllBrowserTabs } from './ipc/browser'
+import { registerUpdaterHandlers } from './ipc/updater'
 import { registerStubHandlers } from './ipc/stubs'
 import { startWatching, stopWatching } from './file-watcher'
 import { SkillManager } from './skill-manager'
@@ -108,6 +109,7 @@ app.whenReady().then(() => {
   registerSkillHandlers(() => mainWindow, getCurrentFolder, getSkillManager)
   registerCommandHandlers(() => mainWindow, getCurrentFolder)
   registerBrowserHandlers(() => mainWindow)
+  registerUpdaterHandlers(() => mainWindow)
   registerStubHandlers()
 
   // Register settings IPC handlers
