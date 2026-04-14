@@ -38,11 +38,12 @@ export default function BranchSwitcher({ projectFolder }: BranchSwitcherProps): 
     try {
       const branchList = await window.orchestrate.listBranches(projectFolder)
       setBranches(branchList)
-      // hasUncommittedChanges uses getCurrentFolder(), not projectFolder — catch independently
+      setHasChanges(false)
       const dirty = await window.orchestrate.hasUncommittedChanges().catch(() => false)
       setHasChanges(dirty)
     } catch {
       setBranches([])
+      setHasChanges(false)
     } finally {
       setLoading(false)
     }
@@ -51,8 +52,11 @@ export default function BranchSwitcher({ projectFolder }: BranchSwitcherProps): 
   const openDropdown = (): void => {
     if (triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect()
-      const top = Math.min(rect.bottom + 4, window.innerHeight - 320)
-      setStyle({ position: 'fixed', top, left: rect.left, zIndex: 9999 })
+      const menuHeight = 320
+      const menuWidth = 224 // w-56
+      const top = Math.max(8, Math.min(rect.bottom + 4, window.innerHeight - menuHeight - 8))
+      const left = Math.max(8, Math.min(rect.left, window.innerWidth - menuWidth - 8))
+      setStyle({ position: 'fixed', top, left, zIndex: 9999 })
     }
     setSearch('')
     setPendingDelete(null)

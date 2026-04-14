@@ -47,14 +47,15 @@ export default function DiffViewer(): React.JSX.Element | null {
       <div className="flex items-center gap-2 border-b border-zinc-800 px-3 py-2">
         <button
           onClick={closeDiff}
+          aria-label="Close diff"
           className="rounded p-1 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200"
         >
           <VscArrowLeft size={16} />
         </button>
-        <span className="truncate text-sm text-zinc-300">
+        <span className="min-w-0 flex-1 truncate text-sm text-zinc-300">
           {diffModal.filePath}
         </span>
-        <span className="text-xs text-zinc-600">
+        <span className="flex-none text-xs text-zinc-600">
           {diffModal.hash.slice(0, 7)}
         </span>
       </div>
