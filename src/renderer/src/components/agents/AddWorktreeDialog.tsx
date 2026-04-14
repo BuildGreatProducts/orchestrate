@@ -24,11 +24,13 @@ export default function AddWorktreeDialog({
 
   useEffect(() => {
     const handleClick = (e: MouseEvent): void => {
+      if (creating) return
       if (dialogRef.current && !dialogRef.current.contains(e.target as Node)) {
         onClose()
       }
     }
     const handleKey = (e: KeyboardEvent): void => {
+      if (creating) return
       if (e.key === 'Escape') onClose()
     }
     document.addEventListener('mousedown', handleClick)
@@ -37,7 +39,7 @@ export default function AddWorktreeDialog({
       document.removeEventListener('mousedown', handleClick)
       document.removeEventListener('keydown', handleKey)
     }
-  }, [onClose])
+  }, [onClose, creating])
 
   const handleSubmit = async (): Promise<void> => {
     const trimmed = branch.trim()

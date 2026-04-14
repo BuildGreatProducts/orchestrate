@@ -274,9 +274,12 @@ export class GitManager {
     const statusMap: Record<string, FileDiff['status']> = {}
     for (const line of statusRaw.trim().split('\n')) {
       if (!line) continue
-      const match = line.match(/^([MADR])\d*\t(.+)$/)
+      const match = line.match(/^([MADR])\d*\t([^\t]+)(?:\t([^\t]+))?$/)
       if (match) {
-        statusMap[match[2]] = match[1].charAt(0) as FileDiff['status']
+        const status = match[1].charAt(0) as FileDiff['status']
+        // For renames, use the new path (3rd capture) as key to match --numstat output
+        const key = match[3] ?? match[2]
+        statusMap[key] = status
       }
     }
 

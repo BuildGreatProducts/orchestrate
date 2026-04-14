@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { DiffEditor } from '@monaco-editor/react'
 import { GitBranch, ArrowRight, GitMerge, Loader2 } from 'lucide-react'
 import { useAppStore } from '@renderer/stores/app'
@@ -40,6 +40,7 @@ export default function WorktreeDetailPage({ worktreePath }: WorktreeDetailPageP
   const [merging, setMerging] = useState(false)
   const [confirmMerge, setConfirmMerge] = useState(false)
   const [mergeError, setMergeError] = useState<string | null>(null)
+  const diffRequestRef = useRef(0)
 
   // Find the worktree and main branch info
   const worktree: WorktreeInfo | undefined = worktrees.find((w) => w.path === worktreePath)
@@ -49,16 +50,20 @@ export default function WorktreeDetailPage({ worktreePath }: WorktreeDetailPageP
 
   // Load changed files
   useEffect(() => {
-    if (!currentFolder || !compareBranch) return
+    if (!currentFolder) return
     let active = true
+
+    // Ensure worktrees are loaded so we can resolve branch names
+    if (worktrees.length === 0) {
+      loadWorktrees(currentFolder)
+      return
+    }
+
+    // Once we have branch names, fetch the diff
+    if (!compareBranch) return
     setLoading(true)
     setFiles([])
     setSelectedFile(null)
-
-    // Ensure worktrees are loaded
-    if (worktrees.length === 0) {
-      loadWorktrees(currentFolder)
-    }
 
     window.orchestrate.diffWorktreeFiles(currentFolder, mainBranch, compareBranch)
       .then((result) => {
@@ -80,15 +85,18 @@ export default function WorktreeDetailPage({ worktreePath }: WorktreeDetailPageP
   // Load file diff when selected
   const handleViewDiff = useCallback((filePath: string) => {
     if (!currentFolder) return
+    const requestId = ++diffRequestRef.current
     setSelectedFile(filePath)
     setDiffLoading(true)
     window.orchestrate.diffWorktreeFile(currentFolder, mainBranch, compareBranch, filePath)
       .then(({ before, after }) => {
+        if (diffRequestRef.current !== requestId) return
         setDiffBefore(before)
         setDiffAfter(after)
         setDiffLoading(false)
       })
       .catch(() => {
+        if (diffRequestRef.current !== requestId) return
         setDiffBefore('')
         setDiffAfter('')
         setDiffLoading(false)
@@ -159,7 +167,7 @@ export default function WorktreeDetailPage({ worktreePath }: WorktreeDetailPageP
 
         <button
           onClick={() => setConfirmMerge(true)}
-          disabled={merging || files.length === 0}
+          disabled={merging || loading}
           className="flex items-center gap-1.5 rounded-md bg-white px-3 py-1.5 text-sm font-medium text-black transition-colors hover:bg-zinc-200 disabled:opacity-50 disabled:hover:bg-white"
         >
           <GitMerge size={14} />

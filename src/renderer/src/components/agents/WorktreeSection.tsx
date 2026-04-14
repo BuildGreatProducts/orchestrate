@@ -131,6 +131,10 @@ export default function WorktreeSection({
     for (const tab of tabs) {
       useTerminalStore.getState().closeTab(tab.id)
     }
+    // Navigate away if the deleted worktree's detail view is active
+    if (isActive) {
+      useAppStore.getState().showProjectDetail(projectFolder)
+    }
     setConfirmRemove(false)
   }
 

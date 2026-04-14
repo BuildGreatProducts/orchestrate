@@ -56,9 +56,14 @@ export const useWorktreeStore = create<WorktreeState>((set, get) => ({
     try {
       // Try checking out existing branch first
       await window.orchestrate.addWorktree(projectFolder, worktreePath, branch, false)
-    } catch {
-      // Branch doesn't exist — create it
-      await window.orchestrate.addWorktree(projectFolder, worktreePath, branch, true)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      // Only retry with -b if git says the branch doesn't exist
+      if (msg.includes('invalid reference') || msg.includes('not a valid object name') || msg.includes('did not match any')) {
+        await window.orchestrate.addWorktree(projectFolder, worktreePath, branch, true)
+      } else {
+        throw err
+      }
     }
 
     await get().loadWorktrees(projectFolder)
