@@ -405,7 +405,12 @@ export default function SettingsPage(): React.JSX.Element {
               )}
 
               {updateState.status === 'not-available' && (
-                <span className="text-xs text-zinc-400">You&apos;re up to date.</span>
+                <button
+                  onClick={() => window.orchestrate.checkForUpdates()}
+                  className="text-xs text-zinc-400 transition-colors hover:text-zinc-200"
+                >
+                  You&apos;re up to date. Check again
+                </button>
               )}
 
               {updateState.status === 'available' && (

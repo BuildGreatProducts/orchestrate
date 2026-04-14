@@ -73,7 +73,7 @@ export function registerUpdaterHandlers(getWindow: () => BrowserWindow | null): 
     await autoUpdater.downloadUpdate()
   })
 
-  ipcMain.handle('updater:install', () => {
+  ipcMain.on('updater:install', () => {
     autoUpdater.quitAndInstall()
   })
 }
