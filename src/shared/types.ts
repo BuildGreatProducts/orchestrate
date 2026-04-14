@@ -14,6 +14,7 @@ export type ContentView =
   | { type: 'project-detail' }
   | { type: 'terminal' }
   | { type: 'page'; pageId: NavPageId }
+  | { type: 'worktree-detail'; worktreePath: string }
 
 // ── File System ──
 
@@ -128,6 +129,14 @@ export interface AgentConfig {
 }
 
 // ── Git / History ──
+
+export interface WorktreeInfo {
+  path: string
+  branch: string
+  commit: string
+  isMain: boolean
+  isDetached: boolean
+}
 
 export interface CommitNode {
   hash: string
@@ -273,6 +282,14 @@ export interface OrchestrateAPI {
   hasUncommittedChanges: () => Promise<boolean>
   getCommitGraph: (limit?: number, branch?: string) => Promise<CommitNode[]>
   getBranches: () => Promise<BranchInfo[]>
+
+  // Worktrees
+  listWorktrees: (projectFolder: string) => Promise<WorktreeInfo[]>
+  addWorktree: (projectFolder: string, path: string, branch: string, createBranch: boolean) => Promise<void>
+  removeWorktree: (projectFolder: string, worktreePath: string, force?: boolean) => Promise<void>
+  diffWorktreeFiles: (projectFolder: string, baseBranch: string, compareBranch: string) => Promise<FileDiff[]>
+  diffWorktreeFile: (projectFolder: string, baseBranch: string, compareBranch: string, filePath: string) => Promise<{ before: string; after: string }>
+  mergeWorktree: (projectFolder: string, branch: string) => Promise<{ success: boolean; conflicts?: string[] }>
 
   // Browser
   createBrowserTab: (id: string, url: string) => Promise<void>

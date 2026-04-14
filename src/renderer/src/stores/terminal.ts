@@ -7,6 +7,7 @@ export interface TerminalTab {
   id: string
   name: string
   projectFolder: string
+  worktreePath?: string
   taskId?: string
   isAgent: boolean
   exited: boolean
@@ -32,7 +33,7 @@ interface TerminalState {
   nextGroupIndex: number
   pendingCloseTabId: string | null
 
-  createTab: (cwd: string, name?: string, command?: string, taskId?: string) => Promise<string>
+  createTab: (cwd: string, name?: string, command?: string, taskId?: string, worktreePath?: string) => Promise<string>
   getTaskId: (terminalId: string) => string | undefined
   closeTab: (id: string) => void
   requestCloseTab: (id: string) => void
@@ -55,7 +56,7 @@ interface TerminalState {
   removeTabFromGroup: (tabId: string) => void
   reorderTabInGroup: (groupId: string, oldIndex: number, newIndex: number) => void
   reorderTabs: (oldIndex: number, newIndex: number) => void
-  createTabInGroup: (cwd: string, groupId: string, name?: string, command?: string) => Promise<string>
+  createTabInGroup: (cwd: string, groupId: string, name?: string, command?: string, worktreePath?: string) => Promise<string>
   findOrCreateGroup: (name: string, projectFolder: string) => string
 }
 
@@ -184,7 +185,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
   nextGroupIndex: 1,
   pendingCloseTabId: null,
 
-  createTab: async (cwd: string, name?: string, command?: string, taskId?: string) => {
+  createTab: async (cwd: string, name?: string, command?: string, taskId?: string, worktreePath?: string) => {
     const { nextIndex } = get()
     const id = `terminal-${Date.now()}-${nextIndex}`
     const tabName = name ?? `Terminal ${nextIndex}`
@@ -199,7 +200,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     set((state) => ({
       tabs: [
         ...state.tabs,
-        { id, name: tabName, projectFolder: cwd, taskId, isAgent: !!command, exited: false, busy: false, bell: false }
+        { id, name: tabName, projectFolder: cwd, worktreePath, taskId, isAgent: !!command, exited: false, busy: false, bell: false }
       ],
       activeTabId: id,
       nextIndex: state.nextIndex + 1
@@ -208,8 +209,9 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     // Wait for TerminalPane to mount and register its IPC handlers
     await readyPromise
 
+    const effectiveCwd = worktreePath ?? cwd
     try {
-      await window.orchestrate.createTerminal(id, cwd, command)
+      await window.orchestrate.createTerminal(id, effectiveCwd, command)
     } catch (err) {
       // Remove the orphaned tab on failure
       set((state) => {
@@ -418,8 +420,8 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     }))
   },
 
-  createTabInGroup: async (cwd: string, groupId: string, name?: string, command?: string) => {
-    const tabId = await get().createTab(cwd, name, command)
+  createTabInGroup: async (cwd: string, groupId: string, name?: string, command?: string, worktreePath?: string) => {
+    const tabId = await get().createTab(cwd, name, command, undefined, worktreePath)
     get().moveTabToGroup(tabId, groupId)
     return tabId
   },

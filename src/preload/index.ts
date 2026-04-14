@@ -173,7 +173,20 @@ const api: OrchestrateAPI = {
   restoreToSavePoint: (hash) => ipcRenderer.invoke('git:restore', hash),
   hasUncommittedChanges: () => ipcRenderer.invoke('git:hasChanges'),
   getCommitGraph: (limit?, branch?) => ipcRenderer.invoke('git:commitGraph', limit, branch),
-  getBranches: () => ipcRenderer.invoke('git:branches')
+  getBranches: () => ipcRenderer.invoke('git:branches'),
+
+  // Worktrees
+  listWorktrees: (projectFolder) => ipcRenderer.invoke('worktree:list', projectFolder),
+  addWorktree: (projectFolder, path, branch, createBranch) =>
+    ipcRenderer.invoke('worktree:add', projectFolder, path, branch, createBranch),
+  removeWorktree: (projectFolder, worktreePath, force?) =>
+    ipcRenderer.invoke('worktree:remove', projectFolder, worktreePath, force),
+  diffWorktreeFiles: (projectFolder, baseBranch, compareBranch) =>
+    ipcRenderer.invoke('worktree:diffFiles', projectFolder, baseBranch, compareBranch),
+  diffWorktreeFile: (projectFolder, baseBranch, compareBranch, filePath) =>
+    ipcRenderer.invoke('worktree:diffFile', projectFolder, baseBranch, compareBranch, filePath),
+  mergeWorktree: (projectFolder, branch) =>
+    ipcRenderer.invoke('worktree:merge', projectFolder, branch)
 }
 
 contextBridge.exposeInMainWorld('orchestrate', api)

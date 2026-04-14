@@ -13,7 +13,7 @@ import {
   type DragEndEvent
 } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { ChevronRight, ChevronDown, Plus, FolderPlus, Terminal } from 'lucide-react'
+import { ChevronRight, ChevronDown, Plus, FolderPlus, Terminal, GitBranch } from 'lucide-react'
 import { useTerminalStore } from '@renderer/stores/terminal'
 import { useAppStore } from '@renderer/stores/app'
 import DraggableAgentItem from '@renderer/components/agents/DraggableAgentItem'
@@ -26,6 +26,11 @@ import { toast } from '@renderer/stores/toast'
 import type { SavedCommand } from '@shared/types'
 import { useAllProjectsAgentStatus } from '@renderer/hooks/useProjectAgentStatus'
 import { AGENT_COLORS, ATTENTION_BG } from '@renderer/lib/agent-colors'
+import { useWorktreeStore } from '@renderer/stores/worktree'
+import WorktreeSection from '@renderer/components/agents/WorktreeSection'
+import AddWorktreeDialog from '@renderer/components/agents/AddWorktreeDialog'
+
+const EMPTY_WORKTREES: import('@shared/types').WorktreeInfo[] = []
 
 function UngroupedDropZone({ children }: { children: React.ReactNode }): React.JSX.Element {
   const { isOver, setNodeRef } = useDroppable({ id: 'ungrouped' })
@@ -88,7 +93,7 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
   }, [groups])
 
   const ungroupedTabs = useMemo(
-    () => tabs.filter((t) => !groupedTabIds.has(t.id)),
+    () => tabs.filter((t) => !groupedTabIds.has(t.id) && !t.worktreePath),
     [tabs, groupedTabIds]
   )
   const ungroupedTabIds = useMemo(
@@ -115,6 +120,49 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
   const newAgentMenuRef = useRef<HTMLDivElement>(null)
 
   const [savedCommands, setSavedCommands] = useState<SavedCommand[]>([])
+
+  // Worktree state
+  const worktreeList = useWorktreeStore((s) => s.worktrees[folder] ?? EMPTY_WORKTREES)
+  const loadWorktrees = useWorktreeStore((s) => s.loadWorktrees)
+  const [isGitRepo, setIsGitRepo] = useState(false)
+  const [showAddWorktree, setShowAddWorktree] = useState(false)
+  const worktreeBtnRef = useRef<HTMLButtonElement>(null)
+  const [worktreeDialogStyle, setWorktreeDialogStyle] = useState<CSSProperties>({})
+
+  // Non-main worktrees to display
+  const displayWorktrees = useMemo(
+    () => worktreeList.filter((w) => !w.isMain),
+    [worktreeList]
+  )
+
+  // Tabs belonging to worktrees vs ungrouped
+  const worktreeTabsByPath = useMemo(() => {
+    const map = new Map<string, typeof tabs>()
+    for (const tab of tabs) {
+      if (tab.worktreePath) {
+        const existing = map.get(tab.worktreePath) ?? []
+        existing.push(tab)
+        map.set(tab.worktreePath, existing)
+      }
+    }
+    return map
+  }, [tabs])
+
+  // Check git repo and load worktrees on mount/expansion
+  // Uses listWorktrees (which takes folder explicitly) instead of isGitRepo
+  // (which depends on getCurrentFolder and may throw before a project is active)
+  useEffect(() => {
+    if (!expanded) return
+    let active = true
+    loadWorktrees(folder).then(() => {
+      if (!active) return
+      const list = useWorktreeStore.getState().worktrees[folder]
+      setIsGitRepo(Array.isArray(list) && list.length > 0)
+    }).catch(() => {
+      if (active) setIsGitRepo(false)
+    })
+    return () => { active = false }
+  }, [expanded, folder, loadWorktrees])
 
   const openAgentMenu = (): void => {
     window.orchestrate.listCommands(folder).then(setSavedCommands).catch(() => {})
@@ -343,6 +391,28 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
           <FolderPlus size={13} />
         </button>
 
+        {isGitRepo && (
+          <button
+            ref={worktreeBtnRef}
+            onClick={(e) => {
+              e.stopPropagation()
+              if (showAddWorktree) {
+                setShowAddWorktree(false)
+              } else {
+                if (worktreeBtnRef.current) {
+                  const rect = worktreeBtnRef.current.getBoundingClientRect()
+                  setWorktreeDialogStyle({ position: 'fixed', top: rect.bottom + 4, left: rect.left, zIndex: 9999 })
+                }
+                setShowAddWorktree(true)
+              }
+            }}
+            aria-label="New worktree"
+            className="flex-shrink-0 rounded p-0.5 text-zinc-600 opacity-0 transition-opacity hover:bg-zinc-700 hover:text-emerald-400 group-hover/project:opacity-100 focus-visible:opacity-100"
+          >
+            <GitBranch size={13} />
+          </button>
+        )}
+
         <button
           ref={newAgentBtnRef}
           onClick={(e) => {
@@ -401,12 +471,22 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
             </div>,
             document.body
           )}
+        {showAddWorktree &&
+          createPortal(
+            <div style={worktreeDialogStyle}>
+              <AddWorktreeDialog
+                projectFolder={folder}
+                onClose={() => setShowAddWorktree(false)}
+              />
+            </div>,
+            document.body
+          )}
       </div>
 
       {/* Expanded: agent list */}
       {expanded && (
         <div className="ml-3 pb-1">
-          {tabs.length === 0 && groups.length === 0 ? (
+          {tabs.length === 0 && groups.length === 0 && displayWorktrees.length === 0 ? (
             <div className="py-2 pl-3 text-xs text-zinc-600">No agents</div>
           ) : (
             <DndContext
@@ -436,11 +516,24 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
                 </UngroupedDropZone>
               )}
 
-              {ungroupedTabs.length === 0 && tabs.length > 0 && (
+              {ungroupedTabs.length === 0 && groupedTabIds.size > 0 && (
                 <UngroupedDropZone>
                   <div className="min-h-[8px]" />
                 </UngroupedDropZone>
               )}
+
+              {displayWorktrees.map((wt) => (
+                <WorktreeSection
+                  key={wt.path}
+                  worktree={wt}
+                  projectFolder={folder}
+                  tabs={worktreeTabsByPath.get(wt.path) ?? []}
+                  allProjectTabs={tabs}
+                  activeTabId={contentView.type === 'terminal' ? activeTabId : null}
+                  onSelectTab={handleSelectTab}
+                  onCloseTab={requestCloseTab}
+                />
+              ))}
 
               {groups.map((group) => (
                 <AgentGroupSection

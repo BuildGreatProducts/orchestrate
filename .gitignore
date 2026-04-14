@@ -4,6 +4,10 @@ out
 .DS_Store
 .eslintcache
 *.log*
+*.tsbuildinfo
+
+# Per-project app data (contains user paths and chat history)
+.orchestrate/
 
 # Playwright
 /test-results/

@@ -15,6 +15,7 @@ import BrowserTab from '@renderer/components/browser/BrowserTab'
 import SettingsPage from '@renderer/components/settings/SettingsPage'
 import TerminalContentArea from '@renderer/components/agents/TerminalContentArea'
 import ProjectDetailPage from '@renderer/components/project/ProjectDetailPage'
+import WorktreeDetailPage from '@renderer/components/worktree/WorktreeDetailPage'
 
 function App(): React.JSX.Element {
   const contentView = useAppStore((s) => s.contentView)
@@ -107,11 +108,11 @@ function App(): React.JSX.Element {
   }, [])
 
   return (
-    <div className="flex h-screen flex-col bg-black text-white">
+    <div className="flex h-screen flex-col bg-zinc-900 text-white">
       <TopBar />
       <div className="flex flex-1 overflow-hidden">
         <LeftSidebar />
-        <main className="relative flex-1 overflow-hidden">
+        <main className="relative mb-2.5 mr-2.5 ml-px mt-px flex-1 overflow-hidden rounded-lg bg-black ring-1 ring-zinc-800">
           {/* Orchestrate — global feed */}
           <div
             className={
@@ -132,6 +133,19 @@ function App(): React.JSX.Element {
             }
           >
             <ProjectDetailPage />
+          </div>
+
+          {/* Worktree detail — branch diff & merge */}
+          <div
+            className={
+              contentView.type === 'worktree-detail'
+                ? 'flex h-full w-full animate-in fade-in duration-150'
+                : 'hidden'
+            }
+          >
+            {contentView.type === 'worktree-detail' && (
+              <WorktreeDetailPage worktreePath={contentView.worktreePath} />
+            )}
           </div>
 
           {/* Terminal view */}
