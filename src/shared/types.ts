@@ -283,6 +283,12 @@ export interface OrchestrateAPI {
   getCommitGraph: (limit?: number, branch?: string) => Promise<CommitNode[]>
   getBranches: () => Promise<BranchInfo[]>
 
+  // Branches (project-specific)
+  listBranches: (projectFolder: string) => Promise<BranchInfo[]>
+  checkoutBranch: (projectFolder: string, branch: string) => Promise<void>
+  createBranch: (projectFolder: string, branch: string) => Promise<void>
+  deleteBranch: (projectFolder: string, branch: string, force?: boolean) => Promise<void>
+
   // Worktrees
   listWorktrees: (projectFolder: string) => Promise<WorktreeInfo[]>
   addWorktree: (projectFolder: string, path: string, branch: string, createBranch: boolean) => Promise<void>

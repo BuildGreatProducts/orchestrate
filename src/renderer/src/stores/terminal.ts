@@ -33,7 +33,7 @@ interface TerminalState {
   nextGroupIndex: number
   pendingCloseTabId: string | null
 
-  createTab: (cwd: string, name?: string, command?: string, taskId?: string, worktreePath?: string) => Promise<string>
+  createTab: (cwd: string, name?: string, command?: string, taskId?: string, worktreePath?: string, groupId?: string) => Promise<string>
   getTaskId: (terminalId: string) => string | undefined
   closeTab: (id: string) => void
   requestCloseTab: (id: string) => void
@@ -185,7 +185,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
   nextGroupIndex: 1,
   pendingCloseTabId: null,
 
-  createTab: async (cwd: string, name?: string, command?: string, taskId?: string, worktreePath?: string) => {
+  createTab: async (cwd: string, name?: string, command?: string, taskId?: string, worktreePath?: string, groupId?: string) => {
     const { nextIndex } = get()
     const id = `terminal-${Date.now()}-${nextIndex}`
     const tabName = name ?? `Terminal ${nextIndex}`
@@ -196,14 +196,21 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     })
 
     // Add tab to state FIRST so the component mounts and registers
-    // its handlers before the PTY starts emitting
+    // its handlers before the PTY starts emitting.
+    // If groupId is provided, atomically add the tab to that group
+    // to avoid a render flash where the tab appears ungrouped.
     set((state) => ({
       tabs: [
         ...state.tabs,
         { id, name: tabName, projectFolder: cwd, worktreePath, taskId, isAgent: !!command, exited: false, busy: false, bell: false }
       ],
       activeTabId: id,
-      nextIndex: state.nextIndex + 1
+      nextIndex: state.nextIndex + 1,
+      ...(groupId ? {
+        groups: state.groups.map((g) =>
+          g.id === groupId ? { ...g, tabIds: [...g.tabIds, id] } : g
+        )
+      } : {})
     }))
 
     // Wait for TerminalPane to mount and register its IPC handlers
@@ -421,9 +428,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
   },
 
   createTabInGroup: async (cwd: string, groupId: string, name?: string, command?: string, worktreePath?: string) => {
-    const tabId = await get().createTab(cwd, name, command, undefined, worktreePath)
-    get().moveTabToGroup(tabId, groupId)
-    return tabId
+    return get().createTab(cwd, name, command, undefined, worktreePath, groupId)
   },
 
   findOrCreateGroup: (name: string, projectFolder: string) => {

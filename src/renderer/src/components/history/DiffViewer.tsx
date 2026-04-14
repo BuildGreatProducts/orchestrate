@@ -1,5 +1,5 @@
 import { DiffEditor } from '@monaco-editor/react'
-import { VscClose } from 'react-icons/vsc'
+import { VscArrowLeft } from 'react-icons/vsc'
 import { useHistoryStore } from '@renderer/stores/history'
 
 const LANG_MAP: Record<string, string> = {
@@ -43,17 +43,21 @@ export default function DiffViewer(): React.JSX.Element | null {
   const language = detectLanguage(diffModal.filePath)
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black/60 animate-in fade-in duration-150">
-      <div className="flex items-center justify-between border-b border-zinc-800 bg-zinc-900 px-4 py-2">
-        <span className="truncate text-sm font-medium text-zinc-200">
-          {diffModal.filePath}
-        </span>
+    <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex items-center gap-2 border-b border-zinc-800 px-3 py-2">
         <button
           onClick={closeDiff}
+          aria-label="Close diff"
           className="rounded p-1 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200"
         >
-          <VscClose size={18} />
+          <VscArrowLeft size={16} />
         </button>
+        <span className="min-w-0 flex-1 truncate text-sm text-zinc-300">
+          {diffModal.filePath}
+        </span>
+        <span className="flex-none text-xs text-zinc-600">
+          {diffModal.hash.slice(0, 7)}
+        </span>
       </div>
       <div className="flex-1">
         <DiffEditor
