@@ -28,6 +28,7 @@ export function registerBranchHandlers(
   markChannelRegistered('branch:checkout')
   markChannelRegistered('branch:create')
   markChannelRegistered('branch:delete')
+  markChannelRegistered('branch:remoteUrl')
 
   function getManager(projectFolder: unknown): GitManager {
     validatePath(projectFolder)
@@ -65,4 +66,12 @@ export function registerBranchHandlers(
       await getManager(projectFolder).deleteBranch(branch, force)
     }
   )
+
+  ipcMain.handle('branch:remoteUrl', async (_, projectFolder: string) => {
+    try {
+      return await getManager(projectFolder).getRemoteUrl()
+    } catch {
+      return null
+    }
+  })
 }

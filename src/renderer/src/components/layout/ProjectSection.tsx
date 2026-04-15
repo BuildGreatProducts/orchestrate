@@ -13,7 +13,7 @@ import {
   type DragEndEvent
 } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { ChevronRight, ChevronDown, Plus, FolderPlus, Terminal, GitBranch } from 'lucide-react'
+import { ChevronRight, ChevronDown, Plus, FolderPlus, Terminal, GitBranch, Github } from 'lucide-react'
 import { useTerminalStore } from '@renderer/stores/terminal'
 import { useAppStore } from '@renderer/stores/app'
 import DraggableAgentItem from '@renderer/components/agents/DraggableAgentItem'
@@ -27,11 +27,23 @@ import type { SavedCommand } from '@shared/types'
 import { useAllProjectsAgentStatus } from '@renderer/hooks/useProjectAgentStatus'
 import { AGENT_COLORS, ATTENTION_BG } from '@renderer/lib/agent-colors'
 import { useWorktreeStore } from '@renderer/stores/worktree'
+import { useBrowserStore } from '@renderer/stores/browser'
 import WorktreeSection from '@renderer/components/agents/WorktreeSection'
 import AddWorktreeDialog from '@renderer/components/agents/AddWorktreeDialog'
 import BranchSwitcher from '@renderer/components/layout/BranchSwitcher'
 
 const EMPTY_WORKTREES: import('@shared/types').WorktreeInfo[] = []
+
+function remoteUrlToHttps(url: string): string {
+  // git@github.com:org/repo.git → https://github.com/org/repo
+  const sshMatch = url.match(/^[\w-]+@([^:]+):(.+?)(?:\.git)?$/)
+  if (sshMatch) return `https://${sshMatch[1]}/${sshMatch[2]}`
+  // ssh://git@github.com/org/repo.git
+  const sshProto = url.match(/^ssh:\/\/[\w-]+@([^/]+)\/(.+?)(?:\.git)?$/)
+  if (sshProto) return `https://${sshProto[1]}/${sshProto[2]}`
+  // https://github.com/org/repo.git → strip .git
+  return url.replace(/\.git$/, '')
+}
 
 function UngroupedDropZone({ children }: { children: React.ReactNode }): React.JSX.Element {
   const { isOver, setNodeRef } = useDroppable({ id: 'ungrouped' })
@@ -54,6 +66,7 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
   const toggleExpanded = useAppStore((s) => s.toggleProjectExpanded)
   const showProjectDetail = useAppStore((s) => s.showProjectDetail)
   const showTerminal = useAppStore((s) => s.showTerminal)
+  const showPage = useAppStore((s) => s.showPage)
   const contentView = useAppStore((s) => s.contentView)
   const currentFolder = useAppStore((s) => s.currentFolder)
 
@@ -126,6 +139,7 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
   const worktreeList = useWorktreeStore((s) => s.worktrees[folder] ?? EMPTY_WORKTREES)
   const loadWorktrees = useWorktreeStore((s) => s.loadWorktrees)
   const [isGitRepo, setIsGitRepo] = useState(false)
+  const [remoteUrl, setRemoteUrl] = useState<string | null>(null)
   const [showAddWorktree, setShowAddWorktree] = useState(false)
   const worktreeBtnRef = useRef<HTMLButtonElement>(null)
   const [worktreeDialogStyle, setWorktreeDialogStyle] = useState<CSSProperties>({})
@@ -162,6 +176,13 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
     }).catch(() => {
       if (active) setIsGitRepo(false)
     })
+    if (typeof window.orchestrate.getRemoteUrl === 'function') {
+      window.orchestrate.getRemoteUrl(folder).then((url) => {
+        if (active) setRemoteUrl(url)
+      }).catch(() => {
+        if (active) setRemoteUrl(null)
+      })
+    }
     return () => { active = false }
   }, [expanded, folder, loadWorktrees])
 
@@ -346,16 +367,8 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
         isProjectActive ? 'bg-zinc-800' : 'hover:bg-zinc-800/50'
       }`}>
         <button
-          onClick={() => toggleExpanded(folder)}
-          className="flex-shrink-0 text-zinc-500 hover:text-zinc-300"
-          aria-label={expanded ? 'Collapse project' : 'Expand project'}
-        >
-          {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-        </button>
-
-        <button
           onClick={() => showProjectDetail(folder)}
-          className={`flex min-w-0 flex-1 items-center gap-1.5 rounded px-1 py-0.5 text-left text-sm font-medium transition-colors ${
+          className={`flex min-w-0 items-center gap-1.5 rounded px-1 py-0.5 text-left text-sm font-medium transition-colors ${
             isProjectActive
               ? 'text-white'
               : 'text-zinc-300 hover:text-white'
@@ -380,7 +393,32 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
           <span className="truncate">{projectName}</span>
         </button>
 
+        <button
+          onClick={() => toggleExpanded(folder)}
+          className="flex-shrink-0 text-zinc-500 hover:text-zinc-300"
+          aria-label={expanded ? 'Collapse project' : 'Expand project'}
+        >
+          {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        </button>
+
+        <div className="flex-1" />
+
         {/* Action buttons — visible on hover */}
+        {remoteUrl && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              const url = remoteUrlToHttps(remoteUrl)
+              showPage('browser')
+              useBrowserStore.getState().createTab(url)
+            }}
+            aria-label="Open remote repo"
+            className="flex-shrink-0 rounded p-0.5 text-zinc-600 opacity-0 transition-opacity hover:bg-zinc-700 hover:text-zinc-300 group-hover/project:opacity-100 focus-visible:opacity-100"
+          >
+            <Github size={13} />
+          </button>
+        )}
+
         <button
           onClick={(e) => {
             e.stopPropagation()
@@ -486,16 +524,16 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
 
       {/* Branch indicator */}
       {isGitRepo && (
-        <div className="ml-6 -mt-0.5 mb-0.5">
+        <div className="pl-1.5 -mt-0.5 mb-0.5">
           <BranchSwitcher projectFolder={folder} />
         </div>
       )}
 
       {/* Expanded: agent list */}
       {expanded && (
-        <div className="ml-3 pb-1">
+        <div className="pb-1">
           {tabs.length === 0 && groups.length === 0 && displayWorktrees.length === 0 ? (
-            <div className="py-2 pl-4 text-xs text-zinc-600">No agents</div>
+            <div className="py-2 pl-2.5 text-xs text-zinc-600">No agents</div>
           ) : (
             <DndContext
               sensors={sensors}

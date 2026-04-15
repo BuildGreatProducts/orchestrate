@@ -127,15 +127,7 @@ export default function AgentGroupSection({
   return (
     <div className="mt-1">
       {/* Group header */}
-      <div className="group/header flex items-center gap-1 rounded-md px-1.5 py-1.5 hover:bg-zinc-800/50">
-        <button
-          onClick={() => toggleGroupCollapsed(group.id)}
-          aria-label={group.collapsed ? 'Expand group' : 'Collapse group'}
-          className="flex-shrink-0 text-zinc-500 hover:text-zinc-300"
-        >
-          {group.collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
-        </button>
-
+      <div className="group/header flex items-center gap-1 rounded-md px-2.5 py-1.5 hover:bg-zinc-800/50">
         <Folder size={13} className="flex-shrink-0 text-purple-500" />
 
         {isRenaming ? (
@@ -170,11 +162,21 @@ export default function AgentGroupSection({
               }
             }}
             aria-label={`Rename ${group.name}`}
-            className="flex-1 truncate rounded text-sm font-medium text-zinc-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-zinc-500"
+            className="min-w-0 truncate rounded text-sm font-medium text-zinc-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-zinc-500"
           >
             {group.name}
           </span>
         )}
+
+        <button
+          onClick={() => toggleGroupCollapsed(group.id)}
+          aria-label={group.collapsed ? 'Expand group' : 'Collapse group'}
+          className="flex-shrink-0 text-zinc-500 hover:text-zinc-300"
+        >
+          {group.collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+        </button>
+
+        <div className="flex-1" />
 
         <span
           className={`flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] leading-none ${

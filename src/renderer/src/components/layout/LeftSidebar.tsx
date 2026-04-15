@@ -66,10 +66,10 @@ export default function LeftSidebar(): React.JSX.Element {
         ))}
       </div>
 
-      <div className="mx-3 my-1 h-px bg-zinc-800" />
+      <div className="mx-4 my-1 h-px bg-zinc-800" />
 
       {/* Projects header */}
-      <div className="flex items-center justify-between px-3 py-2">
+      <div className="flex items-center justify-between px-4 py-2">
         <span className="text-xs font-medium uppercase tracking-wider text-zinc-400">Projects</span>
       </div>
 

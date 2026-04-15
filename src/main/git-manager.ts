@@ -221,6 +221,15 @@ export class GitManager {
     await this.git.deleteLocalBranch(branch, force)
   }
 
+  async getRemoteUrl(remote = 'origin'): Promise<string | null> {
+    try {
+      const url = await this.git.remote(['get-url', remote])
+      return url ? url.trim() : null
+    } catch {
+      return null
+    }
+  }
+
   // ── Worktrees ──
 
   async listWorktrees(): Promise<WorktreeInfo[]> {

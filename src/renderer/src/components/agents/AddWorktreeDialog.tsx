@@ -89,7 +89,7 @@ export default function AddWorktreeDialog({
       <button
         onClick={handleSubmit}
         disabled={creating || !branch.trim()}
-        className="w-full rounded bg-emerald-700 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-emerald-600 disabled:opacity-50 disabled:hover:bg-emerald-700"
+        className="w-full rounded bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_1px_3px_rgba(0,0,0,0.4),0_0px_1px_rgba(0,0,0,0.3)] transition-colors hover:bg-zinc-100 active:bg-zinc-200 active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.2)] disabled:opacity-40 disabled:hover:bg-white"
       >
         {creating ? 'Creating...' : 'Create Worktree'}
       </button>
