@@ -195,6 +195,7 @@ const api: OrchestrateAPI = {
   checkoutBranch: (projectFolder, branch) => ipcRenderer.invoke('branch:checkout', projectFolder, branch),
   createBranch: (projectFolder, branch) => ipcRenderer.invoke('branch:create', projectFolder, branch),
   deleteBranch: (projectFolder, branch, force?) => ipcRenderer.invoke('branch:delete', projectFolder, branch, force),
+  getRemoteUrl: (projectFolder) => ipcRenderer.invoke('branch:remoteUrl', projectFolder),
 
   // Worktrees
   listWorktrees: (projectFolder) => ipcRenderer.invoke('worktree:list', projectFolder),

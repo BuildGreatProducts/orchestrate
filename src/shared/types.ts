@@ -318,6 +318,7 @@ export interface OrchestrateAPI {
   checkoutBranch: (projectFolder: string, branch: string) => Promise<void>
   createBranch: (projectFolder: string, branch: string) => Promise<void>
   deleteBranch: (projectFolder: string, branch: string, force?: boolean) => Promise<void>
+  getRemoteUrl: (projectFolder: string) => Promise<string | null>
 
   // Worktrees
   listWorktrees: (projectFolder: string) => Promise<WorktreeInfo[]>

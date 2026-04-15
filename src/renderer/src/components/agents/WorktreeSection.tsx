@@ -141,9 +141,21 @@ export default function WorktreeSection({
   return (
     <div className="mt-1">
       {/* Worktree header */}
-      <div className={`group/wt flex items-center gap-1 rounded-md px-1.5 py-1.5 ${
+      <div className={`group/wt flex items-center gap-1 rounded-md px-2.5 py-1.5 ${
         isActive ? 'bg-zinc-800' : 'hover:bg-zinc-800/50'
       }`}>
+        <GitBranch size={13} className="flex-shrink-0 text-emerald-500" />
+
+        <button
+          onClick={() => useAppStore.getState().showWorktreeDetail(projectFolder, worktree.path)}
+          className={`min-w-0 truncate text-left text-sm font-medium ${
+            isActive ? 'text-white' : 'text-zinc-400 hover:text-zinc-200'
+          }`}
+          title={worktree.path}
+        >
+          {worktree.branch}
+        </button>
+
         <button
           onClick={() => toggleCollapsed(worktree.path)}
           aria-label={collapsed ? 'Expand worktree' : 'Collapse worktree'}
@@ -152,17 +164,7 @@ export default function WorktreeSection({
           {collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
         </button>
 
-        <GitBranch size={13} className="flex-shrink-0 text-emerald-500" />
-
-        <button
-          onClick={() => useAppStore.getState().showWorktreeDetail(projectFolder, worktree.path)}
-          className={`flex-1 truncate text-left text-sm font-medium ${
-            isActive ? 'text-white' : 'text-zinc-400 hover:text-zinc-200'
-          }`}
-          title={worktree.path}
-        >
-          {worktree.branch}
-        </button>
+        <div className="flex-1" />
 
         <span
           className={`flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] leading-none ${
