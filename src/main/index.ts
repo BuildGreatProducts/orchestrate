@@ -95,6 +95,11 @@ app.whenReady().then(() => {
   registerFileHandlers(() => mainWindow, getCurrentFolder)
   registerTerminalHandlers(() => mainWindow, getCurrentFolder)
   registerTaskHandlers(() => mainWindow, getCurrentFolder, getPtyManager, taskScheduler)
+  taskScheduler.setBoardLoader(async () => {
+    const mgr = getTaskManager()
+    if (!mgr) throw new Error('No task manager')
+    return mgr.loadBoard()
+  })
   registerGitHandlers(() => mainWindow, getCurrentFolder)
   registerWorktreeHandlers(() => mainWindow, getCurrentFolder)
   registerBranchHandlers(() => mainWindow, getCurrentFolder)

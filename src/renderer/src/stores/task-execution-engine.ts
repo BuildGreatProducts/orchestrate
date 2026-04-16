@@ -30,7 +30,7 @@ export function abortTask(taskId: string): void {
   }
 }
 
-export async function executeTask(taskId: string): Promise<void> {
+export async function executeTask(taskId: string, agentOverride?: string): Promise<void> {
   const board = useTasksStore.getState().board
   if (!board) return
   const task = board.tasks[taskId]
@@ -55,7 +55,7 @@ export async function executeTask(taskId: string): Promise<void> {
     return
   }
 
-  const agentType = task.agentType || 'claude-code'
+  const agentType = agentOverride || task.agentType || 'claude-code'
   const agentConfig = useAgentsStore.getState().getAgent(agentType)
   if (!agentConfig) {
     console.error('[TaskEngine] Unknown agent type:', agentType)
@@ -86,7 +86,8 @@ export async function executeTask(taskId: string): Promise<void> {
   useAppStore.getState().showTerminal()
 
   try {
-    for (const step of task.steps) {
+    for (let stepIdx = 0; stepIdx < task.steps.length; stepIdx++) {
+      const step = task.steps[stepIdx]
       if (execution.aborted) {
         run.status = 'failed'
         run.finishedAt = new Date().toISOString()
@@ -104,7 +105,6 @@ export async function executeTask(taskId: string): Promise<void> {
         codexMcpFlags
       })
 
-      const stepIdx = task.steps.indexOf(step)
       const stepName = `Step ${stepIdx + 1}: ${step.prompt.slice(0, 40)}${step.prompt.length > 40 ? '...' : ''}`
 
       const stepResult = {

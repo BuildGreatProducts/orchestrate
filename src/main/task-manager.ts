@@ -91,24 +91,24 @@ export class TaskManager {
           const loopPath = join(this.tasksDir, '..', '.orchestrate', 'loops', `${raw.loopId}.json`)
           const loopRaw = await readFile(loopPath, 'utf-8')
           const loop = JSON.parse(loopRaw)
-          if (loop.steps) raw.steps = loop.steps
-          if (loop.schedule) raw.schedule = { enabled: loop.schedule.enabled, cron: loop.schedule.cron }
-          if (loop.agentType) raw.agentType = loop.agentType
-          if (loop.groupName) raw.groupName = loop.groupName
-          if (loop.lastRun) raw.lastRun = loop.lastRun
+          if (Array.isArray(loop.steps)) raw.steps = loop.steps
+          if (loop.schedule && typeof loop.schedule === 'object') {
+            raw.schedule = { enabled: !!loop.schedule.enabled, cron: String(loop.schedule.cron ?? '') }
+          }
+          if (typeof loop.agentType === 'string') raw.agentType = loop.agentType
+          if (typeof loop.groupName === 'string') raw.groupName = loop.groupName
+          if (loop.lastRun && typeof loop.lastRun === 'object') raw.lastRun = loop.lastRun
         } catch {
           console.warn(`[TaskManager] Could not read loop ${raw.loopId} for task ${id}, setting empty steps`)
           raw.steps = []
         }
         delete raw.type
         delete raw.loopId
-        board.tasks[id] = raw
         migrated = true
       } else if (raw.type) {
         // Strip the type field from regular tasks
         delete raw.type
         delete raw.loopId
-        board.tasks[id] = raw
         migrated = true
       }
     }

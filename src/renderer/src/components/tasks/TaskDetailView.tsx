@@ -118,12 +118,12 @@ export default function TaskDetailView(): React.JSX.Element | null {
     return () => { cancelled = true }
   }, [viewingTaskId, task, readMarkdown])
 
-  // Load step prompt when selected step changes
+  // Load step prompt when selected step changes or prompt is updated externally
   useEffect(() => {
     if (selectedStep) {
       setStepPrompt(selectedStep.prompt)
     }
-  }, [selectedStep?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedStep?.id, selectedStep?.prompt])
 
   // Flush pending save on unmount or task switch
   useEffect(() => {
@@ -201,7 +201,7 @@ export default function TaskDetailView(): React.JSX.Element | null {
       setSaveStatus('saved')
 
       if (hasSteps) {
-        executeTask(viewingTaskId)
+        executeTask(viewingTaskId, agent)
       } else {
         await sendToAgent(viewingTaskId, agent)
       }

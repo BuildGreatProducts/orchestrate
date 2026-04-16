@@ -3,6 +3,7 @@
  */
 import { readFile, writeFile, unlink, readdir, stat, mkdir, realpath } from 'fs/promises'
 import { dirname, isAbsolute, join, resolve, relative, parse as pathParse } from 'path'
+import { nanoid } from 'nanoid'
 import type { TaskManager } from '../task-manager'
 import type { GitManager } from '../git-manager'
 import type { SkillManager } from '../skill-manager'
@@ -138,8 +139,8 @@ export async function handleCreateTask(
       createdAt: new Date().toISOString()
     }
     if (args.steps && args.steps.length > 0) {
-      taskMeta.steps = args.steps.map((prompt, i) => ({
-        id: `step-${i + 1}`,
+      taskMeta.steps = args.steps.map((prompt) => ({
+        id: `step-${nanoid(8)}`,
         prompt
       }))
     }

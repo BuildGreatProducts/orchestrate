@@ -113,6 +113,7 @@ export default function StepsList({
       if (over && active.id !== over.id) {
         const oldIdx = steps.findIndex((s) => s.id === active.id)
         const newIdx = steps.findIndex((s) => s.id === over.id)
+        if (oldIdx === -1 || newIdx === -1) return
         onReorder(oldIdx, newIdx)
       }
     },

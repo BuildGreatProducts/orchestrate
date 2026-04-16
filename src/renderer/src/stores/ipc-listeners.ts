@@ -135,6 +135,8 @@ export function ensureGlobalIpcListeners(): void {
       executeTask(taskId)
     } else if (task.agentType) {
       tasksState.sendToAgent(taskId, task.agentType)
+    } else {
+      console.warn(`[Scheduler] Task ${taskId} ("${task.title}") triggered but has no steps and no agentType configured`)
     }
   })
 

@@ -94,6 +94,13 @@ export const useTasksStore = create<TasksState>((set, get) => ({
         const staleSet = new Set(stale)
         loaded.columns['in-progress'] = loaded.columns['in-progress'].filter((id) => !staleSet.has(id))
         loaded.columns.planning = [...stale, ...loaded.columns.planning]
+        // Clear stale lastRun status so the UI doesn't show a phantom "running"
+        for (const id of stale) {
+          const t = loaded.tasks[id]
+          if (t?.lastRun?.status === 'running') {
+            t.lastRun = { ...t.lastRun, status: 'failed', finishedAt: new Date().toISOString() }
+          }
+        }
         // Persist the corrected board
         window.orchestrate.saveBoard(loaded).catch(() => {})
       }
@@ -257,7 +264,7 @@ export const useTasksStore = create<TasksState>((set, get) => ({
     const { board } = get()
     if (!board || !board.tasks[taskId]) return
     const task = board.tasks[taskId]
-    const newStep: TaskStep = { id: `step-${Date.now().toString(36)}`, prompt }
+    const newStep: TaskStep = { id: `step-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, prompt }
     const newBoard: BoardState = {
       ...board,
       tasks: {
@@ -305,6 +312,8 @@ export const useTasksStore = create<TasksState>((set, get) => ({
     if (!board || !board.tasks[taskId]) return
     const task = board.tasks[taskId]
     if (!task.steps) return
+    if (oldIdx < 0 || oldIdx >= task.steps.length) return
+    if (newIdx < 0 || newIdx >= task.steps.length) return
     const items = [...task.steps]
     const [removed] = items.splice(oldIdx, 1)
     if (!removed) return

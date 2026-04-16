@@ -157,7 +157,7 @@ function createMcpInstance(deps: ToolExecutorDeps): McpServer {
 
   server.tool(
     'trigger_task',
-    'Trigger a multi-step task to start executing its steps sequentially.',
+    'Trigger a multi-step task to start executing its steps sequentially. Returns an error if the task has no steps.',
     { task_id: z.string().describe('The ID of the task to trigger') },
     async (args) => handleTriggerTask(args, taskDeps)
   )
