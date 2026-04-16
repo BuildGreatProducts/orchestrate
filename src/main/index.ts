@@ -1,3 +1,8 @@
+import { fixPath } from './fix-path'
+
+// Must run before anything else so spawned processes inherit the full PATH.
+fixPath()
+
 import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join, basename } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
