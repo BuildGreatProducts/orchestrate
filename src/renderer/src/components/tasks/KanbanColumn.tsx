@@ -1,9 +1,7 @@
-import { useState, useRef, useEffect } from 'react'
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import type { ColumnId, TaskMeta } from '@shared/types'
 import { useTasksStore } from '@renderer/stores/tasks'
-import { useLoopsStore } from '@renderer/stores/loops'
 import TaskCard from './TaskCard'
 
 const COLUMN_LABELS: Record<ColumnId, string> = {
@@ -25,22 +23,7 @@ export default function KanbanColumn({
   tasks
 }: KanbanColumnProps): React.JSX.Element {
   const createTask = useTasksStore((s) => s.createTask)
-  const setEditingLoop = useLoopsStore((s) => s.setEditingLoop)
   const { isOver, setNodeRef } = useDroppable({ id: columnId })
-
-  const [menuOpen, setMenuOpen] = useState(false)
-  const menuRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!menuOpen) return
-    const handleClick = (e: MouseEvent): void => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [menuOpen])
 
   return (
     <div className="flex min-w-64 flex-1 flex-col rounded-lg bg-zinc-900">
@@ -56,40 +39,15 @@ export default function KanbanColumn({
             {taskIds.length}
           </span>
         </div>
-        <div ref={menuRef} className="relative">
-          <button
-            onClick={() => setMenuOpen((v) => !v)}
-            aria-label="Add item"
-            className="rounded p-0.5 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-300"
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-          </button>
-
-          {menuOpen && (
-            <div className="absolute right-0 top-full z-50 mt-1 w-32 overflow-hidden rounded-md border border-zinc-700 bg-zinc-800 py-1 shadow-xl">
-              <button
-                onClick={() => {
-                  setMenuOpen(false)
-                  createTask(columnId, 'New task')
-                }}
-                className="flex w-full items-center px-3 py-1.5 text-left text-sm text-zinc-300 hover:bg-zinc-700"
-              >
-                Task
-              </button>
-              <button
-                onClick={() => {
-                  setMenuOpen(false)
-                  setEditingLoop({})
-                }}
-                className="flex w-full items-center px-3 py-1.5 text-left text-sm text-zinc-300 hover:bg-zinc-700"
-              >
-                Loop
-              </button>
-            </div>
-          )}
-        </div>
+        <button
+          onClick={() => createTask(columnId, 'New task')}
+          aria-label="Add task"
+          className="rounded p-0.5 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-300"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+        </button>
       </div>
 
       {/* Card list */}

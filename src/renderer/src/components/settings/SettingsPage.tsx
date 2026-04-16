@@ -185,7 +185,7 @@ export default function SettingsPage(): React.JSX.Element {
           <div className="rounded border border-zinc-800 bg-zinc-900 px-4 py-3">
             <label className="block text-sm font-medium text-zinc-300">Built-in Agents</label>
             <p className="mt-0.5 text-xs text-zinc-500">
-              Toggle agents to show them in task, loop, and new agent menus.
+              Toggle agents to show them in task and new agent menus.
             </p>
             <div className="mt-2 divide-y divide-zinc-800">
               {builtinAgents.map((agent) => (

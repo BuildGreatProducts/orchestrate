@@ -1,11 +1,9 @@
 import { useEffect } from 'react'
 import { useAppStore } from '@renderer/stores/app'
 import { useTasksStore } from '@renderer/stores/tasks'
-import { useLoopsStore } from '@renderer/stores/loops'
 import Spinner from '@renderer/components/ui/Spinner'
 import KanbanBoard from './KanbanBoard'
-import TaskDetailPanel from './TaskDetailPanel'
-import LoopDetailPanel from '@renderer/components/loops/LoopDetailPanel'
+import TaskDetailView from './TaskDetailView'
 
 export default function TasksTab(): React.JSX.Element {
   const currentFolder = useAppStore((s) => s.currentFolder)
@@ -15,54 +13,15 @@ export default function TasksTab(): React.JSX.Element {
   const loadError = useTasksStore((s) => s.loadError)
   const loadBoard = useTasksStore((s) => s.loadBoard)
   const resetBoard = useTasksStore((s) => s.resetBoard)
-  const selectedTaskId = useTasksStore((s) => s.selectedTaskId)
-  const selectTask = useTasksStore((s) => s.selectTask)
-  const loadLoops = useLoopsStore((s) => s.loadLoops)
-  const editingLoop = useLoopsStore((s) => s.editingLoop)
-  const setEditingLoop = useLoopsStore((s) => s.setEditingLoop)
-  const loops = useLoopsStore((s) => s.loops)
+  const viewingTaskId = useTasksStore((s) => s.viewingTaskId)
 
   useEffect(() => {
     if (currentFolder) {
       loadBoard()
-      loadLoops()
     } else {
       resetBoard()
     }
-  }, [currentFolder, loadBoard, loadLoops, resetBoard])
-
-  // Determine if selected task is a loop type
-  const selectedTask = selectedTaskId && board ? board.tasks[selectedTaskId] : null
-  const isLoopTask = selectedTask?.type === 'loop'
-  const selectedLoop = isLoopTask && selectedTask?.loopId
-    ? loops.find((l) => l.id === selectedTask.loopId) ?? null
-    : null
-
-  // Coordinate panel state: selecting a task closes the loop panel and vice versa
-  useEffect(() => {
-    if (!selectedTaskId) return
-    if (isLoopTask && selectedLoop) {
-      // Loop task clicked → open loop panel
-      setEditingLoop(selectedLoop)
-    } else if (!isLoopTask) {
-      // Regular task clicked → close loop panel
-      setEditingLoop(null)
-    }
-  }, [selectedTaskId, isLoopTask, selectedLoop, setEditingLoop])
-
-  // When a new/standalone loop is being edited (not from a task card), deselect any task
-  useEffect(() => {
-    if (editingLoop !== null && !isLoopTask) {
-      selectTask(null)
-    }
-  }, [editingLoop, isLoopTask, selectTask])
-
-  // When the loop panel closes while a loop task is selected, deselect the card
-  useEffect(() => {
-    if (isLoopTask && editingLoop === null) {
-      selectTask(null)
-    }
-  }, [editingLoop, isLoopTask, selectTask])
+  }, [currentFolder, loadBoard, resetBoard])
 
   if (!currentFolder) {
     return (
@@ -105,13 +64,18 @@ export default function TasksTab(): React.JSX.Element {
     )
   }
 
-  return (
-    <div className="relative flex flex-1 overflow-hidden">
-      <div className="flex-1 overflow-hidden">
-        <KanbanBoard />
+  // Show full-page task detail or kanban board
+  if (viewingTaskId && board.tasks[viewingTaskId]) {
+    return (
+      <div className="flex h-full w-full">
+        <TaskDetailView />
       </div>
-      {selectedTaskId && !isLoopTask && editingLoop === null && <TaskDetailPanel />}
-      {editingLoop !== null && <LoopDetailPanel />}
+    )
+  }
+
+  return (
+    <div className="flex h-full w-full overflow-hidden">
+      <KanbanBoard />
     </div>
   )
 }

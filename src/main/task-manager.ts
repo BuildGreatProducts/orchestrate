@@ -1,7 +1,7 @@
 import { readFile, writeFile, mkdir, unlink, rename } from 'fs/promises'
 import { join, resolve, relative, sep } from 'path'
 import { nanoid } from 'nanoid'
-import type { BoardState, ColumnId } from '@shared/types'
+import type { BoardState, ColumnId, TaskMeta } from '@shared/types'
 
 const SAFE_ID_RE = /^[A-Za-z0-9_-]{1,64}$/
 
@@ -35,16 +35,6 @@ function isValidBoard(obj: unknown): obj is BoardState {
     if (!val || typeof val !== 'object') return false
     const meta = val as Record<string, unknown>
     if (typeof meta.title !== 'string' || typeof meta.createdAt !== 'string') return false
-    // Default missing type to 'task' for backward compatibility
-    if (meta.type === undefined) {
-      meta.type = 'task'
-    } else if (meta.type !== 'task' && meta.type !== 'loop') {
-      return false
-    }
-    // Loop tasks must have a loopId
-    if (meta.type === 'loop' && typeof meta.loopId !== 'string') {
-      return false
-    }
   }
   return true
 }
@@ -90,6 +80,41 @@ export class TaskManager {
     }
   }
 
+  /** Migrate loop-type tasks into unified tasks with steps */
+  private async migrateLoopTasks(board: BoardState): Promise<boolean> {
+    let migrated = false
+    for (const [id, task] of Object.entries(board.tasks)) {
+      const raw = task as TaskMeta & { type?: string; loopId?: string }
+      if (raw.type === 'loop' && raw.loopId) {
+        // Try to read the loop JSON and merge its data into the task
+        try {
+          const loopPath = join(this.tasksDir, '..', '.orchestrate', 'loops', `${raw.loopId}.json`)
+          const loopRaw = await readFile(loopPath, 'utf-8')
+          const loop = JSON.parse(loopRaw)
+          if (loop.steps) raw.steps = loop.steps
+          if (loop.schedule) raw.schedule = { enabled: loop.schedule.enabled, cron: loop.schedule.cron }
+          if (loop.agentType) raw.agentType = loop.agentType
+          if (loop.groupName) raw.groupName = loop.groupName
+          if (loop.lastRun) raw.lastRun = loop.lastRun
+        } catch {
+          console.warn(`[TaskManager] Could not read loop ${raw.loopId} for task ${id}, setting empty steps`)
+          raw.steps = []
+        }
+        delete raw.type
+        delete raw.loopId
+        board.tasks[id] = raw
+        migrated = true
+      } else if (raw.type) {
+        // Strip the type field from regular tasks
+        delete raw.type
+        delete raw.loopId
+        board.tasks[id] = raw
+        migrated = true
+      }
+    }
+    return migrated
+  }
+
   async loadBoard(): Promise<BoardState> {
     await this.ensureDir()
     try {
@@ -102,6 +127,11 @@ export class TaskManager {
       if (!isValidBoard(parsed)) {
         console.error('[TaskManager] board.json failed validation, returning empty board')
         return structuredClone(EMPTY_BOARD)
+      }
+      // Migrate loop-type tasks to unified tasks with steps
+      const didMigrate = await this.migrateLoopTasks(parsed)
+      if (didMigrate) {
+        await this.saveBoard(parsed)
       }
       return parsed
     } catch (err) {

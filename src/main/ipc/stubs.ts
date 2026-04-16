@@ -26,12 +26,6 @@ const stubs: StubDef[] = [
   { channel: 'task:delete', returns: undefined },
   { channel: 'task:sendToAgent', returns: undefined },
 
-  // Loops
-  { channel: 'loop:list', returns: [] },
-  { channel: 'loop:load', returns: null },
-  { channel: 'loop:save', returns: undefined },
-  { channel: 'loop:delete', returns: undefined },
-
   // Saved Commands
   { channel: 'command:list', returns: [] },
   { channel: 'command:load', returns: null },

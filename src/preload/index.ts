@@ -67,26 +67,12 @@ const api: OrchestrateAPI = {
   deleteTask: (id: string) => ipcRenderer.invoke('task:delete', id),
   sendToAgent: (id: string, agent: string) => ipcRenderer.invoke('task:sendToAgent', id, agent),
 
-  // Loops
-  listLoops: () => ipcRenderer.invoke('loop:list'),
-  loadLoop: (id) => ipcRenderer.invoke('loop:load', id),
-  saveLoop: (loop) => ipcRenderer.invoke('loop:save', loop),
-  deleteLoop: (id) => ipcRenderer.invoke('loop:delete', id),
   // Saved Commands
   listCommands: (projectFolder?) => ipcRenderer.invoke('command:list', projectFolder),
   loadCommand: (id, scope, projectFolder?) => ipcRenderer.invoke('command:load', id, scope, projectFolder),
   saveCommand: (command, projectFolder?) => ipcRenderer.invoke('command:save', command, projectFolder),
   deleteCommand: (id, scope, projectFolder?) => ipcRenderer.invoke('command:delete', id, scope, projectFolder),
 
-  onLoopTrigger: (callback: (loopId: string) => void) => {
-    const handler = (_: Electron.IpcRendererEvent, loopId: string): void => {
-      callback(loopId)
-    }
-    ipcRenderer.on('loop:trigger', handler)
-    return () => {
-      ipcRenderer.removeListener('loop:trigger', handler)
-    }
-  },
   onTaskScheduleTrigger: (callback: (taskId: string) => void) => {
     const handler = (_: Electron.IpcRendererEvent, taskId: string): void => {
       callback(taskId)
