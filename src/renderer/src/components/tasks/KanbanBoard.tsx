@@ -13,7 +13,6 @@ import {
 import { arrayMove } from '@dnd-kit/sortable'
 import type { ColumnId, BoardState } from '@shared/types'
 import { useTasksStore } from '@renderer/stores/tasks'
-import { useLoopsStore } from '@renderer/stores/loops'
 import KanbanColumn from './KanbanColumn'
 import TaskCard from './TaskCard'
 
@@ -29,6 +28,7 @@ function findColumnForTask(board: BoardState, taskId: string): ColumnId | null {
 export default function KanbanBoard(): React.JSX.Element {
   const board = useTasksStore((s) => s.board)
   const loadBoard = useTasksStore((s) => s.loadBoard)
+  const createTask = useTasksStore((s) => s.createTask)
   const [activeId, setActiveId] = useState<string | null>(null)
 
   const sensors = useSensors(
@@ -122,44 +122,29 @@ export default function KanbanBoard(): React.JSX.Element {
     [board, setBoardDirect]
   )
 
-  const createTask = useTasksStore((s) => s.createTask)
-  const setEditingLoop = useLoopsStore((s) => s.setEditingLoop)
-
-  const handleNewLoop = useCallback(() => {
-    setEditingLoop({})
-  }, [setEditingLoop])
-
   const handleDragCancel = useCallback(() => {
     setActiveId(null)
     loadBoard()
   }, [loadBoard])
 
-  if (!board) return <div />
+  if (!board) return <div className="h-full w-full" />
 
   const totalTasks = Object.keys(board.tasks).length
   const activeTask = activeId ? board.tasks[activeId] : null
 
   if (totalTasks === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-4 p-4 text-center">
+      <div className="flex h-full w-full flex-col items-center justify-center gap-4 p-4 text-center">
         <h2 className="font-ovo text-6xl tracking-tight text-zinc-200">Tasks</h2>
         <p className="max-w-xs text-sm text-zinc-500">
           Plan tasks, coordinate agents, and manage workflows across your project.
         </p>
-        <div className="mt-2 flex gap-3">
-          <button
-            onClick={() => createTask('planning', 'New task')}
-            className="rounded bg-white px-4 py-2 text-sm font-medium text-zinc-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_1px_3px_rgba(0,0,0,0.4),0_0px_1px_rgba(0,0,0,0.3)] transition-colors hover:bg-zinc-100 active:bg-zinc-200 active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.2)]"
-          >
-            New Task
-          </button>
-          <button
-            onClick={handleNewLoop}
-            className="rounded border border-zinc-700 bg-zinc-800 px-4 py-2 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-700 hover:text-white"
-          >
-            New Loop
-          </button>
-        </div>
+        <button
+          onClick={() => createTask('planning', 'New task')}
+          className="mt-2 rounded bg-white px-4 py-2 text-sm font-medium text-zinc-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_1px_3px_rgba(0,0,0,0.4),0_0px_1px_rgba(0,0,0,0.3)] transition-colors hover:bg-zinc-100 active:bg-zinc-200 active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.2)]"
+        >
+          New Task
+        </button>
       </div>
     )
   }
@@ -173,7 +158,7 @@ export default function KanbanBoard(): React.JSX.Element {
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
     >
-      <div className="flex h-full gap-3 overflow-x-auto p-4">
+      <div className="flex h-full w-full gap-3 overflow-x-auto p-4">
         {COLUMNS.map((colId) => (
           <KanbanColumn
             key={colId}

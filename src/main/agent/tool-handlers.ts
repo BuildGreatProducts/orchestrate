@@ -3,9 +3,9 @@
  */
 import { readFile, writeFile, unlink, readdir, stat, mkdir, realpath } from 'fs/promises'
 import { dirname, isAbsolute, join, resolve, relative, parse as pathParse } from 'path'
+import { nanoid } from 'nanoid'
 import type { TaskManager } from '../task-manager'
 import type { GitManager } from '../git-manager'
-import type { LoopManager } from '../loop-manager'
 import type { SkillManager } from '../skill-manager'
 
 // ── Deps interface ──
@@ -13,7 +13,6 @@ import type { SkillManager } from '../skill-manager'
 export interface ToolExecutorDeps {
   getCurrentFolder: () => string | null
   getTaskManager: () => TaskManager | null
-  getLoopManager: () => LoopManager | null
   getGitManager: () => GitManager | null
   getSkillManager: () => SkillManager | null
   getWindow: () => import('electron').BrowserWindow | null
@@ -89,12 +88,6 @@ export interface GitHandlerDeps {
   notifyStateChanged: (domain: string, data?: unknown) => void
 }
 
-export interface LoopHandlerDeps {
-  getLoopManager: () => LoopManager | null
-  getTaskManager: () => TaskManager | null
-  notifyStateChanged: (domain: string, data?: unknown) => void
-}
-
 export interface FileHandlerDeps {
   getCurrentFolder: () => string | null
   notifyStateChanged: (domain: string, data?: unknown) => void
@@ -123,12 +116,6 @@ function requireGitManager(deps: GitHandlerDeps): GitManager {
   return mgr
 }
 
-function requireLoopManager(deps: LoopHandlerDeps): LoopManager {
-  const mgr = deps.getLoopManager()
-  if (!mgr) throw new Error('Loop manager not available')
-  return mgr
-}
-
 function requireFolder(deps: FileHandlerDeps): string {
   const folder = deps.getCurrentFolder()
   if (!folder) throw new Error('No project folder selected')
@@ -138,7 +125,7 @@ function requireFolder(deps: FileHandlerDeps): string {
 // ── Task tool handlers ──
 
 export async function handleCreateTask(
-  args: { title: string; column?: 'planning' | 'in-progress' | 'review' | 'done' },
+  args: { title: string; column?: 'planning' | 'in-progress' | 'review' | 'done'; steps?: string[] },
   deps: TaskHandlerDeps
 ): Promise<McpResponse> {
   try {
@@ -147,15 +134,21 @@ export async function handleCreateTask(
     const id = mgr.generateId()
     const col = args.column || 'planning'
     board.columns[col].push(id)
-    board.tasks[id] = {
+    const taskMeta: import('@shared/types').TaskMeta = {
       title: args.title,
-      type: 'task',
       createdAt: new Date().toISOString()
     }
+    if (args.steps && args.steps.length > 0) {
+      taskMeta.steps = args.steps.map((prompt) => ({
+        id: `step-${nanoid(8)}`,
+        prompt
+      }))
+    }
+    board.tasks[id] = taskMeta
     await mgr.saveBoard(board)
     await mgr.writeMarkdown(id, `# ${args.title}\n\n`)
     deps.notifyStateChanged('tasks')
-    return ok({ id, title: args.title, column: col })
+    return ok({ id, title: args.title, column: col, stepCount: taskMeta.steps?.length ?? 0 })
   } catch (err) {
     return fail(err instanceof Error ? err.message : String(err))
   }
@@ -180,14 +173,14 @@ export async function handleListTasks(deps: TaskHandlerDeps): Promise<McpRespons
   try {
     const mgr = requireTaskManager(deps)
     const board = await mgr.loadBoard()
-    const result: Record<string, Array<{ id: string; title: string; type: string }>> = {}
+    const result: Record<string, Array<{ id: string; title: string; stepCount: number }>> = {}
     for (const [col, ids] of Object.entries(board.columns)) {
       result[col] = ids
         .filter((id) => board.tasks[id])
         .map((id) => ({
           id,
           title: board.tasks[id].title,
-          type: board.tasks[id].type || 'task'
+          stepCount: board.tasks[id].steps?.length ?? 0
         }))
     }
     return ok(result)
@@ -249,12 +242,9 @@ export async function handleDeleteTask(
     for (const col of Object.keys(board.columns) as Array<keyof typeof board.columns>) {
       board.columns[col] = board.columns[col].filter((id) => id !== args.task_id)
     }
-    const taskMeta = board.tasks[args.task_id]
     delete board.tasks[args.task_id]
     await mgr.saveBoard(board)
-    if (taskMeta.type === 'task') {
-      await mgr.deleteMarkdown(args.task_id)
-    }
+    await mgr.deleteMarkdown(args.task_id)
     deps.notifyStateChanged('tasks')
     return ok({ id: args.task_id })
   } catch (err) {
@@ -285,90 +275,20 @@ export async function handleSendToAgent(
   }
 }
 
-// ── Loop tool handlers ──
-
-export async function handleListLoops(deps: LoopHandlerDeps): Promise<McpResponse> {
-  try {
-    const mgr = requireLoopManager(deps)
-    const loops = await mgr.listLoops()
-    const result = loops.map((l) => ({
-      id: l.id,
-      name: l.name,
-      stepCount: l.steps.length,
-      agentType: l.agentType,
-      scheduleEnabled: l.schedule.enabled,
-      cron: l.schedule.cron,
-      lastRunStatus: l.lastRun?.status
-    }))
-    return ok(result)
-  } catch (err) {
-    return fail(err instanceof Error ? err.message : String(err))
-  }
-}
-
-export async function handleCreateLoop(
-  args: { name: string; steps: string[]; agent_type?: string; cron?: string },
-  deps: LoopHandlerDeps
+export async function handleTriggerTask(
+  args: { task_id: string },
+  deps: TaskHandlerDeps
 ): Promise<McpResponse> {
   try {
-    const mgr = requireLoopManager(deps)
-    const id = mgr.generateId()
-    const now = new Date().toISOString()
-    const loop = {
-      id,
-      name: args.name,
-      steps: args.steps.map((prompt, i) => ({
-        id: `step-${i + 1}`,
-        prompt
-      })),
-      schedule: {
-        enabled: !!args.cron,
-        cron: args.cron || ''
-      },
-      agentType: args.agent_type || 'claude-code',
-      createdAt: now,
-      updatedAt: now
+    const mgr = requireTaskManager(deps)
+    const board = await mgr.loadBoard()
+    const task = board.tasks[args.task_id]
+    if (!task) return fail(`Task ${args.task_id} not found`)
+    if (!task.steps || task.steps.length === 0) {
+      return fail(`Task ${args.task_id} has no steps to execute`)
     }
-    await mgr.saveLoop(loop)
-    // Also add to task board as a loop-type task
-    try {
-      const taskMgr = deps.getTaskManager()
-      if (taskMgr) {
-        const board = await taskMgr.loadBoard()
-        const taskId = taskMgr.generateId()
-        board.columns.planning.push(taskId)
-        board.tasks[taskId] = {
-          title: args.name,
-          type: 'loop',
-          createdAt: now,
-          loopId: id
-        }
-        await taskMgr.saveBoard(board)
-        deps.notifyStateChanged('tasks')
-      }
-    } catch (boardErr) {
-      console.warn('[Tools] Failed to add loop to board:', boardErr)
-    }
-    deps.notifyStateChanged('loops')
-    return ok({ id, name: args.name, stepCount: loop.steps.length })
-  } catch (err) {
-    return fail(err instanceof Error ? err.message : String(err))
-  }
-}
-
-export async function handleTriggerLoop(
-  args: { loop_id: string },
-  deps: LoopHandlerDeps
-): Promise<McpResponse> {
-  try {
-    const mgr = requireLoopManager(deps)
-    const loop = await mgr.loadLoop(args.loop_id)
-    if (!loop) return fail(`Loop ${args.loop_id} not found`)
-    if (!loop.steps || loop.steps.length === 0) {
-      return fail(`Loop ${args.loop_id} has no steps`)
-    }
-    deps.notifyStateChanged('loop-trigger', { loopId: args.loop_id })
-    return ok({ loopId: args.loop_id, name: loop.name })
+    deps.notifyStateChanged('task-trigger', { taskId: args.task_id })
+    return ok({ taskId: args.task_id, title: task.title, stepCount: task.steps.length })
   } catch (err) {
     return fail(err instanceof Error ? err.message : String(err))
   }

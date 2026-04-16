@@ -6,8 +6,7 @@ import { registerFolderHandlers, getCurrentFolder } from './ipc/folder'
 import { registerFileHandlers } from './ipc/files'
 import { registerTerminalHandlers, closeAllTerminals, getPtyManager } from './ipc/terminal'
 import { registerTaskHandlers, getTaskManager } from './ipc/tasks'
-import { registerLoopHandlers, getLoopManager } from './ipc/loops'
-import { LoopScheduler } from './loop-scheduler'
+import { TaskScheduler } from './task-scheduler'
 import { registerGitHandlers, getGitManager } from './ipc/git'
 import { registerSkillHandlers } from './ipc/skills'
 import { registerCommandHandlers } from './ipc/commands'
@@ -32,7 +31,7 @@ let closeMcpServer: (() => Promise<void>) | null = null
 const skillStore = new Store()
 const skillManager = new SkillManager(skillStore)
 const getSkillManager = (): SkillManager => skillManager
-const loopScheduler = new LoopScheduler(() => mainWindow)
+const taskScheduler = new TaskScheduler(() => mainWindow)
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -79,21 +78,15 @@ app.whenReady().then(() => {
     () => mainWindow,
     (folder) => {
       closeAllBrowserTabs()
-      loopScheduler.stopAll()
+      taskScheduler.stopAll()
       startWatching(folder, () => mainWindow)
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.setTitle(`Orchestrate — ${basename(folder)}`)
       }
-      // Reschedule loops and tasks for the new project
-      const loopMgr = getLoopManager()
-      if (loopMgr) {
-        loopMgr.listLoops().then((loops) => loopScheduler.rescheduleAll(loops)).catch((err) => {
-          console.error('[Scheduler] Failed to reschedule loops:', err)
-        })
-      }
+      // Reschedule tasks for the new project
       const taskMgr = getTaskManager()
       if (taskMgr) {
-        taskMgr.loadBoard().then((board) => loopScheduler.rescheduleAllTasks(board)).catch((err) => {
+        taskMgr.loadBoard().then((board) => taskScheduler.rescheduleAllTasks(board)).catch((err) => {
           console.error('[Scheduler] Failed to reschedule tasks:', err)
         })
       }
@@ -101,8 +94,12 @@ app.whenReady().then(() => {
   )
   registerFileHandlers(() => mainWindow, getCurrentFolder)
   registerTerminalHandlers(() => mainWindow, getCurrentFolder)
-  registerTaskHandlers(() => mainWindow, getCurrentFolder, getPtyManager, loopScheduler)
-  registerLoopHandlers(() => mainWindow, getCurrentFolder)
+  registerTaskHandlers(() => mainWindow, getCurrentFolder, getPtyManager, taskScheduler)
+  taskScheduler.setBoardLoader(async () => {
+    const mgr = getTaskManager()
+    if (!mgr) throw new Error('No task manager')
+    return mgr.loadBoard()
+  })
   registerGitHandlers(() => mainWindow, getCurrentFolder)
   registerWorktreeHandlers(() => mainWindow, getCurrentFolder)
   registerBranchHandlers(() => mainWindow, getCurrentFolder)
@@ -126,7 +123,6 @@ app.whenReady().then(() => {
   startMcpServer({
     getCurrentFolder,
     getTaskManager,
-    getLoopManager,
     getGitManager,
     getSkillManager,
     getWindow: () => mainWindow,
@@ -173,7 +169,7 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   closeAllTerminals()
   closeAllBrowserTabs()
-  loopScheduler.stopAll()
+  taskScheduler.stopAll()
   stopWatching()
   if (process.platform !== 'darwin') {
     app.quit()

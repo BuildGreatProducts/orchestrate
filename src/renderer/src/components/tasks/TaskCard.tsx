@@ -1,14 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Play, Square, Repeat, Eye, Clock } from 'lucide-react'
+import { Play, Square, Eye, Clock } from 'lucide-react'
 import { CronExpressionParser } from 'cron-parser'
 import type { TaskMeta } from '@shared/types'
 import { useTasksStore } from '@renderer/stores/tasks'
-import { useLoopsStore } from '@renderer/stores/loops'
 import { useTerminalStore } from '@renderer/stores/terminal'
 import { useAppStore } from '@renderer/stores/app'
-import { executeLoop, isLoopRunning, abortLoop } from '@renderer/stores/loop-execution-engine'
+import { executeTask, isTaskRunning, abortTask } from '@renderer/stores/task-execution-engine'
 import ConfirmDialog from '@renderer/components/history/ConfirmDialog'
 
 /** Derive a short frequency label from a cron expression. */
@@ -18,23 +17,16 @@ function cronFrequency(cron: string): string {
 
   const [min, hour, dom, , dow] = parts
 
-  // Every minute
   if (min === '*' && hour === '*') return 'Every min'
-  // Every N minutes
   if (min?.startsWith('*/') && hour === '*') return `Every ${min.slice(2)}m`
-  // Every hour (at fixed minute)
   if (min !== '*' && hour === '*') return 'Hourly'
-  // Every N hours
   if (hour?.startsWith('*/')) return `Every ${hour.slice(2)}h`
-  // Daily
   if (min !== '*' && hour !== '*' && dom === '*' && dow === '*') return 'Daily'
-  // Weekdays
   if (min !== '*' && hour !== '*' && dom === '*' && dow === '1-5') return 'Weekdays'
 
   return cron
 }
 
-/** Get next run time formatted as short relative + clock, e.g. "Today 14:25" or "Tomorrow 09:00". */
 function nextRunLabel(cron: string): string | null {
   try {
     const next = CronExpressionParser.parse(cron).next().toDate()
@@ -44,21 +36,17 @@ function nextRunLabel(cron: string): string | null {
     const diffMs = next.getTime() - now.getTime()
     if (diffMs < 0) return null
 
-    // Same calendar day
     if (next.toDateString() === now.toDateString()) return `today ${time}`
 
-    // Tomorrow
     const tomorrow = new Date(now)
     tomorrow.setDate(tomorrow.getDate() + 1)
     if (next.toDateString() === tomorrow.toDateString()) return `tmrw ${time}`
 
-    // Within 7 days — show day name
     if (diffMs < 7 * 24 * 60 * 60 * 1000) {
       const day = next.toLocaleDateString('en-US', { weekday: 'short' })
       return `${day} ${time}`
     }
 
-    // Further out
     const date = next.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     return `${date} ${time}`
   } catch {
@@ -73,8 +61,7 @@ interface TaskCardProps {
 }
 
 export default function TaskCard({ id, task, isDragOverlay }: TaskCardProps): React.JSX.Element {
-  const selectTask = useTasksStore((s) => s.selectTask)
-  const selectedTaskId = useTasksStore((s) => s.selectedTaskId)
+  const openTaskDetail = useTasksStore((s) => s.openTaskDetail)
   const updateTaskTitle = useTasksStore((s) => s.updateTaskTitle)
   const deleteTask = useTasksStore((s) => s.deleteTask)
   const renamingTaskId = useTasksStore((s) => s.renamingTaskId)
@@ -84,21 +71,16 @@ export default function TaskCard({ id, task, isDragOverlay }: TaskCardProps): Re
   const activeAgentTasks = useTasksStore((s) => s.activeAgentTasks)
 
   const agentInfo = activeAgentTasks[id]
-  const isLoop = task.type === 'loop'
-  const agentRunning = !!agentInfo && !isLoop
+  const hasSteps = (task.steps?.length ?? 0) > 0
+  const agentRunning = !!agentInfo
+  const running = isTaskRunning(id) || task.lastRun?.status === 'running'
 
-  // Loop-specific state
-  const loops = useLoopsStore((s) => s.loops)
-  const loop = task.type === 'loop' && task.loopId
-    ? loops.find((l) => l.id === task.loopId) ?? null
-    : null
-
-  // Terminal group for loop cards — used for "View Agent" navigation
+  // Terminal group for multi-step tasks
   const terminalGroups = useTerminalStore((s) => s.groups)
-  const loopGroup = loop?.lastRun?.groupId
-    ? terminalGroups.find((g) => g.id === loop.lastRun!.groupId) ?? null
+  const runGroup = task.lastRun?.groupId
+    ? terminalGroups.find((g) => g.id === task.lastRun!.groupId) ?? null
     : null
-  const loopHasAgent = !!loopGroup && loopGroup.tabIds.length > 0
+  const hasAgentTerminal = agentRunning || (!!runGroup && runGroup.tabIds.length > 0)
 
   const [menuOpen, setMenuOpen] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
@@ -119,16 +101,14 @@ export default function TaskCard({ id, task, isDragOverlay }: TaskCardProps): Re
     opacity: isDragging ? 0.5 : 1
   }
 
-  const isSelected = selectedTaskId === id
-
   const createdDate = new Date(task.createdAt).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric'
   })
 
-  // Load preview text from markdown (only for regular tasks)
+  // Load preview text from markdown (only for tasks without steps)
   useEffect(() => {
-    if (isLoop) return
+    if (hasSteps) return
     let cancelled = false
     readMarkdown(id).then((content) => {
       if (cancelled) return
@@ -138,18 +118,14 @@ export default function TaskCard({ id, task, isDragOverlay }: TaskCardProps): Re
         .find((l) => l && !l.startsWith('#'))
       setPreview(line ?? '')
     })
-    return () => {
-      cancelled = true
-    }
-  }, [id, readMarkdown, markdownRevision, isLoop])
+    return () => { cancelled = true }
+  }, [id, readMarkdown, markdownRevision, hasSteps])
 
   // Close menu on outside click
   useEffect(() => {
     if (!menuOpen) return
     const handleClick = (e: MouseEvent): void => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false)
-      }
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false)
     }
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
@@ -164,7 +140,6 @@ export default function TaskCard({ id, task, isDragOverlay }: TaskCardProps): Re
     }
   }, [renamingTaskId, id, task.title, setRenamingTaskId])
 
-  // Focus and select input when entering rename mode
   useEffect(() => {
     if (isRenaming) {
       inputRef.current?.focus()
@@ -184,9 +159,7 @@ export default function TaskCard({ id, task, isDragOverlay }: TaskCardProps): Re
       return
     }
     const trimmed = renameValue.trim()
-    if (trimmed && trimmed !== task.title) {
-      updateTaskTitle(id, trimmed)
-    }
+    if (trimmed && trimmed !== task.title) updateTaskTitle(id, trimmed)
     setIsRenaming(false)
   }, [id, renameValue, task.title, updateTaskTitle])
 
@@ -195,42 +168,33 @@ export default function TaskCard({ id, task, isDragOverlay }: TaskCardProps): Re
     setConfirmingDelete(true)
   }, [])
 
-  const handleRunLoop = useCallback((e: React.MouseEvent) => {
+  const handleRunTask = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
-    if (task.loopId) executeLoop(task.loopId)
-  }, [task.loopId])
+    executeTask(id)
+  }, [id])
 
-  const handleStopLoop = useCallback((e: React.MouseEvent) => {
+  const handleStopTask = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
-    if (task.loopId) abortLoop(task.loopId)
-  }, [task.loopId])
+    abortTask(id)
+  }, [id])
 
   const handleViewAgent = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
     if (agentInfo) {
       useTerminalStore.getState().setActiveTab(agentInfo.terminalId)
+    } else if (runGroup && runGroup.tabIds.length > 0) {
+      useTerminalStore.getState().setActiveTab(runGroup.tabIds[runGroup.tabIds.length - 1])
     }
     useAppStore.getState().showTerminal()
-  }, [agentInfo])
+  }, [agentInfo, runGroup])
 
-  const handleViewLoopAgent = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation()
-    if (loopGroup && loopGroup.tabIds.length > 0) {
-      // Activate the most recent terminal in the group
-      useTerminalStore.getState().setActiveTab(loopGroup.tabIds[loopGroup.tabIds.length - 1])
-    }
-    useAppStore.getState().showTerminal()
-  }, [loopGroup])
-
-  const running = loop && (isLoopRunning(loop.id) || loop.lastRun?.status === 'running')
-
-  // Status dot color for loop cards
-  const statusColor = loop
-    ? loop.lastRun?.status === 'running'
+  // Status dot color for multi-step tasks
+  const statusColor = hasSteps && task.lastRun
+    ? task.lastRun.status === 'running'
       ? 'bg-yellow-400 animate-pulse'
-      : loop.lastRun?.status === 'completed'
+      : task.lastRun.status === 'completed'
         ? 'bg-green-400'
-        : loop.lastRun?.status === 'failed'
+        : task.lastRun.status === 'failed'
           ? 'bg-red-400'
           : 'bg-zinc-500'
     : ''
@@ -241,25 +205,16 @@ export default function TaskCard({ id, task, isDragOverlay }: TaskCardProps): Re
       style={!isDragOverlay ? style : undefined}
       {...(!isDragOverlay ? attributes : {})}
       {...(!isDragOverlay ? listeners : {})}
-      onClick={() => !isRenaming && selectTask(id)}
-      className={`group relative cursor-grab rounded-lg border p-3 transition-colors active:cursor-grabbing ${
-        isSelected
-          ? 'border-zinc-500 bg-zinc-800'
-          : 'border-zinc-700 bg-zinc-800/80 hover:border-zinc-600'
-      }`}
+      onClick={() => !isRenaming && openTaskDetail(id)}
+      className={`group relative cursor-grab rounded-lg border border-zinc-700 bg-zinc-800/80 p-3 transition-colors active:cursor-grabbing hover:border-zinc-600`}
     >
       {/* Title row */}
       <div className="flex items-center gap-2">
-        {isLoop && (
-          <div className="flex items-center gap-1.5">
-            <Repeat size={12} className="shrink-0 text-blue-400" />
-            <div className={`h-2 w-2 shrink-0 rounded-full ${statusColor}`} />
-          </div>
+        {hasSteps && statusColor && (
+          <div className={`h-2 w-2 shrink-0 rounded-full ${statusColor}`} />
         )}
-        {agentRunning && (
-          <div className="flex items-center gap-1.5">
-            <div className="h-2 w-2 shrink-0 rounded-full bg-yellow-400 animate-pulse" />
-          </div>
+        {agentRunning && !hasSteps && (
+          <div className="h-2 w-2 shrink-0 rounded-full bg-yellow-400 animate-pulse" />
         )}
         {isRenaming ? (
           <input
@@ -284,19 +239,15 @@ export default function TaskCard({ id, task, isDragOverlay }: TaskCardProps): Re
         )}
       </div>
 
-      {/* Loop-specific info */}
-      {isLoop && loop && (
+      {/* Step count + run controls for multi-step tasks */}
+      {hasSteps && (
         <div className="mt-1.5 flex items-center gap-2">
           <span className="rounded bg-zinc-700/60 px-1.5 py-0.5 text-[11px] text-zinc-400">
-            {loop.steps.length} step{loop.steps.length !== 1 ? 's' : ''}
+            {task.steps!.length} step{task.steps!.length !== 1 ? 's' : ''}
           </span>
-          <span className="rounded bg-zinc-700/60 px-1.5 py-0.5 text-[11px] text-zinc-400">
-            {loop.agentType === 'claude-code' ? 'Claude' : 'Codex'}
-          </span>
-          {/* Inline Run/Stop button */}
           {running ? (
             <button
-              onClick={handleStopLoop}
+              onClick={handleStopTask}
               onPointerDown={(e) => e.stopPropagation()}
               className="ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-red-400 hover:bg-zinc-700"
             >
@@ -305,7 +256,7 @@ export default function TaskCard({ id, task, isDragOverlay }: TaskCardProps): Re
             </button>
           ) : (
             <button
-              onClick={handleRunLoop}
+              onClick={handleRunTask}
               onPointerDown={(e) => e.stopPropagation()}
               className="ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-green-400 hover:bg-zinc-700"
             >
@@ -316,8 +267,8 @@ export default function TaskCard({ id, task, isDragOverlay }: TaskCardProps): Re
         </div>
       )}
 
-      {/* Agent running badge */}
-      {agentRunning && (
+      {/* Agent running badge (simple tasks) */}
+      {agentRunning && !hasSteps && (
         <div className="mt-1.5">
           <span className="rounded bg-zinc-700/60 px-1.5 py-0.5 text-[11px] text-zinc-400">
             {agentInfo.agent === 'claude-code' ? 'Claude' : 'Codex'}
@@ -325,8 +276,8 @@ export default function TaskCard({ id, task, isDragOverlay }: TaskCardProps): Re
         </div>
       )}
 
-      {/* Schedule info for regular tasks */}
-      {!isLoop && task.schedule?.enabled && task.schedule.cron && (
+      {/* Schedule info */}
+      {task.schedule?.enabled && task.schedule.cron && (
         <div className="mt-1.5 flex items-center gap-1 text-[11px] text-zinc-500">
           <Clock size={10} className="shrink-0" />
           <span>{cronFrequency(task.schedule.cron)}</span>
@@ -342,14 +293,14 @@ export default function TaskCard({ id, task, isDragOverlay }: TaskCardProps): Re
         </div>
       )}
 
-      {/* Regular task preview */}
-      {!isLoop && preview && <p className="mt-1 line-clamp-1 text-xs text-zinc-500">{preview}</p>}
+      {/* Preview text (simple tasks only) */}
+      {!hasSteps && preview && <p className="mt-1 line-clamp-1 text-xs text-zinc-500">{preview}</p>}
       <p className="mt-1 text-xs text-zinc-600">{createdDate}</p>
 
       {/* View agent button */}
-      {(agentRunning || loopHasAgent) && (
+      {hasAgentTerminal && (
         <button
-          onClick={agentRunning ? handleViewAgent : handleViewLoopAgent}
+          onClick={handleViewAgent}
           onPointerDown={(e) => e.stopPropagation()}
           className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-zinc-600 px-2 py-1 text-[11px] text-zinc-200 hover:border-zinc-500 hover:bg-zinc-700"
         >
@@ -362,10 +313,7 @@ export default function TaskCard({ id, task, isDragOverlay }: TaskCardProps): Re
       {!isDragOverlay && !isRenaming && (
         <div ref={menuRef} className="absolute right-2 top-2.5">
           <button
-            onClick={(e) => {
-              e.stopPropagation()
-              setMenuOpen((v) => !v)
-            }}
+            onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v) }}
             onPointerDown={(e) => e.stopPropagation()}
             className="rounded p-0.5 text-zinc-500 opacity-0 transition-opacity hover:bg-zinc-700 hover:text-zinc-300 group-hover:opacity-100 data-[open=true]:opacity-100"
             data-open={menuOpen}
@@ -379,23 +327,15 @@ export default function TaskCard({ id, task, isDragOverlay }: TaskCardProps): Re
 
           {menuOpen && (
             <div className="absolute right-0 top-full z-50 mt-1 w-32 overflow-hidden rounded-md border border-zinc-700 bg-zinc-800 py-1 shadow-xl">
-              {!isLoop && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleRename()
-                  }}
-                  onPointerDown={(e) => e.stopPropagation()}
-                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-zinc-300 hover:bg-zinc-700"
-                >
-                  Rename
-                </button>
-              )}
               <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleDelete()
-                }}
+                onClick={(e) => { e.stopPropagation(); handleRename() }}
+                onPointerDown={(e) => e.stopPropagation()}
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-zinc-300 hover:bg-zinc-700"
+              >
+                Rename
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); handleDelete() }}
                 onPointerDown={(e) => e.stopPropagation()}
                 className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-red-400 hover:bg-zinc-700"
               >
@@ -408,14 +348,11 @@ export default function TaskCard({ id, task, isDragOverlay }: TaskCardProps): Re
 
       {confirmingDelete && (
         <ConfirmDialog
-          title={isLoop ? 'Delete loop' : 'Delete task'}
+          title="Delete task"
           description={`Are you sure you want to delete "${task.title}"? This action cannot be undone.`}
           confirmLabel="Delete"
           variant="danger"
-          onConfirm={() => {
-            setConfirmingDelete(false)
-            deleteTask(id)
-          }}
+          onConfirm={() => { setConfirmingDelete(false); deleteTask(id) }}
           onCancel={() => setConfirmingDelete(false)}
         />
       )}

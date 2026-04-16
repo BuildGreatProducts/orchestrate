@@ -3,7 +3,7 @@ import { join, resolve, relative, sep } from 'path'
 import { homedir } from 'os'
 import { nanoid } from 'nanoid'
 import type { SavedCommand, CommandScope } from '@shared/types'
-import { SAFE_ID_RE } from './loop-manager'
+const SAFE_ID_RE = /^[A-Za-z0-9_-]{1,64}$/
 
 export const GLOBAL_COMMANDS_DIR = join(homedir(), '.orchestrate', 'commands')
 

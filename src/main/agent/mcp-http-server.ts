@@ -31,9 +31,7 @@ import {
   handleEditTask,
   handleDeleteTask,
   handleSendToAgent,
-  handleListLoops,
-  handleCreateLoop,
-  handleTriggerLoop,
+  handleTriggerTask,
   handleSpawnTerminal,
   handleReadFile,
   handleWriteFile,
@@ -73,7 +71,6 @@ function createMcpInstance(deps: ToolExecutorDeps): McpServer {
   const {
     getCurrentFolder,
     getTaskManager,
-    getLoopManager,
     getGitManager,
     getSkillManager,
     notifyStateChanged
@@ -81,7 +78,6 @@ function createMcpInstance(deps: ToolExecutorDeps): McpServer {
 
   const taskDeps = { getTaskManager, notifyStateChanged }
   const gitDeps = { getGitManager, notifyStateChanged }
-  const loopDeps = { getLoopManager, getTaskManager, notifyStateChanged }
   const fileDeps = { getCurrentFolder, notifyStateChanged }
   const skillDeps = { getSkillManager, getCurrentFolder }
   const termDeps = { notifyStateChanged }
@@ -95,13 +91,14 @@ function createMcpInstance(deps: ToolExecutorDeps): McpServer {
 
   server.tool(
     'create_task',
-    'Create a new task on the kanban board.',
+    'Create a new task on the kanban board, optionally with ordered steps.',
     {
       title: z.string().describe('Task title'),
       column: z
         .enum(['planning', 'in-progress', 'review', 'done'])
         .optional()
-        .describe('Column to place the task in (default: planning)')
+        .describe('Column to place the task in (default: planning)'),
+      steps: z.array(z.string()).optional().describe('Ordered list of step prompts for multi-step tasks')
     },
     async (args) => handleCreateTask(args, taskDeps)
   )
@@ -158,30 +155,11 @@ function createMcpInstance(deps: ToolExecutorDeps): McpServer {
     async (args) => handleSendToAgent(args, taskDeps)
   )
 
-  // ── Loop tools ──
-
-  server.tool('list_loops', 'List all loops.', async () => handleListLoops(loopDeps))
-
   server.tool(
-    'create_loop',
-    'Create a new loop with ordered steps.',
-    {
-      name: z.string().describe('The name of the loop'),
-      steps: z.array(z.string()).describe('Ordered list of step prompts'),
-      agent_type: z
-        .enum(['claude-code', 'codex'])
-        .optional()
-        .describe('Which AI agent to use (default: claude-code)'),
-      cron: z.string().optional().describe('Cron schedule expression (e.g. "0 9 * * 1-5")')
-    },
-    async (args) => handleCreateLoop(args, loopDeps)
-  )
-
-  server.tool(
-    'trigger_loop',
-    'Trigger a loop to start executing its steps sequentially.',
-    { loop_id: z.string().describe('The ID of the loop to trigger') },
-    async (args) => handleTriggerLoop(args, loopDeps)
+    'trigger_task',
+    'Trigger a multi-step task to start executing its steps sequentially. Returns an error if the task has no steps.',
+    { task_id: z.string().describe('The ID of the task to trigger') },
+    async (args) => handleTriggerTask(args, taskDeps)
   )
 
   // ── Terminal tools ──

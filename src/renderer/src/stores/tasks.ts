@@ -1,9 +1,8 @@
 import { create } from 'zustand'
-import type { BoardState, ColumnId, AgentType, Loop, TaskSchedule } from '@shared/types'
+import type { BoardState, ColumnId, AgentType, TaskSchedule, TaskStep, TaskRun } from '@shared/types'
 import { useTerminalStore } from './terminal'
 import { useAppStore } from './app'
 import { useHistoryStore } from './history'
-import { useLoopsStore } from './loops'
 import { useAgentsStore } from './agents'
 import { buildAgentCommand } from '../lib/agent-command-builder'
 import { toast } from './toast'
@@ -32,6 +31,8 @@ const EMPTY_BOARD: BoardState = {
 interface TasksState {
   board: BoardState | null
   selectedTaskId: string | null
+  viewingTaskId: string | null
+  selectedStepId: string | null
   renamingTaskId: string | null
   markdownRevision: number
   isLoading: boolean
@@ -42,13 +43,20 @@ interface TasksState {
   loadBoard: () => Promise<void>
   resetBoard: () => void
   createTask: (columnId: ColumnId, title: string) => Promise<void>
-  createLoopTask: (columnId: ColumnId, loop: Loop) => Promise<void>
   setRenamingTaskId: (id: string | null) => void
   updateTaskTitle: (id: string, title: string) => Promise<void>
   deleteTask: (id: string) => Promise<void>
   moveTask: (taskId: string, toColumn: ColumnId, toIndex: number) => Promise<void>
   reorderInColumn: (columnId: ColumnId, oldIdx: number, newIdx: number) => Promise<void>
   selectTask: (id: string | null) => void
+  openTaskDetail: (id: string) => void
+  closeTaskDetail: () => void
+  selectStep: (stepId: string | null) => void
+  addStep: (taskId: string, prompt: string) => Promise<void>
+  updateStep: (taskId: string, stepId: string, prompt: string) => Promise<void>
+  deleteStep: (taskId: string, stepId: string) => Promise<void>
+  reorderSteps: (taskId: string, oldIdx: number, newIdx: number) => Promise<void>
+  updateTaskRun: (taskId: string, run: TaskRun) => Promise<void>
   readMarkdown: (id: string) => Promise<string>
   writeMarkdown: (id: string, content: string) => Promise<void>
   sendToAgent: (id: string, agent: AgentType) => Promise<void>
@@ -60,6 +68,8 @@ interface TasksState {
 export const useTasksStore = create<TasksState>((set, get) => ({
   board: null,
   selectedTaskId: null,
+  viewingTaskId: null,
+  selectedStepId: null,
   renamingTaskId: null,
   markdownRevision: 0,
   isLoading: false,
@@ -78,12 +88,19 @@ export const useTasksStore = create<TasksState>((set, get) => ({
       // and any previously in-progress tasks are stale.
       const { activeAgentTasks } = get()
       const stale = loaded.columns['in-progress'].filter(
-        (id) => loaded.tasks[id]?.type === 'task' && !activeAgentTasks[id]
+        (id) => loaded.tasks[id] && !activeAgentTasks[id]
       )
       if (stale.length > 0) {
         const staleSet = new Set(stale)
         loaded.columns['in-progress'] = loaded.columns['in-progress'].filter((id) => !staleSet.has(id))
         loaded.columns.planning = [...stale, ...loaded.columns.planning]
+        // Clear stale lastRun status so the UI doesn't show a phantom "running"
+        for (const id of stale) {
+          const t = loaded.tasks[id]
+          if (t?.lastRun?.status === 'running') {
+            t.lastRun = { ...t.lastRun, status: 'failed', finishedAt: new Date().toISOString() }
+          }
+        }
         // Persist the corrected board
         window.orchestrate.saveBoard(loaded).catch(() => {})
       }
@@ -125,45 +142,13 @@ export const useTasksStore = create<TasksState>((set, get) => ({
       },
       tasks: {
         ...board.tasks,
-        [id]: { title, type: 'task', createdAt: new Date().toISOString() }
+        [id]: { title, createdAt: new Date().toISOString() }
       }
     }
 
-    set({ board: newBoard, renamingTaskId: id })
+    set({ board: newBoard, renamingTaskId: id, viewingTaskId: id, selectedStepId: null })
     await window.orchestrate.saveBoard(newBoard)
     await window.orchestrate.writeTaskMarkdown(id, `# ${title}\n\n`)
-  },
-
-  createLoopTask: async (columnId: ColumnId, loop: Loop) => {
-    const { board } = get()
-    if (!board) return
-
-    let id = generateId()
-    let attempts = 0
-    while (board.tasks[id] && attempts < 10) {
-      id = generateId()
-      attempts++
-    }
-    if (board.tasks[id]) return
-
-    const newBoard: BoardState = {
-      columns: {
-        ...board.columns,
-        [columnId]: [...board.columns[columnId], id]
-      },
-      tasks: {
-        ...board.tasks,
-        [id]: {
-          title: loop.name,
-          type: 'loop',
-          createdAt: new Date().toISOString(),
-          loopId: loop.id
-        }
-      }
-    }
-
-    set({ board: newBoard })
-    await window.orchestrate.saveBoard(newBoard)
   },
 
   setRenamingTaskId: (id: string | null) => {
@@ -187,10 +172,9 @@ export const useTasksStore = create<TasksState>((set, get) => ({
   },
 
   deleteTask: async (id: string) => {
-    const { board, selectedTaskId } = get()
+    const { board, selectedTaskId, viewingTaskId } = get()
     if (!board) return
 
-    const taskMeta = board.tasks[id]
     const newColumns = { ...board.columns }
     for (const col of Object.keys(newColumns) as ColumnId[]) {
       newColumns[col] = newColumns[col].filter((taskId) => taskId !== id)
@@ -202,21 +186,13 @@ export const useTasksStore = create<TasksState>((set, get) => ({
     const newBoard: BoardState = { columns: newColumns, tasks: newTasks }
     set({
       board: newBoard,
-      selectedTaskId: selectedTaskId === id ? null : selectedTaskId
+      selectedTaskId: selectedTaskId === id ? null : selectedTaskId,
+      viewingTaskId: viewingTaskId === id ? null : viewingTaskId,
+      selectedStepId: viewingTaskId === id ? null : get().selectedStepId
     })
 
     await window.orchestrate.saveBoard(newBoard)
-    if (!taskMeta || taskMeta.type === 'task') {
-      await window.orchestrate.deleteTask(id)
-    }
-    // For loop tasks, also delete the loop
-    if (taskMeta?.type === 'loop' && taskMeta.loopId) {
-      try {
-        await useLoopsStore.getState().deleteLoop(taskMeta.loopId)
-      } catch (err) {
-        console.error('[Tasks] Failed to delete associated loop:', err)
-      }
-    }
+    await window.orchestrate.deleteTask(id)
   },
 
   moveTask: async (taskId: string, toColumn: ColumnId, toIndex: number) => {
@@ -270,6 +246,95 @@ export const useTasksStore = create<TasksState>((set, get) => ({
 
   selectTask: (id: string | null) => {
     set({ selectedTaskId: id })
+  },
+
+  openTaskDetail: (id: string) => {
+    set({ viewingTaskId: id, selectedStepId: null })
+  },
+
+  closeTaskDetail: () => {
+    set({ viewingTaskId: null, selectedStepId: null })
+  },
+
+  selectStep: (stepId: string | null) => {
+    set({ selectedStepId: stepId })
+  },
+
+  addStep: async (taskId: string, prompt: string) => {
+    const { board } = get()
+    if (!board || !board.tasks[taskId]) return
+    const task = board.tasks[taskId]
+    const newStep: TaskStep = { id: `step-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, prompt }
+    const newBoard: BoardState = {
+      ...board,
+      tasks: {
+        ...board.tasks,
+        [taskId]: { ...task, steps: [...(task.steps ?? []), newStep] }
+      }
+    }
+    set({ board: newBoard, selectedStepId: newStep.id })
+    await window.orchestrate.saveBoard(newBoard)
+  },
+
+  updateStep: async (taskId: string, stepId: string, prompt: string) => {
+    const { board } = get()
+    if (!board || !board.tasks[taskId]) return
+    const task = board.tasks[taskId]
+    if (!task.steps) return
+    const newSteps = task.steps.map((s) => (s.id === stepId ? { ...s, prompt } : s))
+    const newBoard: BoardState = {
+      ...board,
+      tasks: { ...board.tasks, [taskId]: { ...task, steps: newSteps } }
+    }
+    set({ board: newBoard })
+    await window.orchestrate.saveBoard(newBoard)
+  },
+
+  deleteStep: async (taskId: string, stepId: string) => {
+    const { board, selectedStepId } = get()
+    if (!board || !board.tasks[taskId]) return
+    const task = board.tasks[taskId]
+    if (!task.steps) return
+    const newSteps = task.steps.filter((s) => s.id !== stepId)
+    const newBoard: BoardState = {
+      ...board,
+      tasks: { ...board.tasks, [taskId]: { ...task, steps: newSteps.length > 0 ? newSteps : undefined } }
+    }
+    set({
+      board: newBoard,
+      selectedStepId: selectedStepId === stepId ? null : selectedStepId
+    })
+    await window.orchestrate.saveBoard(newBoard)
+  },
+
+  reorderSteps: async (taskId: string, oldIdx: number, newIdx: number) => {
+    const { board } = get()
+    if (!board || !board.tasks[taskId]) return
+    const task = board.tasks[taskId]
+    if (!task.steps) return
+    if (oldIdx < 0 || oldIdx >= task.steps.length) return
+    if (newIdx < 0 || newIdx >= task.steps.length) return
+    const items = [...task.steps]
+    const [removed] = items.splice(oldIdx, 1)
+    if (!removed) return
+    items.splice(newIdx, 0, removed)
+    const newBoard: BoardState = {
+      ...board,
+      tasks: { ...board.tasks, [taskId]: { ...task, steps: items } }
+    }
+    set({ board: newBoard })
+    await window.orchestrate.saveBoard(newBoard)
+  },
+
+  updateTaskRun: async (taskId: string, run: TaskRun) => {
+    const { board } = get()
+    if (!board || !board.tasks[taskId]) return
+    const newBoard: BoardState = {
+      ...board,
+      tasks: { ...board.tasks, [taskId]: { ...board.tasks[taskId], lastRun: run } }
+    }
+    set({ board: newBoard })
+    await window.orchestrate.saveBoard(newBoard)
   },
 
   readMarkdown: async (id: string) => {

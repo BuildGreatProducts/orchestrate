@@ -4,7 +4,7 @@ import { getGitManager } from './git'
 import { TaskManager } from '../task-manager'
 import type { BoardState, AgentType } from '@shared/types'
 import type { PtyManager } from '../pty-manager'
-import type { LoopScheduler } from '../loop-scheduler'
+import type { TaskScheduler } from '../task-scheduler'
 
 const SAFE_ID_RE = /^[A-Za-z0-9_-]{1,64}$/
 
@@ -37,7 +37,7 @@ export function registerTaskHandlers(
   _getWindow: () => BrowserWindow | null,
   getCurrentFolder: () => string | null,
   _getPtyManager: () => PtyManager | null,
-  scheduler?: LoopScheduler
+  scheduler?: TaskScheduler
 ): void {
   getCurrentFolderFn = getCurrentFolder
   markChannelRegistered('task:loadBoard')

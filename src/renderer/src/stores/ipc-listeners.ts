@@ -1,4 +1,3 @@
-import { useLoopsStore } from './loops'
 import { useTasksStore } from './tasks'
 import { useHistoryStore } from './history'
 import { useFilesStore } from './files'
@@ -6,7 +5,7 @@ import { useTerminalStore } from './terminal'
 import { useAppStore } from './app'
 import { useAgentsStore } from './agents'
 import { buildAgentCommand } from '../lib/agent-command-builder'
-import { executeLoop } from './loop-execution-engine'
+import { executeTask } from './task-execution-engine'
 
 // Tracks task IDs with in-flight terminal creation to prevent duplicate sends
 const pendingTaskAgents = new Set<string>()
@@ -92,13 +91,10 @@ export function ensureGlobalIpcListeners(): void {
         }
         break
       }
-      case 'loops':
-        useLoopsStore.getState().loadLoops()
-        break
-      case 'loop-trigger': {
+      case 'task-trigger': {
         if (data && typeof data === 'object') {
-          const { loopId } = data as { loopId: string }
-          if (loopId) executeLoop(loopId)
+          const { taskId } = data as { taskId: string }
+          if (taskId) executeTask(taskId)
         }
         break
       }
@@ -129,24 +125,24 @@ export function ensureGlobalIpcListeners(): void {
     }
   })
 
-  // Listen for cron-scheduled loop triggers (separate IPC channel from agent tools)
-  const cleanupLoopTrigger = window.orchestrate.onLoopTrigger((loopId) => {
-    executeLoop(loopId)
-  })
-
   // Listen for cron-scheduled task triggers
   const cleanupTaskTrigger = window.orchestrate.onTaskScheduleTrigger((taskId) => {
     const tasksState = useTasksStore.getState()
     const task = tasksState.board?.tasks[taskId]
-    if (task?.agentType) {
+    if (!task) return
+    // If task has steps, execute them sequentially; otherwise send to agent
+    if (task.steps && task.steps.length > 0) {
+      executeTask(taskId)
+    } else if (task.agentType) {
       tasksState.sendToAgent(taskId, task.agentType)
+    } else {
+      console.warn(`[Scheduler] Task ${taskId} ("${task.title}") triggered but has no steps and no agentType configured`)
     }
   })
 
   // Store cleanup so the next HMR reload can remove these listeners
   ;(window as unknown as Record<string, unknown>)[CLEANUP_KEY] = (): void => {
     cleanupStateChanged()
-    cleanupLoopTrigger()
     cleanupTaskTrigger()
   }
 }

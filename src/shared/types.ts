@@ -33,43 +33,18 @@ export interface FileChangeEvent {
 // ── Kanban / Tasks ──
 
 export type ColumnId = 'planning' | 'in-progress' | 'review' | 'done'
-export type TaskType = 'task' | 'loop'
 
 export interface TaskSchedule {
   enabled: boolean
   cron: string // e.g. "0 9 * * 1-5"
 }
 
-export interface TaskMeta {
-  title: string
-  type: TaskType
-  createdAt: string
-  loopId?: string // present when type === 'loop', references Loop.id
-  schedule?: TaskSchedule
-  agentType?: AgentType // agent to use for scheduled runs
-  groupName?: string // agent group to place terminal tabs in
-}
-
-export interface BoardState {
-  columns: Record<ColumnId, string[]>
-  tasks: Record<string, TaskMeta>
-}
-
-// ── Loops ──
-
-export interface LoopStep {
+export interface TaskStep {
   id: string
   prompt: string
 }
 
-export interface LoopSchedule {
-  enabled: boolean
-  cron: string // e.g. "0 9 * * 1-5"
-}
-
-export type LoopStatus = 'idle' | 'running' | 'completed' | 'failed'
-
-export interface LoopRun {
+export interface TaskRun {
   id: string
   startedAt: string
   finishedAt?: string
@@ -84,16 +59,19 @@ export interface LoopRun {
   groupId: string
 }
 
-export interface Loop {
-  id: string
-  name: string
-  steps: LoopStep[]
-  schedule: LoopSchedule
-  agentType: AgentType
+export interface TaskMeta {
+  title: string
   createdAt: string
-  updatedAt: string
-  lastRun?: LoopRun
-  groupName?: string // agent group to place step tabs in (defaults to loop name)
+  steps?: TaskStep[]
+  lastRun?: TaskRun
+  schedule?: TaskSchedule
+  agentType?: AgentType // agent to use for scheduled runs
+  groupName?: string // agent group to place terminal tabs in
+}
+
+export interface BoardState {
+  columns: Record<ColumnId, string[]>
+  tasks: Record<string, TaskMeta>
 }
 
 // ── Saved Commands ──
@@ -282,12 +260,7 @@ export interface OrchestrateAPI {
   deleteTask: (id: string) => Promise<void>
   sendToAgent: (id: string, agent: AgentType) => Promise<void>
 
-  // Loops
-  listLoops: () => Promise<Loop[]>
-  loadLoop: (id: string) => Promise<Loop | null>
-  saveLoop: (loop: Loop) => Promise<void>
-  deleteLoop: (id: string) => Promise<void>
-  onLoopTrigger: (callback: (loopId: string) => void) => () => void
+  // Task schedule triggers
   onTaskScheduleTrigger: (callback: (taskId: string) => void) => () => void
 
   // Saved Commands
