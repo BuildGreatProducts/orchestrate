@@ -15,6 +15,7 @@ import type { ColumnId, BoardState } from '@shared/types'
 import { useTasksStore } from '@renderer/stores/tasks'
 import KanbanColumn from './KanbanColumn'
 import TaskCard from './TaskCard'
+import { TaskTemplatePicker } from './TaskTemplates'
 
 const COLUMNS: ColumnId[] = ['planning', 'in-progress', 'review', 'done']
 
@@ -26,6 +27,7 @@ function findColumnForTask(board: BoardState, taskId: string): ColumnId | null {
 }
 
 export default function KanbanBoard(): React.JSX.Element {
+  const [showTemplates, setShowTemplates] = useState(false)
   const board = useTasksStore((s) => s.board)
   const loadBoard = useTasksStore((s) => s.loadBoard)
   const createTask = useTasksStore((s) => s.createTask)
