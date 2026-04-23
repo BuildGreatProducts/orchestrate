@@ -40,6 +40,27 @@ export class BrowserViewManager {
     this.onTabUpdated(this.buildTabInfo(id, tab.view))
   }
 
+  private disposeTab(id: string, notifyClosed: boolean): void {
+    const tab = this.tabs.get(id)
+    if (!tab) return
+
+    const win = this.getWindow()
+    if (win && !win.isDestroyed()) {
+      try {
+        win.contentView.removeChildView(tab.view)
+      } catch {
+        // View may already be removed
+      }
+    }
+
+    tab.view.webContents.close()
+    this.tabs.delete(id)
+
+    if (notifyClosed) {
+      this.onTabClosed(id)
+    }
+  }
+
   create(id: string, url: string): void {
     const win = this.getWindow()
     if (!win) return
@@ -114,20 +135,7 @@ export class BrowserViewManager {
   }
 
   close(id: string): void {
-    const tab = this.tabs.get(id)
-    if (!tab) return
-
-    const win = this.getWindow()
-    if (win && !win.isDestroyed()) {
-      try {
-        win.contentView.removeChildView(tab.view)
-      } catch {
-        // View may already be removed
-      }
-    }
-
-    tab.view.webContents.close()
-    this.tabs.delete(id)
+    this.disposeTab(id, true)
   }
 
   setBounds(id: string, bounds: BrowserBounds): void {
@@ -218,17 +226,8 @@ export class BrowserViewManager {
   }
 
   closeAll(): void {
-    const win = this.getWindow()
-    for (const tab of this.tabs.values()) {
-      if (win && !win.isDestroyed()) {
-        try {
-          win.contentView.removeChildView(tab.view)
-        } catch {
-          // Already removed
-        }
-      }
-      tab.view.webContents.close()
+    for (const id of Array.from(this.tabs.keys())) {
+      this.disposeTab(id, true)
     }
-    this.tabs.clear()
   }
 }

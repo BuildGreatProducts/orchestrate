@@ -416,9 +416,22 @@ export const useTasksStore = create<TasksState>((set, get) => ({
     try {
       if (groupName) {
         const groupId = termStore.findOrCreateGroup(groupName, folder)
-        tabId = await termStore.createTabInGroup(folder, groupId, tabName, cmd)
+        tabId = await termStore.createTab({
+          cwd: folder,
+          name: tabName,
+          command: cmd,
+          kind: 'agent',
+          taskId: id,
+          groupId
+        })
       } else {
-        tabId = await termStore.createTab(folder, tabName, cmd)
+        tabId = await termStore.createTab({
+          cwd: folder,
+          name: tabName,
+          command: cmd,
+          kind: 'agent',
+          taskId: id
+        })
       }
     } catch (err) {
       // Terminal creation failed — move back to planning and notify user
@@ -447,7 +460,8 @@ export const useTasksStore = create<TasksState>((set, get) => ({
       unsub()
       // Remove from active tasks
       set((state) => {
-        const { [taskId]: _, ...rest } = state.activeAgentTasks
+        const rest = { ...state.activeAgentTasks }
+        delete rest[taskId]
         return { activeAgentTasks: rest }
       })
     }

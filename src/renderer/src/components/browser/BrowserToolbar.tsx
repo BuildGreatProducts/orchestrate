@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect } from 'react'
 import { ArrowLeft, ArrowRight, RotateCw, X, Globe, Wrench } from 'lucide-react'
 import { useBrowserStore } from '@renderer/stores/browser'

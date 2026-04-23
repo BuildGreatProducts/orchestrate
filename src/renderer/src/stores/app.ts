@@ -7,6 +7,7 @@ interface AppState {
   projects: string[]
   expandedProjects: Record<string, boolean>
   projectDetailTab: ProjectDetailTabId
+  bottomTerminalOpen: boolean
 
   showPage: (pageId: NavPageId) => void
   showOrchestrate: () => Promise<void>
@@ -14,6 +15,8 @@ interface AppState {
   setProjectDetailTab: (tab: ProjectDetailTabId) => void
   showWorktreeDetail: (folder: string, worktreePath: string) => Promise<void>
   showTerminal: (folder?: string) => Promise<void>
+  toggleBottomTerminal: () => void
+  setBottomTerminalOpen: (open: boolean) => void
   toggleProjectExpanded: (folder: string) => void
   setProjectExpanded: (folder: string, expanded: boolean) => void
   setCurrentFolder: (folder: string | null) => Promise<void>
@@ -28,7 +31,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   currentFolder: null,
   projects: [],
   expandedProjects: {},
-  projectDetailTab: 'tasks',
+  projectDetailTab: 'browser',
+  bottomTerminalOpen: true,
 
   showPage: (pageId) => set({ contentView: { type: 'page', pageId } }),
 
@@ -59,11 +63,19 @@ export const useAppStore = create<AppState>((set, get) => ({
   showTerminal: async (folder) => {
     if (folder) {
       await window.orchestrate.setActiveProject(folder)
-      set({ currentFolder: folder, contentView: { type: 'terminal' } })
+      set((state) => ({
+        currentFolder: folder,
+        bottomTerminalOpen: true,
+        contentView: state.contentView.type === 'orchestrate' ? { type: 'project-detail' } : state.contentView
+      }))
     } else {
-      set({ contentView: { type: 'terminal' } })
+      set({ bottomTerminalOpen: true })
     }
   },
+
+  toggleBottomTerminal: () => set((state) => ({ bottomTerminalOpen: !state.bottomTerminalOpen })),
+
+  setBottomTerminalOpen: (open) => set({ bottomTerminalOpen: open }),
 
   toggleProjectExpanded: (folder) => {
     set((state) => ({
@@ -119,7 +131,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     const projects = await window.orchestrate.removeProject(path)
     const wasActive = get().currentFolder === path
     set((state) => {
-      const { [path]: _, ...rest } = state.expandedProjects
+      const rest = { ...state.expandedProjects }
+      delete rest[path]
       return {
         projects,
         expandedProjects: rest,

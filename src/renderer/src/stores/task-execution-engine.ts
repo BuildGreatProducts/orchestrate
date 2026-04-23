@@ -115,7 +115,14 @@ export async function executeTask(taskId: string, agentOverride?: string): Promi
         exitCode: undefined as number | undefined
       }
 
-      const tabId = await useTerminalStore.getState().createTabInGroup(folder, groupId, stepName, cmd)
+      const tabId = await useTerminalStore.getState().createTab({
+        cwd: folder,
+        name: stepName,
+        command: cmd,
+        kind: 'agent',
+        taskId,
+        groupId
+      })
       stepResult.terminalId = tabId
       execution.currentTabId = tabId
 

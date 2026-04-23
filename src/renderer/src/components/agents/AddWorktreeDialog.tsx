@@ -80,7 +80,7 @@ export default function AddWorktreeDialog({
         disabled={creating}
       />
 
-      <p className="mb-2 text-[11px] text-zinc-500">Creates branch if it doesn't exist</p>
+      <p className="mb-2 text-[11px] text-zinc-500">Creates branch if it doesn&apos;t exist</p>
 
       {error && (
         <p className="mb-2 rounded bg-red-950/40 px-2 py-1 text-xs text-red-300">{error}</p>

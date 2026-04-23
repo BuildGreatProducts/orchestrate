@@ -3,13 +3,31 @@ import { arrayMove } from '@dnd-kit/sortable'
 import { toast } from './toast'
 import { useAppStore } from './app'
 
+export type TerminalKind = 'agent' | 'terminal' | 'command'
+export type TerminalLaunchMode = 'direct' | 'worktree'
+
+export interface CreateTerminalOptions {
+  cwd: string
+  name?: string
+  command?: string
+  kind?: TerminalKind
+  branchName?: string
+  launchMode?: TerminalLaunchMode
+  taskId?: string
+  worktreePath?: string
+  groupId?: string
+}
+
 export interface TerminalTab {
   id: string
   name: string
   projectFolder: string
   worktreePath?: string
   taskId?: string
+  kind: TerminalKind
   isAgent: boolean
+  branchName?: string
+  launchMode?: TerminalLaunchMode
   exited: boolean
   exitCode?: number
   busy: boolean
@@ -33,7 +51,14 @@ interface TerminalState {
   nextGroupIndex: number
   pendingCloseTabId: string | null
 
-  createTab: (cwd: string, name?: string, command?: string, taskId?: string, worktreePath?: string, groupId?: string) => Promise<string>
+  createTab: (
+    optionsOrCwd: CreateTerminalOptions | string,
+    name?: string,
+    command?: string,
+    taskId?: string,
+    worktreePath?: string,
+    groupId?: string
+  ) => Promise<string>
   getTaskId: (terminalId: string) => string | undefined
   closeTab: (id: string) => void
   requestCloseTab: (id: string) => void
@@ -66,6 +91,9 @@ interface TerminalState {
 
 const outputSubscribers = new Map<string, Set<(data: string) => void>>()
 const exitHandlers = new Map<string, (exitCode: number) => void>()
+const idleTimers = new Map<string, ReturnType<typeof setTimeout>>()
+const attentionTimers = new Map<string, ReturnType<typeof setTimeout>>()
+const bellClearTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
 // --- Output ring buffer ---
 // Stores recent output per terminal so mirror terminals can replay history on mount.
@@ -119,6 +147,30 @@ export function clearOutputBuffer(id: string): void {
   outputBuffers.delete(id)
 }
 
+function broadcastOutput(id: string, data: string): void {
+  appendToBuffer(id, data)
+  const subs = outputSubscribers.get(id)
+  if (subs) {
+    for (const handler of subs) {
+      handler(data)
+    }
+  }
+}
+
+function clearLifecycleTimers(id: string): void {
+  const idleTimer = idleTimers.get(id)
+  if (idleTimer) clearTimeout(idleTimer)
+  idleTimers.delete(id)
+
+  const attentionTimer = attentionTimers.get(id)
+  if (attentionTimer) clearTimeout(attentionTimer)
+  attentionTimers.delete(id)
+
+  const bellClearTimer = bellClearTimers.get(id)
+  if (bellClearTimer) clearTimeout(bellClearTimer)
+  bellClearTimers.delete(id)
+}
+
 let globalListenersRegistered = false
 
 function ensureGlobalListeners(): void {
@@ -126,17 +178,64 @@ function ensureGlobalListeners(): void {
   globalListenersRegistered = true
 
   window.orchestrate.onTerminalOutput((id, data) => {
-    appendToBuffer(id, data)
-    const subs = outputSubscribers.get(id)
-    if (subs) {
-      for (const handler of subs) {
-        handler(data)
+    broadcastOutput(id, data)
+
+    const store = useTerminalStore.getState()
+    const tab = store.tabs.find((t) => t.id === id)
+    if (!tab || tab.exited) return
+
+    if (data.includes('\x07')) {
+      store.markBell(id)
+    }
+
+    if (!tab.busy) {
+      store.markBusy(id, true)
+    }
+
+    const existingIdleTimer = idleTimers.get(id)
+    if (existingIdleTimer) clearTimeout(existingIdleTimer)
+    idleTimers.set(id, setTimeout(() => {
+      useTerminalStore.getState().markBusy(id, false)
+      const bellClearTimer = bellClearTimers.get(id)
+      if (bellClearTimer) {
+        clearTimeout(bellClearTimer)
+        bellClearTimers.delete(id)
       }
+    }, 800))
+
+    if (tab.kind === 'agent') {
+      const existingAttentionTimer = attentionTimers.get(id)
+      if (existingAttentionTimer) clearTimeout(existingAttentionTimer)
+      attentionTimers.set(id, setTimeout(() => {
+        const s = useTerminalStore.getState()
+        const t = s.tabs.find((item) => item.id === id)
+        if (t && t.kind === 'agent' && !t.exited) {
+          s.markBell(id)
+        }
+      }, 3000))
+    }
+
+    if (tab.bell && !bellClearTimers.has(id)) {
+      bellClearTimers.set(id, setTimeout(() => {
+        useTerminalStore.getState().clearBell(id)
+        bellClearTimers.delete(id)
+      }, 2000))
     }
   })
 
   window.orchestrate.onTerminalExit((id, exitCode) => {
+    clearLifecycleTimers(id)
+    const tab = useTerminalStore.getState().tabs.find((item) => item.id === id)
+    if (!tab) return
+    broadcastOutput(id, `\r\n\x1b[38;5;242m[Process exited with code ${exitCode}]\x1b[0m\r\n`)
+    useTerminalStore.getState().markBusy(id, false)
+    useTerminalStore.getState().markExited(id, exitCode)
     exitHandlers.get(id)?.(exitCode)
+    import('./task-terminal-bridge')
+      .then(({ handleTaskTerminalExit }) => handleTaskTerminalExit(id, exitCode))
+      .catch((err) => {
+        console.error('[Terminal] Failed to run task terminal exit bridge:', err)
+      })
   })
 }
 
@@ -185,46 +284,68 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
   nextGroupIndex: 1,
   pendingCloseTabId: null,
 
-  createTab: async (cwd: string, name?: string, command?: string, taskId?: string, worktreePath?: string, groupId?: string) => {
+  createTab: async (optionsOrCwd, name, command, taskId, worktreePath, groupId) => {
+    ensureGlobalListeners()
+    const options: CreateTerminalOptions =
+      typeof optionsOrCwd === 'string'
+        ? { cwd: optionsOrCwd, name, command, taskId, worktreePath, groupId }
+        : optionsOrCwd
     const { nextIndex } = get()
     const id = `terminal-${Date.now()}-${nextIndex}`
-    const tabName = name ?? `Terminal ${nextIndex}`
+    const kind: TerminalKind = options.kind ?? (options.command ? 'agent' : 'terminal')
+    const tabName = options.name ?? (kind === 'agent' ? `Agent ${nextIndex}` : `Terminal ${nextIndex}`)
 
-    // Create a promise that resolves when TerminalPane signals ready
-    const readyPromise = new Promise<void>((resolve) => {
-      readyResolvers.set(id, resolve)
-    })
-
-    // Add tab to state FIRST so the component mounts and registers
-    // its handlers before the PTY starts emitting.
-    // If groupId is provided, atomically add the tab to that group
-    // to avoid a render flash where the tab appears ungrouped.
     set((state) => ({
       tabs: [
         ...state.tabs,
-        { id, name: tabName, projectFolder: cwd, worktreePath, taskId, isAgent: !!command, exited: false, busy: false, bell: false }
+        {
+          id,
+          name: tabName,
+          projectFolder: options.cwd,
+          worktreePath: options.worktreePath,
+          taskId: options.taskId,
+          kind,
+          isAgent: kind === 'agent',
+          branchName: options.branchName,
+          launchMode: options.launchMode,
+          exited: false,
+          busy: false,
+          bell: false
+        }
       ],
       activeTabId: id,
       nextIndex: state.nextIndex + 1,
-      ...(groupId ? {
+      ...(options.groupId ? {
         groups: state.groups.map((g) =>
-          g.id === groupId ? { ...g, tabIds: [...g.tabIds, id] } : g
+          g.id === options.groupId ? { ...g, tabIds: [...g.tabIds, id] } : g
         )
       } : {})
     }))
 
-    // Wait for TerminalPane to mount and register its IPC handlers
-    await readyPromise
+    if (kind === 'agent') {
+      attentionTimers.set(id, setTimeout(() => {
+        const s = useTerminalStore.getState()
+        const t = s.tabs.find((tab) => tab.id === id)
+        if (t && t.kind === 'agent' && !t.exited) {
+          s.markBell(id)
+        }
+      }, 3000))
+    }
 
-    const effectiveCwd = worktreePath ?? cwd
+    const effectiveCwd = options.worktreePath ?? options.cwd
     try {
-      await window.orchestrate.createTerminal(id, effectiveCwd, command)
+      await window.orchestrate.createTerminal(id, effectiveCwd, options.command)
     } catch (err) {
+      clearLifecycleTimers(id)
+      clearOutputBuffer(id)
       // Remove the orphaned tab on failure
       set((state) => {
         const newTabs = state.tabs.filter((t) => t.id !== id)
         return {
           tabs: newTabs,
+          groups: state.groups.map((g) =>
+            g.tabIds.includes(id) ? { ...g, tabIds: g.tabIds.filter((t) => t !== id) } : g
+          ),
           activeTabId: state.activeTabId === id ? (newTabs.at(-1)?.id ?? null) : state.activeTabId
         }
       })
@@ -241,6 +362,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     if (tab && !tab.exited) {
       window.orchestrate.closeTerminal(id)
     }
+    clearLifecycleTimers(id)
     clearOutputBuffer(id)
     ptyDimensions.delete(id)
 
@@ -308,11 +430,11 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     const { activeTabId, tabs } = get()
     const tab = tabs.find((t) => t.id === id)
     if (!tab || tab.exited || tab.bell) return
-    // Only suppress if the terminal is truly visible: active tab + terminal view + correct project
-    if (id === activeTabId) {
+    // Only suppress non-agent bells when the bottom terminal is visibly focused.
+    if (tab.kind !== 'agent' && id === activeTabId) {
       const appState = useAppStore.getState()
       if (
-        appState.contentView.type === 'terminal' &&
+        appState.bottomTerminalOpen &&
         appState.currentFolder === tab.projectFolder
       ) {
         return
@@ -345,6 +467,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       if (!tab.exited) {
         window.orchestrate.closeTerminal(tab.id)
       }
+      clearLifecycleTimers(tab.id)
       clearOutputBuffer(tab.id)
       ptyDimensions.delete(tab.id)
     }
@@ -428,7 +551,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
   },
 
   createTabInGroup: async (cwd: string, groupId: string, name?: string, command?: string, worktreePath?: string) => {
-    return get().createTab(cwd, name, command, undefined, worktreePath, groupId)
+    return get().createTab({ cwd, name, command, worktreePath, groupId })
   },
 
   findOrCreateGroup: (name: string, projectFolder: string) => {

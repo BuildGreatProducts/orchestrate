@@ -5,12 +5,10 @@ import { WebLinksAddon } from '@xterm/addon-web-links'
 import {
   useTerminalStore,
   addOutputSubscriber,
-  registerExitHandler,
-  unregisterTerminalHandlers,
+  getOutputBuffer,
   signalTerminalReady,
   setPtyDimensions
 } from '@renderer/stores/terminal'
-import { handleTaskTerminalExit } from '@renderer/stores/task-terminal-bridge'
 
 interface UseTerminalOptions {
   id: string
@@ -31,7 +29,10 @@ export function useTerminal({ id, active }: UseTerminalOptions): UseTerminalResu
 
   // Stable ref to active state for use in callbacks
   const activeRef = useRef(active)
-  activeRef.current = active
+
+  useEffect(() => {
+    activeRef.current = active
+  }, [active])
 
   const focus = useCallback(() => {
     termRef.current?.focus()
@@ -150,69 +151,13 @@ export function useTerminal({ id, active }: UseTerminalOptions): UseTerminalResu
       useTerminalStore.getState().markBell(id)
     })
 
-    // Register with shared dispatcher (multi-subscriber broadcast)
-    let idleTimer: ReturnType<typeof setTimeout> | null = null
-    let bellClearTimer: ReturnType<typeof setTimeout> | null = null
-
-    // Arm attention timer immediately so agents that never emit output
-    // (e.g. waiting for input from the start) still trigger attention.
-    let attentionTimer: ReturnType<typeof setTimeout> | null = setTimeout(() => {
-      const s = useTerminalStore.getState()
-      const t = s.tabs.find((tab) => tab.id === id)
-      if (t && t.isAgent && !t.exited) {
-        s.markBell(id)
-      }
-    }, 3000)
+    const buffered = getOutputBuffer(id)
+    if (buffered) {
+      term.write(buffered)
+    }
 
     const unsubscribeOutput = addOutputSubscriber(id, (data) => {
       term.write(data)
-
-      // Mark busy on output, then idle after 800ms of silence
-      const store = useTerminalStore.getState()
-      const tab = store.tabs.find((t) => t.id === id)
-      if (tab && !tab.busy) {
-        store.markBusy(id, true)
-      }
-      if (idleTimer) clearTimeout(idleTimer)
-      idleTimer = setTimeout(() => {
-        useTerminalStore.getState().markBusy(id, false)
-        // Terminal went idle — cancel bell-clear since this was brief output (e.g. resize redraw)
-        if (bellClearTimer) {
-          clearTimeout(bellClearTimer)
-          bellClearTimer = null
-        }
-      }, 800)
-
-      // Agent attention: if an agent terminal goes idle for 3s, mark as needing attention
-      if (attentionTimer) clearTimeout(attentionTimer)
-      attentionTimer = setTimeout(() => {
-        const s = useTerminalStore.getState()
-        const t = s.tabs.find((tab) => tab.id === id)
-        if (t && t.isAgent && !t.exited) {
-          s.markBell(id)
-        }
-      }, 3000)
-
-      // Clear bell only after 2s of sustained output (agent is truly working again).
-      // Brief output bursts (resize redraws) won't clear bell because the idle timer
-      // fires first (800ms) and cancels this timer.
-      if (tab && tab.bell && !bellClearTimer) {
-        bellClearTimer = setTimeout(() => {
-          useTerminalStore.getState().clearBell(id)
-          bellClearTimer = null
-        }, 2000)
-      }
-    })
-
-    registerExitHandler(id, (exitCode) => {
-      term.write(`\r\n\x1b[38;5;242m[Process exited with code ${exitCode}]\x1b[0m\r\n`)
-      if (idleTimer) clearTimeout(idleTimer)
-      if (attentionTimer) clearTimeout(attentionTimer)
-      if (bellClearTimer) { clearTimeout(bellClearTimer); bellClearTimer = null }
-      useTerminalStore.getState().markBusy(id, false)
-      useTerminalStore.getState().markExited(id, exitCode)
-      // Fire-and-forget: auto-complete task workflow if this terminal is linked to a task
-      handleTaskTerminalExit(id, exitCode)
     })
 
     // Signal that this terminal's handlers are ready
@@ -225,11 +170,7 @@ export function useTerminal({ id, active }: UseTerminalOptions): UseTerminalResu
     }
 
     return () => {
-      if (idleTimer) clearTimeout(idleTimer)
-      if (attentionTimer) clearTimeout(attentionTimer)
-      if (bellClearTimer) clearTimeout(bellClearTimer)
       unsubscribeOutput()
-      unregisterTerminalHandlers(id)
       observerRef.current?.disconnect()
       term.dispose()
       termRef.current = null

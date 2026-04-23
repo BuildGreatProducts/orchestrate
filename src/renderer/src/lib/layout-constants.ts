@@ -1,0 +1,1 @@
+export const AGENT_TERMINAL_SURFACE_WIDTH = '41.6rem'

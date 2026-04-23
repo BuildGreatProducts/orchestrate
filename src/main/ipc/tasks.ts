@@ -93,6 +93,7 @@ export function registerTaskHandlers(
   })
 
   ipcMain.handle('task:sendToAgent', async (_, id: string, _agent: AgentType) => {
+    void _agent
     validateTaskId(id)
     const mgr = getManager()
     const board = await mgr.loadBoard()

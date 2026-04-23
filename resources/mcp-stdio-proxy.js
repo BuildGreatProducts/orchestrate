@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable @typescript-eslint/explicit-function-return-type */
 /**
  * Stdio-to-HTTP MCP proxy for Codex.
  * Codex spawns this as a stdio MCP server; it bridges tool calls to the

@@ -7,7 +7,7 @@ export const NAV_PAGES: { id: NavPageId; label: string }[] = [
   { id: 'browser', label: 'Browser' }
 ]
 
-export type ProjectDetailTabId = 'tasks' | 'files' | 'history' | 'commands'
+export type ProjectDetailTabId = 'browser' | 'tasks' | 'commands' | 'files' | 'history' | 'skills'
 
 export type ContentView =
   | { type: 'orchestrate' }

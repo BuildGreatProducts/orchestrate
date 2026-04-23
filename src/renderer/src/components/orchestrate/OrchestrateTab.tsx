@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { FolderOpen } from 'lucide-react'
 import { useTerminalStore } from '@renderer/stores/terminal'
 import { useAppStore } from '@renderer/stores/app'
+import { AGENT_TERMINAL_SURFACE_WIDTH } from '@renderer/lib/layout-constants'
 import FeedItem from './FeedItem'
 
 export default function OrchestrateTab(): React.JSX.Element {
@@ -50,7 +51,10 @@ export default function OrchestrateTab(): React.JSX.Element {
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       <div className="flex-1 overflow-y-auto dark-scrollbar">
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-4">
+        <div
+          className="mx-auto flex w-full flex-col gap-4 p-4"
+          style={{ maxWidth: AGENT_TERMINAL_SURFACE_WIDTH }}
+        >
           <div className="pt-8 pb-4 text-center">
             <h2 className="font-ovo text-6xl tracking-tight text-zinc-200">Orchestrate</h2>
             <p className="mt-3 text-sm text-zinc-500">

@@ -34,9 +34,8 @@ export default function FeedItem({ tab, projectName }: FeedItemProps): React.JSX
   }, [])
 
   const handleGoToTerminal = (): void => {
-    useAppStore.getState().setCurrentFolder(tab.projectFolder)
     useTerminalStore.getState().setActiveTab(tab.id)
-    useAppStore.getState().showTerminal()
+    useAppStore.getState().showProjectDetail(tab.projectFolder)
   }
 
   const handleSend = (): void => {
@@ -53,7 +52,7 @@ export default function FeedItem({ tab, projectName }: FeedItemProps): React.JSX
   }
 
   return (
-    <div className="rounded-lg border border-zinc-800 bg-zinc-900">
+    <div className="w-full rounded-lg border border-zinc-800 bg-zinc-900">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-2.5">
         <div className="flex items-center gap-2 text-sm">

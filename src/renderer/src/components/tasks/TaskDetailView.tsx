@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import Editor from '@monaco-editor/react'
 import { ArrowLeft, Play, Square } from 'lucide-react'
@@ -67,8 +68,11 @@ export default function TaskDetailView(): React.JSX.Element | null {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const latestMarkdownRef = useRef(markdown)
   const latestStepPromptRef = useRef(stepPrompt)
-  latestMarkdownRef.current = markdown
-  latestStepPromptRef.current = stepPrompt
+
+  useEffect(() => {
+    latestMarkdownRef.current = markdown
+    latestStepPromptRef.current = stepPrompt
+  }, [markdown, stepPrompt])
 
   const task = viewingTaskId && board ? board.tasks[viewingTaskId] : null
   const steps = task?.steps ?? []

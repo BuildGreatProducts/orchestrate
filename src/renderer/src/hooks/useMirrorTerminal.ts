@@ -49,7 +49,11 @@ export function useMirrorTerminal({ id }: UseMirrorTerminalOptions): UseMirrorTe
       if (!term || !fitAddon || attachedRef.current) return
 
       el.replaceChildren()
-      term.open(el)
+      if (term.element) {
+        el.appendChild(term.element)
+      } else {
+        term.open(el)
+      }
       attachedRef.current = true
 
       requestAnimationFrame(() => {
@@ -147,10 +151,15 @@ export function useMirrorTerminal({ id }: UseMirrorTerminalOptions): UseMirrorTe
 
   const containerRef = useCallback(
     (el: HTMLDivElement | null) => {
-      containerElRef.current = el
-      if (el) {
-        attachToContainer(el)
+      if (!el) {
+        observerRef.current?.disconnect()
+        observerRef.current = null
+        attachedRef.current = false
+        containerElRef.current = null
+        return
       }
+      containerElRef.current = el
+      attachToContainer(el)
     },
     [attachToContainer]
   )

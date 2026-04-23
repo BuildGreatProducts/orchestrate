@@ -243,7 +243,7 @@ export default function SkillsSettings(): React.JSX.Element {
   const projectSkills = skills.filter((s) => s.source === 'project')
 
   return (
-    <div className="flex flex-1 items-start justify-center overflow-y-auto p-6">
+    <div className="flex h-full w-full flex-1 items-start justify-center overflow-y-auto p-6">
       <div className="w-full max-w-md space-y-6">
         <h2 className="text-lg font-semibold text-zinc-200">Agent Skills</h2>
         <p className="text-sm text-zinc-400">

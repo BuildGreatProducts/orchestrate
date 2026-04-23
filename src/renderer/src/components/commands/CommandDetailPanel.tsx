@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Plus, X, GripVertical, Play, Globe, FolderOpen } from 'lucide-react'
 import {

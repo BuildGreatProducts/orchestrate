@@ -24,6 +24,8 @@ export function registerWorktreeHandlers(
   _getWindow: () => BrowserWindow | null,
   _getCurrentFolder: () => string | null
 ): void {
+  void _getWindow
+  void _getCurrentFolder
   markChannelRegistered('worktree:list')
   markChannelRegistered('worktree:add')
   markChannelRegistered('worktree:remove')

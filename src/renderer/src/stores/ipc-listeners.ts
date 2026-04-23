@@ -70,9 +70,22 @@ export function ensureGlobalIpcListeners(): void {
                   let tabId: string
                   if (groupName) {
                     const groupId = termStore.findOrCreateGroup(groupName, folder)
-                    tabId = await termStore.createTabInGroup(folder, groupId, tabName, cmd)
+                    tabId = await termStore.createTab({
+                      cwd: folder,
+                      name: tabName,
+                      command: cmd,
+                      kind: 'agent',
+                      taskId,
+                      groupId
+                    })
                   } else {
-                    tabId = await termStore.createTab(folder, tabName, cmd)
+                    tabId = await termStore.createTab({
+                      cwd: folder,
+                      name: tabName,
+                      command: cmd,
+                      kind: 'agent',
+                      taskId
+                    })
                   }
                   return tabId
                 })
@@ -112,7 +125,12 @@ export function ensureGlobalIpcListeners(): void {
           }
           useTerminalStore
             .getState()
-            .createTab(folder, name, command)
+            .createTab({
+              cwd: folder,
+              name,
+              command,
+              kind: command ? 'command' : 'terminal'
+            })
             .then(() => {
               useAppStore.getState().showTerminal()
             })

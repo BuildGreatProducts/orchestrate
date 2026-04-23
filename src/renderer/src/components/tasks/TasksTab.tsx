@@ -25,7 +25,7 @@ export default function TasksTab(): React.JSX.Element {
 
   if (!currentFolder) {
     return (
-      <div className="flex flex-1 items-center justify-center">
+      <div className="flex h-full w-full flex-1 items-center justify-center">
         <div className="text-center">
           <h2 className="font-ovo text-6xl tracking-tight text-zinc-200">Tasks</h2>
           <p className="mt-3 max-w-xs text-sm text-zinc-500">
@@ -38,7 +38,7 @@ export default function TasksTab(): React.JSX.Element {
 
   if (isLoading || !hasLoaded) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-2">
+      <div className="flex h-full w-full flex-1 flex-col items-center justify-center gap-2">
         <Spinner className="text-zinc-500" />
         <p className="text-sm text-zinc-500">Loading board...</p>
       </div>
@@ -47,7 +47,7 @@ export default function TasksTab(): React.JSX.Element {
 
   if (loadError) {
     return (
-      <div className="flex flex-1 items-center justify-center">
+      <div className="flex h-full w-full flex-1 items-center justify-center">
         <div className="text-center">
           <p className="text-zinc-400">Failed to load board</p>
           <p className="mt-1 text-sm text-zinc-600">{loadError}</p>
@@ -58,7 +58,7 @@ export default function TasksTab(): React.JSX.Element {
 
   if (!board) {
     return (
-      <div className="flex flex-1 items-center justify-center">
+      <div className="flex h-full w-full flex-1 items-center justify-center">
         <p className="text-zinc-500">Failed to load board</p>
       </div>
     )
