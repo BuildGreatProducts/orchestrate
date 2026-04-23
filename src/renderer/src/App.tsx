@@ -11,6 +11,7 @@ import { useAgentsStore } from '@renderer/stores/agents'
 import type { ProjectDetailTabId } from '@shared/types'
 import OrchestrateTab from '@renderer/components/orchestrate/OrchestrateTab'
 import SkillsSettings from '@renderer/components/settings/SkillsSettings'
+import CommandPalette from '@renderer/components/ui/CommandPalette'
 import BrowserTab from '@renderer/components/browser/BrowserTab'
 import SettingsPage from '@renderer/components/settings/SettingsPage'
 import TerminalContentArea from '@renderer/components/agents/TerminalContentArea'
@@ -194,6 +195,7 @@ function App(): React.JSX.Element {
         </main>
       </div>
       <ToastContainer />
+      <CommandPalette />
     </div>
   )
 }
