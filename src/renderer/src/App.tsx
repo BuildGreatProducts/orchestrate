@@ -16,6 +16,7 @@ import SettingsPage from '@renderer/components/settings/SettingsPage'
 import TerminalContentArea from '@renderer/components/agents/TerminalContentArea'
 import ProjectDetailPage from '@renderer/components/project/ProjectDetailPage'
 import WorktreeDetailPage from '@renderer/components/worktree/WorktreeDetailPage'
+import { TerminalCommandPalette } from '@renderer/components/terminal/CommandPalette'
 
 function App(): React.JSX.Element {
   const contentView = useAppStore((s) => s.contentView)
@@ -109,6 +110,7 @@ function App(): React.JSX.Element {
 
   return (
     <div className="flex h-screen flex-col bg-zinc-900 text-white">
+      <TerminalCommandPalette />
       <TopBar />
       <div className="flex flex-1 overflow-hidden">
         <LeftSidebar />
