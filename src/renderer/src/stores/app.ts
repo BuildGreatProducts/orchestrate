@@ -7,6 +7,10 @@ interface AppState {
   projects: string[]
   expandedProjects: Record<string, boolean>
   projectDetailTab: ProjectDetailTabId
+  commandPaletteOpen: boolean
+
+  showPage: (pageId: NavPageId) => void
+  toggleCommandPalette: () => void
 
   showPage: (pageId: NavPageId) => void
   showOrchestrate: () => Promise<void>
@@ -29,8 +33,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   projects: [],
   expandedProjects: {},
   projectDetailTab: 'tasks',
+  commandPaletteOpen: false,
 
   showPage: (pageId) => set({ contentView: { type: 'page', pageId } }),
+
+  toggleCommandPalette: () => set((state) => ({ commandPaletteOpen: !state.commandPaletteOpen })),
 
   showOrchestrate: async () => {
     set({

@@ -16,11 +16,14 @@ import SettingsPage from '@renderer/components/settings/SettingsPage'
 import TerminalContentArea from '@renderer/components/agents/TerminalContentArea'
 import ProjectDetailPage from '@renderer/components/project/ProjectDetailPage'
 import WorktreeDetailPage from '@renderer/components/worktree/WorktreeDetailPage'
+import { CommandPalette } from '@renderer/components/shared'
 
 function App(): React.JSX.Element {
   const contentView = useAppStore((s) => s.contentView)
   const loadLastFolder = useAppStore((s) => s.loadLastFolder)
   const loadProjects = useAppStore((s) => s.loadProjects)
+  const commandPaletteOpen = useAppStore((s) => s.commandPaletteOpen)
+  const toggleCommandPalette = useAppStore((s) => s.toggleCommandPalette)
 
   useEffect(() => {
     loadLastFolder()
@@ -193,6 +196,7 @@ function App(): React.JSX.Element {
           </div>
         </main>
       </div>
+      <CommandPalette open={commandPaletteOpen} onOpenChange={toggleCommandPalette} />
       <ToastContainer />
     </div>
   )
