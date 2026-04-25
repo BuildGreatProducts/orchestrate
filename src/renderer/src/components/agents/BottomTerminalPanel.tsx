@@ -36,7 +36,7 @@ export default function BottomTerminalPanel({
     : (terminalTabs[0]?.id ?? null)
 
   useEffect(() => {
-    if (!menuOpen) return
+    if (!menuOpen || !bottomTerminalOpen) return
 
     const handleClick = (event: MouseEvent): void => {
       if (
@@ -51,7 +51,17 @@ export default function BottomTerminalPanel({
 
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
-  }, [menuOpen])
+  }, [menuOpen, bottomTerminalOpen])
+
+  useEffect(() => {
+    if (bottomTerminalOpen || !menuOpen) return
+
+    const frame = requestAnimationFrame(() => {
+      setMenuOpen(false)
+    })
+
+    return () => cancelAnimationFrame(frame)
+  }, [bottomTerminalOpen, menuOpen])
 
   const handleCreatePlainTerminal = async (): Promise<void> => {
     setMenuOpen(false)
@@ -75,10 +85,12 @@ export default function BottomTerminalPanel({
       setSavedCommands(commands)
       if (addButtonRef.current) {
         const rect = addButtonRef.current.getBoundingClientRect()
+        const menuWidth = 192 // w-48
+        const left = Math.max(8, Math.min(rect.left, window.innerWidth - menuWidth - 8))
         setMenuStyle({
           position: 'fixed',
           top: rect.bottom + 4,
-          left: rect.left,
+          left,
           zIndex: 9999
         })
       }
@@ -154,6 +166,7 @@ export default function BottomTerminalPanel({
           <Plus size={15} />
         </button>
         {menuOpen &&
+          bottomTerminalOpen &&
           createPortal(
             <div
               ref={menuRef}
