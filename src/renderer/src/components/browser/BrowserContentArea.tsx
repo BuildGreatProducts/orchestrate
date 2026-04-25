@@ -97,5 +97,5 @@ export default function BrowserContentArea(): React.JSX.Element {
     }
   }, [])
 
-  return <div ref={containerRef} className="flex-1" />
+  return <div ref={containerRef} className="min-h-0 flex-1 rounded-b-lg bg-black" />
 }

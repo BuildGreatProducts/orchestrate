@@ -1,6 +1,8 @@
 import { BrowserWindow, WebContentsView } from 'electron'
 import type { BrowserTabInfo, BrowserBounds } from '@shared/types'
 
+const BROWSER_VIEW_RADIUS = 10
+
 interface ManagedBrowserTab {
   id: string
   view: WebContentsView
@@ -77,6 +79,7 @@ export class BrowserViewManager {
         nodeIntegration: false
       }
     })
+    view.setBorderRadius(BROWSER_VIEW_RADIUS)
 
     const managed: ManagedBrowserTab = { id, view, bounds: null, failedUrl: null }
     this.tabs.set(id, managed)
