@@ -3,6 +3,8 @@ import { arrayMove } from '@dnd-kit/sortable'
 import { toast } from './toast'
 import { useAppStore } from './app'
 
+const TERMINAL_STORAGE_KEY = 'orchestrate-terminal-state'
+
 export interface TerminalTab {
   id: string
   name: string
@@ -25,7 +27,53 @@ export interface AgentGroup {
   tabIds: string[]
 }
 
-interface TerminalState {
+interface PersistedTerminalState {
+  tabs: TerminalTab[]
+  activeTabId: string | null
+  nextIndex: number
+  groups: AgentGroup[]
+  nextGroupIndex: number
+}
+
+function loadPersistedState(): Partial<TerminalState> | null {
+  try {
+    const stored = localStorage.getItem(TERMINAL_STORAGE_KEY)
+    if (!stored) return null
+    const parsed: PersistedTerminalState = JSON.parse(stored)
+    // Sanitize: remove any tabs that weren't properly exited
+    return {
+      tabs: parsed.tabs?.filter(t => t.exited) ?? [],
+      activeTabId: parsed.activeTabId,
+      nextIndex: parsed.nextIndex ?? 1,
+      groups: parsed.groups ?? [],
+      nextGroupIndex: parsed.nextGroupIndex ?? 1,
+      pendingCloseTabId: null
+    }
+  } catch {
+    return null
+  }
+}
+
+function persistState(state: TerminalState): void {
+  try {
+    const toPersist: PersistedTerminalState = {
+      tabs: state.tabs,
+      activeTabId: state.activeTabId,
+      nextIndex: state.nextIndex,
+      groups: state.groups,
+      nextGroupIndex: state.nextGroupIndex
+    }
+    localStorage.setItem(TERMINAL_STORAGE_KEY, JSON.stringify(toPersist))
+  } catch (e) {
+    console.warn('Failed to persist terminal state:', e)
+  }
+}
+
+function clearPersistedState(): void {
+  localStorage.removeItem(TERMINAL_STORAGE_KEY)
+}
+
+export interface TerminalTab {
   tabs: TerminalTab[]
   activeTabId: string | null
   nextIndex: number
@@ -177,12 +225,15 @@ export function signalTerminalReady(id: string): void {
   readyResolvers.delete(id)
 }
 
-export const useTerminalStore = create<TerminalState>((set, get) => ({
-  tabs: [],
-  activeTabId: null,
-  nextIndex: 1,
-  groups: [],
-  nextGroupIndex: 1,
+export const useTerminalStore = create<TerminalState>((set, get) => {
+  const persisted = loadPersistedState()
+
+  return ({
+  tabs: persisted?.tabs ?? [],
+  activeTabId: persisted?.activeTabId ?? null,
+  nextIndex: persisted?.nextIndex ?? 1,
+  groups: persisted?.groups ?? [],
+  nextGroupIndex: persisted?.nextGroupIndex ?? 1,
   pendingCloseTabId: null,
 
   createTab: async (cwd: string, name?: string, command?: string, taskId?: string, worktreePath?: string, groupId?: string) => {
@@ -232,6 +283,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       throw err
     }
 
+    persistState(get())
     return id
   },
 
@@ -265,6 +317,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
         pendingCloseTabId: state.pendingCloseTabId === id ? null : state.pendingCloseTabId
       }
     })
+    persistState(get())
   },
 
   requestCloseTab: (id: string) => {
@@ -349,6 +402,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       ptyDimensions.delete(tab.id)
     }
     set({ tabs: [], activeTabId: null, groups: [], nextGroupIndex: 1, pendingCloseTabId: null })
+    clearPersistedState()
   },
 
   // --- Group methods ---
