@@ -1,4 +1,5 @@
-import { useEffect } from 'react'
+import { useEffect, useState, useMemo } from 'react'
+import { Search } from 'lucide-react'
 import { useCommandsStore } from '@renderer/stores/commands'
 import { useAppStore } from '@renderer/stores/app'
 import { Button } from '@renderer/components/ui/button'
@@ -15,6 +16,8 @@ export default function CommandsTab(): React.JSX.Element {
   const deleteCommand = useCommandsStore((s) => s.deleteCommand)
   const resetCommands = useCommandsStore((s) => s.resetCommands)
 
+  const [searchQuery, setSearchQuery] = useState('')
+
   useEffect(() => {
     setEditingCommand(null)
     resetCommands()
@@ -22,6 +25,19 @@ export default function CommandsTab(): React.JSX.Element {
       loadCommands(currentFolder)
     }
   }, [currentFolder, loadCommands, resetCommands, setEditingCommand])
+
+  const filteredCommands = useMemo(() => {
+    if (!searchQuery.trim()) return commands
+    const query = searchQuery.toLowerCase()
+    return commands.filter(
+      (cmd) =>
+        cmd.name.toLowerCase().includes(query) ||
+        cmd.commands.some((entry) =>
+          entry.command.toLowerCase().includes(query) ||
+          entry.label?.toLowerCase().includes(query)
+        )
+    )
+  }, [commands, searchQuery])
 
   if (!currentFolder) {
     return (
@@ -48,6 +64,18 @@ export default function CommandsTab(): React.JSX.Element {
             </Button>
           </div>
         )}
+        <div className="flex flex-1 items-center justify-center border-b border-zinc-800 px-6 py-3">
+          <div className="relative w-64">
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-500" />
+            <input
+              type="text"
+              placeholder="Search commands..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-8 w-full rounded-md border border-zinc-700 bg-zinc-900 pl-8 pr-3 text-sm text-zinc-200 placeholder-zinc-500 focus:border-zinc-600 focus:outline-none"
+            />
+          </div>
+        </div>
         <CommandDetailPanel />
       </div>
     )
@@ -57,14 +85,26 @@ export default function CommandsTab(): React.JSX.Element {
     <div className="relative flex flex-1 flex-col overflow-hidden">
       <div className="flex items-center justify-between border-b border-zinc-800 px-6 py-3">
         <h2 className="text-sm font-medium text-zinc-200">Commands</h2>
-        <Button variant="solid" size="sm" onClick={() => setEditingCommand({})}>
-          New command
-        </Button>
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-500" />
+            <input
+              type="text"
+              placeholder="Search commands..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-8 rounded-md border border-zinc-700 bg-zinc-900 pl-8 pr-3 text-sm text-zinc-200 placeholder-zinc-500 focus:border-zinc-600 focus:outline-none"
+            />
+          </div>
+          <Button variant="solid" size="sm" onClick={() => setEditingCommand({})}>
+            New command
+          </Button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-6">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {commands.map((cmd) => (
+          {filteredCommands.map((cmd) => (
             <CommandCard
               key={cmd.id}
               command={cmd}
@@ -74,6 +114,11 @@ export default function CommandsTab(): React.JSX.Element {
             />
           ))}
         </div>
+        {filteredCommands.length === 0 && searchQuery && (
+          <p className="mt-4 text-center text-sm text-zinc-500">
+            No commands match "{searchQuery}"
+          </p>
+        )}
       </div>
 
       <CommandDetailPanel />
