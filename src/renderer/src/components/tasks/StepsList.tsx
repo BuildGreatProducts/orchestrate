@@ -1,5 +1,5 @@
-import { useCallback } from 'react'
-import { Plus, X, GripVertical } from 'lucide-react'
+import { useCallback, useState } from 'react'
+import { Plus, X, GripVertical, Link2 } from 'lucide-react'
 import {
   DndContext,
   closestCenter,
@@ -17,6 +17,21 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { TaskStep } from '@shared/types'
+
+function DependencyBadge({
+  dependsOn
+}: {
+  dependsOn: string[]
+}): React.JSX.Element | null {
+  if (!dependsOn || dependsOn.length === 0) return null
+
+  return (
+    <span className="ml-2 inline-flex items-center gap-0.5 rounded bg-amber-900/40 px-1.5 py-0.5 text-[10px] text-amber-400">
+      <Link2 size={10} />
+      {dependsOn.length}
+    </span>
+  )
+}
 
 function SortableStep({
   step,
@@ -65,6 +80,7 @@ function SortableStep({
           <GripVertical size={14} />
         </button>
         <span className="text-[11px] font-medium text-zinc-500">Step {index + 1}</span>
+        <DependencyBadge dependsOn={step.dependsOn ?? []} />
         <p className="min-w-0 flex-1 truncate text-xs text-zinc-400">
           {step.prompt || 'Empty step'}
         </p>

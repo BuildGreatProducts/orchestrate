@@ -42,6 +42,7 @@ export interface TaskSchedule {
 export interface TaskStep {
   id: string
   prompt: string
+  dependsOn?: string[] // step IDs this step depends on
 }
 
 export interface TaskRun {
