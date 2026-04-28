@@ -35,7 +35,8 @@ const api: OrchestrateAPI = {
   },
 
   // Terminals
-  createTerminal: (id, cwd, command?) => ipcRenderer.invoke('terminal:create', id, cwd, command),
+  createTerminal: (id, cwd, command?, dimensions?) =>
+    ipcRenderer.invoke('terminal:create', id, cwd, command, dimensions),
   writeTerminal: (id, data) => ipcRenderer.send('terminal:input', id, data),
   resizeTerminal: (id, cols, rows) => ipcRenderer.send('terminal:resize', id, cols, rows),
   closeTerminal: (id) => ipcRenderer.invoke('terminal:close', id),

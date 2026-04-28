@@ -7,7 +7,8 @@ import {
   addOutputSubscriber,
   getOutputBuffer,
   signalTerminalReady,
-  setPtyDimensions
+  setPtyDimensions,
+  isUsableTerminalDimensions
 } from '@renderer/stores/terminal'
 
 interface UseTerminalOptions {
@@ -58,9 +59,10 @@ export function useTerminal({ id, active }: UseTerminalOptions): UseTerminalResu
         try {
           fitAddon?.fit()
           const dims = fitAddon?.proposeDimensions()
-          if (dims && dims.cols > 0 && dims.rows > 0) {
+          if (dims && isUsableTerminalDimensions(dims.cols, dims.rows)) {
             window.orchestrate.resizeTerminal(id, dims.cols, dims.rows)
             setPtyDimensions(id, dims.cols, dims.rows)
+            signalTerminalReady(id, dims.cols, dims.rows)
           }
         } catch {
           // Terminal not yet fully in DOM
@@ -75,9 +77,10 @@ export function useTerminal({ id, active }: UseTerminalOptions): UseTerminalResu
             fitAddon?.fit()
             if (activeRef.current) {
               const dims = fitAddon?.proposeDimensions()
-              if (dims && dims.cols > 0 && dims.rows > 0) {
+              if (dims && isUsableTerminalDimensions(dims.cols, dims.rows)) {
                 window.orchestrate.resizeTerminal(id, dims.cols, dims.rows)
                 setPtyDimensions(id, dims.cols, dims.rows)
+                signalTerminalReady(id, dims.cols, dims.rows)
               }
             }
           } catch {
@@ -160,9 +163,6 @@ export function useTerminal({ id, active }: UseTerminalOptions): UseTerminalResu
       term.write(data)
     })
 
-    // Signal that this terminal's handlers are ready
-    signalTerminalReady(id)
-
     // If the DOM container was already captured by the ref callback
     // before this effect ran, attach now
     if (containerElRef.current && !attachedRef.current) {
@@ -198,9 +198,10 @@ export function useTerminal({ id, active }: UseTerminalOptions): UseTerminalResu
       try {
         fitAddonRef.current?.fit()
         const dims = fitAddonRef.current?.proposeDimensions()
-        if (dims && dims.cols > 0 && dims.rows > 0) {
+        if (dims && isUsableTerminalDimensions(dims.cols, dims.rows)) {
           window.orchestrate.resizeTerminal(id, dims.cols, dims.rows)
           setPtyDimensions(id, dims.cols, dims.rows)
+          signalTerminalReady(id, dims.cols, dims.rows)
         }
       } catch {
         // ignore

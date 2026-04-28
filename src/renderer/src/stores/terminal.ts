@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { arrayMove } from '@dnd-kit/sortable'
+import type { TerminalDimensions } from '@shared/types'
 import { toast } from './toast'
 import { useAppStore } from './app'
 
@@ -133,13 +134,13 @@ export function getOutputBuffer(id: string): string {
 
 // --- PTY dimensions ---
 // Tracks the actual PTY column/row count so mirror terminals can match it.
-const ptyDimensions = new Map<string, { cols: number; rows: number }>()
+const ptyDimensions = new Map<string, TerminalDimensions>()
 
 export function setPtyDimensions(id: string, cols: number, rows: number): void {
   ptyDimensions.set(id, { cols, rows })
 }
 
-export function getPtyDimensions(id: string): { cols: number; rows: number } | undefined {
+export function getPtyDimensions(id: string): TerminalDimensions | undefined {
   return ptyDimensions.get(id)
 }
 
@@ -266,14 +267,82 @@ export function unregisterTerminalHandlers(id: string): void {
 }
 
 // --- Readiness handshake ---
-// createTab waits for the TerminalPane to mount and register its
-// IPC handlers before telling the main process to spawn the PTY.
+// createTab waits for a visible terminal surface to report its fitted geometry
+// before telling the main process to spawn the PTY.
 
-const readyResolvers = new Map<string, () => void>()
+const DEFAULT_TERMINAL_DIMENSIONS: TerminalDimensions = { cols: 80, rows: 24 }
+const DEFAULT_AGENT_DIMENSIONS: TerminalDimensions = { cols: 80, rows: 18 }
+const AGENT_SURFACE_READY_TIMEOUT_MS = 800
+const TERMINAL_SURFACE_READY_TIMEOUT_MS = 100
+const MIN_READY_COLS = 20
+const MIN_READY_ROWS = 4
 
-export function signalTerminalReady(id: string): void {
-  readyResolvers.get(id)?.()
+const readyResolvers = new Map<
+  string,
+  {
+    resolve: (dimensions: TerminalDimensions) => void
+    timeoutId: ReturnType<typeof setTimeout>
+  }
+>()
+
+function getFallbackDimensions(kind: TerminalKind): TerminalDimensions {
+  return kind === 'agent' ? DEFAULT_AGENT_DIMENSIONS : DEFAULT_TERMINAL_DIMENSIONS
+}
+
+function getSurfaceReadyTimeout(kind: TerminalKind): number {
+  return kind === 'agent' ? AGENT_SURFACE_READY_TIMEOUT_MS : TERMINAL_SURFACE_READY_TIMEOUT_MS
+}
+
+export function isUsableTerminalDimensions(cols: number, rows: number): boolean {
+  return cols >= MIN_READY_COLS && rows >= MIN_READY_ROWS
+}
+
+function isUsableDimensions(
+  dimensions: TerminalDimensions | undefined
+): dimensions is TerminalDimensions {
+  return Boolean(dimensions && isUsableTerminalDimensions(dimensions.cols, dimensions.rows))
+}
+
+function waitForTerminalSurface(id: string, kind: TerminalKind): Promise<TerminalDimensions> {
+  const dimensions = getPtyDimensions(id)
+  if (isUsableDimensions(dimensions)) {
+    return Promise.resolve(dimensions)
+  }
+
+  return new Promise((resolve) => {
+    const timeoutId = setTimeout(() => {
+      readyResolvers.delete(id)
+      resolve(getFallbackDimensions(kind))
+    }, getSurfaceReadyTimeout(kind))
+
+    readyResolvers.set(id, {
+      resolve: (readyDimensions) => {
+        clearTimeout(timeoutId)
+        resolve(readyDimensions)
+      },
+      timeoutId
+    })
+  })
+}
+
+function clearTerminalReadyWaiter(id: string): void {
+  const waiter = readyResolvers.get(id)
+  if (!waiter) return
+  clearTimeout(waiter.timeoutId)
   readyResolvers.delete(id)
+}
+
+export function signalTerminalReady(id: string, cols: number, rows: number): void {
+  if (!isUsableTerminalDimensions(cols, rows)) return
+
+  const dimensions = { cols, rows }
+  setPtyDimensions(id, cols, rows)
+
+  const waiter = readyResolvers.get(id)
+  if (!waiter) return
+
+  readyResolvers.delete(id)
+  waiter.resolve(dimensions)
 }
 
 export const useTerminalStore = create<TerminalState>((set, get) => ({
@@ -294,6 +363,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     const id = `terminal-${Date.now()}-${nextIndex}`
     const kind: TerminalKind = options.kind ?? (options.command ? 'agent' : 'terminal')
     const tabName = options.name ?? (kind === 'agent' ? `Agent ${nextIndex}` : `Terminal ${nextIndex}`)
+    const initialDimensions = waitForTerminalSurface(id, kind)
 
     set((state) => ({
       tabs: [
@@ -334,8 +404,10 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
 
     const effectiveCwd = options.worktreePath ?? options.cwd
     try {
-      await window.orchestrate.createTerminal(id, effectiveCwd, options.command)
+      const dimensions = await initialDimensions
+      await window.orchestrate.createTerminal(id, effectiveCwd, options.command, dimensions)
     } catch (err) {
+      clearTerminalReadyWaiter(id)
       clearLifecycleTimers(id)
       clearOutputBuffer(id)
       // Remove the orphaned tab on failure
@@ -362,6 +434,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     if (tab && !tab.exited) {
       window.orchestrate.closeTerminal(id)
     }
+    clearTerminalReadyWaiter(id)
     clearLifecycleTimers(id)
     clearOutputBuffer(id)
     ptyDimensions.delete(id)
@@ -467,6 +540,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       if (!tab.exited) {
         window.orchestrate.closeTerminal(tab.id)
       }
+      clearTerminalReadyWaiter(tab.id)
       clearLifecycleTimers(tab.id)
       clearOutputBuffer(tab.id)
       ptyDimensions.delete(tab.id)

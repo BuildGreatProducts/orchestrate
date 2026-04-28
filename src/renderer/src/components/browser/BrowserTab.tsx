@@ -22,7 +22,7 @@ export default function BrowserTab(): React.JSX.Element {
   }, [isVisible, tabs.length, createTab])
 
   return (
-    <div className="flex h-full min-w-0 w-full flex-1 flex-col overflow-hidden rounded-b-lg">
+    <div className="flex h-full min-w-0 w-full flex-1 flex-col overflow-hidden">
       <BrowserTabBar />
       <BrowserToolbar />
       <BrowserContentArea />

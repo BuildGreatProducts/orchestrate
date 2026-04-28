@@ -16,7 +16,12 @@ export class PtyManager {
     private onExit: (id: string, exitCode: number) => void
   ) {}
 
-  create(id: string, cwd: string, command?: string): void {
+  create(
+    id: string,
+    cwd: string,
+    command?: string,
+    dimensions?: { cols: number; rows: number }
+  ): void {
     // Clean up any existing session with the same id
     if (this.sessions.has(id)) {
       const old = this.sessions.get(id)!
@@ -30,8 +35,8 @@ export class PtyManager {
 
     const ptyProcess = pty.spawn(shell, args, {
       name: 'xterm-256color',
-      cols: 80,
-      rows: 24,
+      cols: dimensions?.cols && dimensions.cols > 0 ? dimensions.cols : 80,
+      rows: dimensions?.rows && dimensions.rows > 0 ? dimensions.rows : 24,
       cwd,
       env: process.env as Record<string, string>
     })
