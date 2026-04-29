@@ -1,6 +1,6 @@
 import { CronExpressionParser } from 'cron-parser'
 import type { BrowserWindow } from 'electron'
-import type { BoardState, TaskSchedule } from '@shared/types'
+import type { TaskListState, TaskSchedule } from '@shared/types'
 
 // Node's setTimeout max is ~24.8 days; longer delays fire immediately
 const MAX_TIMEOUT = 2147483647
@@ -8,15 +8,15 @@ const MAX_TIMEOUT = 2147483647
 export class TaskScheduler {
   private taskTimers = new Map<string, NodeJS.Timeout>()
   private getWindow: () => BrowserWindow | null
-  private getBoard: (() => Promise<BoardState>) | null = null
+  private getTasks: (() => Promise<TaskListState>) | null = null
 
   constructor(getWindow: () => BrowserWindow | null) {
     this.getWindow = getWindow
   }
 
-  /** Provide a board loader so rescheduling reads fresh schedule data */
-  setBoardLoader(loader: () => Promise<BoardState>): void {
-    this.getBoard = loader
+  /** Provide a task loader so rescheduling reads fresh schedule data */
+  setTaskLoader(loader: () => Promise<TaskListState>): void {
+    this.getTasks = loader
   }
 
   scheduleTask(taskId: string, schedule: TaskSchedule): void {
@@ -45,11 +45,11 @@ export class TaskScheduler {
           if (win && !win.isDestroyed()) {
             win.webContents.send('task:scheduleTrigger', taskId)
           }
-          // Re-read the latest schedule from the board before rescheduling
-          if (this.getBoard) {
+          // Re-read the latest schedule from the task list before rescheduling
+          if (this.getTasks) {
             try {
-              const board = await this.getBoard()
-              const fresh = board.tasks[taskId]?.schedule
+              const tasks = await this.getTasks()
+              const fresh = tasks.tasks[taskId]?.schedule
               if (fresh) {
                 this.scheduleTask(taskId, fresh)
               }
@@ -75,9 +75,9 @@ export class TaskScheduler {
     }
   }
 
-  rescheduleAllTasks(board: BoardState): void {
+  rescheduleAllTasks(tasks: TaskListState): void {
     this.stopAll()
-    for (const [id, meta] of Object.entries(board.tasks)) {
+    for (const [id, meta] of Object.entries(tasks.tasks)) {
       if (meta.schedule) {
         this.scheduleTask(id, meta.schedule)
       }

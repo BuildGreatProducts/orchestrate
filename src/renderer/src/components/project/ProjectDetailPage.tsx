@@ -1,7 +1,6 @@
 import { useAppStore } from '@renderer/stores/app'
 import type { ProjectDetailTabId } from '@shared/types'
 import BrowserTab from '@renderer/components/browser/BrowserTab'
-import TasksTab from '@renderer/components/tasks/TasksTab'
 import FilesTab from '@renderer/components/files/FilesTab'
 import HistoryTab from '@renderer/components/history/HistoryTab'
 import CommandsTab from '@renderer/components/commands/CommandsTab'
@@ -10,7 +9,6 @@ import { PROJECT_DETAIL_TABS } from '@renderer/lib/project-detail-tabs'
 
 const TAB_COMPONENTS: Record<ProjectDetailTabId, React.ComponentType> = {
   browser: BrowserTab,
-  tasks: TasksTab,
   commands: CommandsTab,
   files: FilesTab,
   history: HistoryTab,

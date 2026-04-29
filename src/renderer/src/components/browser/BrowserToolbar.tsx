@@ -14,14 +14,16 @@ export default function BrowserToolbar(): React.JSX.Element {
   const toggleDevTools = useBrowserStore((s) => s.toggleDevTools)
 
   const activeTab = tabs.find((t) => t.id === activeTabId)
+  const activeTabUrl = activeTab?.url
+  const activeBrowserTabId = activeTab?.id
   const [urlInput, setUrlInput] = useState(activeTab?.url ?? '')
 
   // Sync URL input with active tab's current URL
   useEffect(() => {
-    if (activeTab) {
-      setUrlInput(activeTab.url)
+    if (activeTabUrl !== undefined) {
+      setUrlInput(activeTabUrl)
     }
-  }, [activeTab?.url, activeTab?.id])
+  }, [activeTabUrl, activeBrowserTabId])
 
   const handleNavigate = (): void => {
     if (!activeTabId || !urlInput.trim()) return
@@ -37,10 +39,10 @@ export default function BrowserToolbar(): React.JSX.Element {
   }
 
   const btnClass =
-    'rounded p-1.5 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-zinc-400'
+    'rounded p-1.5 text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-zinc-400'
 
   return (
-    <div className="flex h-10 items-center gap-1.5 border-b border-zinc-800 bg-zinc-900 px-2">
+    <div className="flex h-10 items-center gap-1.5 border-b border-zinc-800 bg-black px-2">
       <button
         className={btnClass}
         disabled={!activeTab?.canGoBack}

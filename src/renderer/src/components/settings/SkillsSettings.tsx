@@ -108,7 +108,7 @@ function AddSkillMenu({
             if (e.metaKey || e.ctrlKey) e.stopPropagation()
           }}
           placeholder="https://github.com/user/skill.git"
-          className="min-w-0 flex-1 rounded border border-zinc-600 bg-zinc-800 px-2 py-1 text-xs text-zinc-200 placeholder-zinc-500 outline-none focus:border-zinc-500"
+          className="min-w-0 flex-1 rounded bg-zinc-800/70 px-2 py-1 text-xs text-zinc-200 outline-none transition-colors placeholder-zinc-500 hover:bg-zinc-800 focus:bg-zinc-800"
           autoFocus
         />
         <button
@@ -129,7 +129,7 @@ function AddSkillMenu({
   }
 
   return (
-    <div ref={menuRef} className="mt-1 rounded border border-zinc-700 bg-zinc-800 py-1 shadow-lg">
+    <div ref={menuRef} className="mt-1 rounded bg-zinc-800 py-1 shadow-lg">
       <button
         onClick={async () => {
           await addFromFolder(target)

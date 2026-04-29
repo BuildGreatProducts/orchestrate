@@ -12,11 +12,13 @@ import OrchestrateTab from '@renderer/components/orchestrate/OrchestrateTab'
 import SettingsPage from '@renderer/components/settings/SettingsPage'
 import ConfirmDialog from '@renderer/components/history/ConfirmDialog'
 import { PROJECT_DETAIL_TAB_IDS } from '@renderer/lib/project-detail-tabs'
+import { cn } from '@renderer/lib/utils'
 
 function App(): React.JSX.Element {
   const contentView = useAppStore((s) => s.contentView)
   const loadLastFolder = useAppStore((s) => s.loadLastFolder)
   const loadProjects = useAppStore((s) => s.loadProjects)
+  const modalLayerOpen = useAppStore((s) => s.modalLayerDepth > 0)
 
   useEffect(() => {
     loadLastFolder()
@@ -31,7 +33,7 @@ function App(): React.JSX.Element {
       const mod = e.metaKey || e.ctrlKey
       if (!mod) return
 
-      // Cmd/Ctrl+1–6: Switch project detail tabs (when viewing project detail)
+      // Cmd/Ctrl+1–5: Switch project detail tabs (when viewing project detail)
       if (e.key >= '1' && e.key <= '6') {
         const cv = useAppStore.getState().contentView
         if (cv.type === 'project-detail') {
@@ -86,13 +88,8 @@ function App(): React.JSX.Element {
         e.preventDefault()
         const folder = useAppStore.getState().currentFolder
         if (folder) {
-          useAppStore
-            .getState()
-            .showProjectDetail(folder, 'tasks')
-            .then(() => useTasksStore.getState().createTask('planning', 'New task'))
-            .catch((err) => {
-              console.error('[Shortcut] Failed to create task:', err)
-            })
+          useAppStore.getState().setTasksSidebarOpen(true)
+          useTasksStore.getState().openComposer('manual')
         }
         return
       }
@@ -103,43 +100,73 @@ function App(): React.JSX.Element {
   }, [])
 
   return (
-    <div className="flex h-screen flex-col bg-zinc-900 text-white">
-      <TopBar />
-      <div className="min-h-0 flex-1 overflow-hidden p-3 pt-0">
-        <div className="relative h-full overflow-hidden">
-          <div
-            className={
-              contentView.type === 'orchestrate'
-                ? 'flex h-full w-full animate-in fade-in duration-150'
-                : 'hidden'
-            }
-          >
-            <OrchestrateTab />
-          </div>
+    <div className="h-screen overflow-hidden bg-zinc-900 text-white">
+      <div
+        className={cn(
+          'flex h-full flex-col transition-[filter,transform] duration-150 ease-out motion-reduce:transition-none',
+          modalLayerOpen && 'scale-[0.997] blur-[2px] brightness-90'
+        )}
+      >
+        <TopBar />
+        <div className="min-h-0 flex-1 overflow-hidden p-3 pt-0">
+          <div className="relative h-full overflow-hidden">
+            <div
+              className={
+                contentView.type === 'orchestrate'
+                  ? 'flex h-full w-full animate-in fade-in duration-150'
+                  : 'hidden'
+              }
+            >
+              <OrchestrateTab />
+            </div>
 
-          <div
-            className={
-              contentView.type === 'project-detail' || contentView.type === 'worktree-detail'
-                ? 'flex h-full w-full animate-in fade-in duration-150'
-                : 'hidden'
-            }
-          >
-            <WorkspaceShell />
-          </div>
+            <div
+              className={
+                contentView.type === 'project-detail' || contentView.type === 'worktree-detail'
+                  ? 'flex h-full w-full animate-in fade-in duration-150'
+                  : 'hidden'
+              }
+            >
+              <WorkspaceShell />
+            </div>
 
-          <div
-            className={
-              contentView.type === 'page' && contentView.pageId === 'settings'
-                ? 'flex h-full w-full animate-in fade-in duration-150'
-                : 'hidden'
-            }
-          >
-            <SettingsPage />
+            <div
+              className={
+                contentView.type === 'page' && contentView.pageId === 'settings'
+                  ? 'flex h-full w-full animate-in fade-in duration-150'
+                  : 'hidden'
+              }
+            >
+              <SettingsPage />
+            </div>
           </div>
         </div>
+        <BrowserModalSnapshot />
       </div>
       <ToastContainer />
       <CloseTerminalDialog />
+    </div>
+  )
+}
+
+function BrowserModalSnapshot(): React.JSX.Element | null {
+  const modalLayerOpen = useAppStore((s) => s.modalLayerDepth > 0)
+  const snapshot = useAppStore((s) => s.browserModalSnapshot)
+
+  if (!modalLayerOpen || !snapshot) return null
+
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none fixed z-10 overflow-hidden bg-black"
+      style={{
+        left: snapshot.bounds.x,
+        top: snapshot.bounds.y,
+        width: snapshot.bounds.width,
+        height: snapshot.bounds.height
+      }}
+    >
+      <img src={snapshot.dataUrl} alt="" draggable={false} className="h-full w-full object-fill" />
     </div>
   )
 }

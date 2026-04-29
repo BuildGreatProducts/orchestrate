@@ -17,6 +17,7 @@ export default function BrowserContentArea(): React.JSX.Element {
   const activeTabId = activeTab?.id ?? null
   const contentView = useAppStore((s) => s.contentView)
   const projectDetailTab = useAppStore((s) => s.projectDetailTab)
+  const modalLayerOpen = useAppStore((s) => s.modalLayerDepth > 0)
 
   // Reset cached bounds when switching browser sub-tabs
   const prevTabIdRef = useRef(activeTabId)
@@ -45,7 +46,10 @@ export default function BrowserContentArea(): React.JSX.Element {
 
   // Show/hide views based on whether the browser tab is active and settings are closed
   useEffect(() => {
-    const shouldShow = contentView.type === 'project-detail' && projectDetailTab === 'browser' && activeTabId
+    if (modalLayerOpen) return undefined
+
+    const shouldShow =
+      contentView.type === 'project-detail' && projectDetailTab === 'browser' && activeTabId
     if (shouldShow) {
       window.orchestrate.showBrowserTab(activeTabId)
 
@@ -75,7 +79,16 @@ export default function BrowserContentArea(): React.JSX.Element {
       window.orchestrate.hideAllBrowserTabs()
     }
     return undefined
-  }, [contentView, projectDetailTab, activeTabId, activeTab?.url, activeTab?.title, activeTab?.isLoading, reportBounds])
+  }, [
+    contentView,
+    projectDetailTab,
+    activeTabId,
+    activeTab?.url,
+    activeTab?.title,
+    activeTab?.isLoading,
+    modalLayerOpen,
+    reportBounds
+  ])
 
   // ResizeObserver to continuously report bounds
   useEffect(() => {

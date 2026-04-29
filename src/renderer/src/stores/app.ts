@@ -1,5 +1,9 @@
 import { create } from 'zustand'
-import type { ContentView, NavPageId, ProjectDetailTabId } from '@shared/types'
+import type { BrowserSnapshot, ContentView, NavPageId, ProjectDetailTabId } from '@shared/types'
+
+interface BrowserModalSnapshot extends BrowserSnapshot {
+  tabId: string
+}
 
 interface AppState {
   contentView: ContentView
@@ -8,6 +12,9 @@ interface AppState {
   expandedProjects: Record<string, boolean>
   projectDetailTab: ProjectDetailTabId
   bottomTerminalOpen: boolean
+  tasksSidebarOpen: boolean
+  modalLayerDepth: number
+  browserModalSnapshot: BrowserModalSnapshot | null
 
   showPage: (pageId: NavPageId) => void
   showOrchestrate: () => Promise<void>
@@ -17,6 +24,11 @@ interface AppState {
   showTerminal: (folder?: string) => Promise<void>
   toggleBottomTerminal: () => void
   setBottomTerminalOpen: (open: boolean) => void
+  toggleTasksSidebar: () => void
+  setTasksSidebarOpen: (open: boolean) => void
+  openModalLayer: () => void
+  closeModalLayer: () => void
+  setBrowserModalSnapshot: (snapshot: BrowserModalSnapshot | null) => void
   toggleProjectExpanded: (folder: string) => void
   setProjectExpanded: (folder: string, expanded: boolean) => void
   setCurrentFolder: (folder: string | null) => Promise<void>
@@ -33,6 +45,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   expandedProjects: {},
   projectDetailTab: 'browser',
   bottomTerminalOpen: true,
+  tasksSidebarOpen: true,
+  modalLayerDepth: 0,
+  browserModalSnapshot: null,
 
   showPage: (pageId) => set({ contentView: { type: 'page', pageId } }),
 
@@ -66,7 +81,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       set((state) => ({
         currentFolder: folder,
         bottomTerminalOpen: true,
-        contentView: state.contentView.type === 'orchestrate' ? { type: 'project-detail' } : state.contentView
+        contentView:
+          state.contentView.type === 'orchestrate' ? { type: 'project-detail' } : state.contentView
       }))
     } else {
       set({ bottomTerminalOpen: true })
@@ -76,6 +92,23 @@ export const useAppStore = create<AppState>((set, get) => ({
   toggleBottomTerminal: () => set((state) => ({ bottomTerminalOpen: !state.bottomTerminalOpen })),
 
   setBottomTerminalOpen: (open) => set({ bottomTerminalOpen: open }),
+
+  toggleTasksSidebar: () => set((state) => ({ tasksSidebarOpen: !state.tasksSidebarOpen })),
+
+  setTasksSidebarOpen: (open) => set({ tasksSidebarOpen: open }),
+
+  openModalLayer: () => set((state) => ({ modalLayerDepth: state.modalLayerDepth + 1 })),
+
+  closeModalLayer: () =>
+    set((state) => {
+      const modalLayerDepth = Math.max(0, state.modalLayerDepth - 1)
+      return {
+        modalLayerDepth,
+        ...(modalLayerDepth === 0 ? { browserModalSnapshot: null } : {})
+      }
+    }),
+
+  setBrowserModalSnapshot: (snapshot) => set({ browserModalSnapshot: snapshot }),
 
   toggleProjectExpanded: (folder) => {
     set((state) => ({

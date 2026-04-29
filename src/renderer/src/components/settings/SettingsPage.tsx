@@ -194,7 +194,9 @@ export default function SettingsPage(): React.JSX.Element {
                   key={agent.id}
                   agent={agent}
                   onToggle={setAgentEnabled}
-                  note={agent.mcpMode !== 'none' ? 'Has access to Orchestrate MCP tools' : undefined}
+                  note={
+                    agent.mcpMode !== 'none' ? 'Has access to Orchestrate MCP tools' : undefined
+                  }
                 />
               ))}
             </div>
@@ -222,7 +224,7 @@ export default function SettingsPage(): React.JSX.Element {
                           if (e.metaKey || e.ctrlKey) e.stopPropagation()
                         }}
                         placeholder="Agent name"
-                        className="w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:border-zinc-500"
+                        className="w-full rounded bg-zinc-800/70 px-3 py-1.5 text-sm text-zinc-200 outline-none transition-colors placeholder-zinc-600 hover:bg-zinc-800 focus:bg-zinc-800"
                         autoFocus
                       />
                       <input
@@ -235,7 +237,7 @@ export default function SettingsPage(): React.JSX.Element {
                           if (e.metaKey || e.ctrlKey) e.stopPropagation()
                         }}
                         placeholder="CLI command (e.g. aider)"
-                        className="w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:border-zinc-500"
+                        className="w-full rounded bg-zinc-800/70 px-3 py-1.5 text-sm text-zinc-200 outline-none transition-colors placeholder-zinc-600 hover:bg-zinc-800 focus:bg-zinc-800"
                       />
                       <div className="flex gap-2">
                         <button
@@ -300,7 +302,7 @@ export default function SettingsPage(): React.JSX.Element {
                     if (e.metaKey || e.ctrlKey) e.stopPropagation()
                   }}
                   placeholder="Agent name"
-                  className="w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:border-zinc-500"
+                  className="w-full rounded bg-zinc-800/70 px-3 py-1.5 text-sm text-zinc-200 outline-none transition-colors placeholder-zinc-600 hover:bg-zinc-800 focus:bg-zinc-800"
                   autoFocus
                 />
                 <input
@@ -313,7 +315,7 @@ export default function SettingsPage(): React.JSX.Element {
                     if (e.metaKey || e.ctrlKey) e.stopPropagation()
                   }}
                   placeholder="CLI command (e.g. aider)"
-                  className="w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:border-zinc-500"
+                  className="w-full rounded bg-zinc-800/70 px-3 py-1.5 text-sm text-zinc-200 outline-none transition-colors placeholder-zinc-600 hover:bg-zinc-800 focus:bg-zinc-800"
                 />
                 <div className="flex gap-2">
                   <button
@@ -366,7 +368,7 @@ export default function SettingsPage(): React.JSX.Element {
                   if (e.metaKey || e.ctrlKey) e.stopPropagation()
                 }}
                 placeholder="http://localhost:3000"
-                className="min-w-0 flex-1 rounded border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:border-zinc-500"
+                className="min-w-0 flex-1 rounded bg-zinc-800/70 px-3 py-1.5 text-sm text-zinc-200 outline-none transition-colors placeholder-zinc-600 hover:bg-zinc-800 focus:bg-zinc-800"
               />
               <button
                 onClick={handleSaveUrl}
@@ -387,9 +389,7 @@ export default function SettingsPage(): React.JSX.Element {
               <span className="text-sm text-zinc-300">Orchestrate</span>
               <span className="text-xs text-zinc-500">v{version}</span>
             </div>
-            <p className="mt-1 text-xs text-zinc-500">
-              AI agent orchestration for your projects.
-            </p>
+            <p className="mt-1 text-xs text-zinc-500">AI agent orchestration for your projects.</p>
 
             <div className="mt-3 border-t border-zinc-800 pt-3">
               {updateState.status === 'idle' && (

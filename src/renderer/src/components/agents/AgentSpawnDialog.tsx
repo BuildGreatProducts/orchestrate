@@ -1,15 +1,23 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { GitBranch, Loader2, Play, X } from 'lucide-react'
 import { useAgentsStore } from '@renderer/stores/agents'
 import { useTerminalStore } from '@renderer/stores/terminal'
 import { useWorktreeStore } from '@renderer/stores/worktree'
 import { buildAgentCommand } from '@renderer/lib/agent-command-builder'
+import { AgentIcon } from '@renderer/lib/agent-icons'
 import { toast } from '@renderer/stores/toast'
+import DropdownSelect from '@renderer/components/ui/DropdownSelect'
 import type { BranchInfo } from '@shared/types'
 
 interface AgentSpawnDialogProps {
   projectFolder: string
   onClose: () => void
+}
+
+function agentTrailingIcon(agentId: string): ReactNode {
+  return agentId === 'claude-code' || agentId === 'codex' ? (
+    <AgentIcon agentId={agentId} />
+  ) : undefined
 }
 
 export default function AgentSpawnDialog({
@@ -35,12 +43,17 @@ export default function AgentSpawnDialog({
   }, [agentId, enabledAgents])
 
   useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
+
+  useEffect(() => {
     let active = true
     setLoading(true)
-    Promise.all([
-      window.orchestrate.listBranches(projectFolder),
-      loadWorktrees(projectFolder)
-    ])
+    Promise.all([window.orchestrate.listBranches(projectFolder), loadWorktrees(projectFolder)])
       .then(([branchList]) => {
         if (!active) return
         setBranches(branchList)
@@ -49,7 +62,9 @@ export default function AgentSpawnDialog({
       })
       .catch((err) => {
         if (active) {
-          toast.error(`Failed to load branches: ${err instanceof Error ? err.message : String(err)}`)
+          toast.error(
+            `Failed to load branches: ${err instanceof Error ? err.message : String(err)}`
+          )
         }
       })
       .finally(() => {
@@ -130,9 +145,12 @@ export default function AgentSpawnDialog({
   }
 
   return (
-    <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-3 shadow-2xl">
+    <div className="rounded-lg bg-zinc-900 p-6 shadow-2xl">
       <div className="mb-3 flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm font-medium text-zinc-200">
+        <div
+          id="agent-spawn-dialog-title"
+          className="flex items-center gap-2 text-sm font-medium text-zinc-200"
+        >
           <Play size={14} />
           New agent
         </div>
@@ -149,39 +167,48 @@ export default function AgentSpawnDialog({
       <div className="space-y-3">
         <label className="block">
           <span className="mb-1 block text-xs font-medium text-zinc-500">Agent</span>
-          <select
+          <DropdownSelect
+            ariaLabel="Agent"
             value={agentId}
-            onChange={(event) => setAgentId(event.target.value)}
-            className="h-9 w-full rounded-md border border-zinc-700 bg-zinc-950 px-2 text-sm text-zinc-200 outline-none focus:border-zinc-500"
-          >
-            {enabledAgents.map((agent) => (
-              <option key={agent.id} value={agent.id}>
-                {agent.displayName}
-              </option>
-            ))}
-          </select>
+            variant="field"
+            searchPlaceholder="Filter agents..."
+            options={enabledAgents.map((agent) => ({
+              value: agent.id,
+              label: agent.displayName,
+              trailingIcon: agentTrailingIcon(agent.id)
+            }))}
+            onChange={setAgentId}
+          />
         </label>
 
         <label className="block">
           <span className="mb-1 block text-xs font-medium text-zinc-500">Branch</span>
-          <div className="relative">
-            <GitBranch size={14} className="absolute left-2.5 top-2.5 text-zinc-600" />
-            <input
-              value={branch}
-              onChange={(event) => setBranch(event.target.value)}
-              list="orchestrate-agent-branches"
-              disabled={loading}
-              placeholder={loading ? 'Loading branches...' : 'Select or create branch'}
-              className="h-9 w-full rounded-md border border-zinc-700 bg-zinc-950 pl-8 pr-2 text-sm text-zinc-200 outline-none placeholder:text-zinc-600 focus:border-zinc-500"
-            />
-            <datalist id="orchestrate-agent-branches">
-              {localBranches.map((item) => (
-                <option key={item.name} value={item.name} />
-              ))}
-            </datalist>
-          </div>
+          <DropdownSelect
+            ariaLabel="Branch"
+            value={branch}
+            variant="field"
+            disabled={loading}
+            leadingIcon={<GitBranch size={14} />}
+            monospaced
+            placeholder={loading ? 'Loading branches...' : 'Select or create branch'}
+            searchPlaceholder="Filter or type branch..."
+            noOptionsLabel="No branches found"
+            allowCustomValue
+            customActionLabel={(value) => <>Use branch &ldquo;{value}&rdquo;</>}
+            options={localBranches.map((item) => ({
+              value: item.name,
+              label: item.name,
+              icon: <GitBranch size={11} />,
+              meta: item.current ? (
+                <span className="text-[10px] text-zinc-600">current</span>
+              ) : undefined
+            }))}
+            onChange={setBranch}
+          />
           {willCreateBranch && (
-            <span className="mt-1 block text-[11px] text-emerald-400">Creates branch before spawning</span>
+            <span className="mt-1 block text-[11px] text-emerald-400">
+              Creates branch before spawning
+            </span>
           )}
         </label>
 
@@ -195,10 +222,14 @@ export default function AgentSpawnDialog({
           <span>
             <span className="block text-sm text-zinc-300">Use worktree</span>
             <span className="block text-xs text-zinc-500">
-              {useWorktree ? 'Spawn on an isolated branch worktree' : 'Checkout and run in the main folder'}
+              {useWorktree
+                ? 'Spawn on an isolated branch worktree'
+                : 'Checkout and run in the main folder'}
             </span>
           </span>
-          <span className={`h-5 w-9 rounded-full p-0.5 transition-colors ${useWorktree ? 'bg-white' : 'bg-zinc-700'}`}>
+          <span
+            className={`h-5 w-9 rounded-full p-0.5 transition-colors ${useWorktree ? 'bg-white' : 'bg-zinc-700'}`}
+          >
             <span
               className={`block h-4 w-4 rounded-full transition-transform ${
                 useWorktree ? 'translate-x-4 bg-zinc-950' : 'bg-zinc-500'

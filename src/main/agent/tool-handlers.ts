@@ -3,10 +3,10 @@
  */
 import { readFile, writeFile, unlink, readdir, stat, mkdir, realpath } from 'fs/promises'
 import { dirname, isAbsolute, join, resolve, relative, parse as pathParse } from 'path'
-import { nanoid } from 'nanoid'
 import type { TaskManager } from '../task-manager'
 import type { GitManager } from '../git-manager'
 import type { SkillManager } from '../skill-manager'
+import type { SimpleTask, TaskMode, TaskSchedule, TaskStatus } from '@shared/types'
 
 // ── Deps interface ──
 
@@ -124,31 +124,79 @@ function requireFolder(deps: FileHandlerDeps): string {
 
 // ── Task tool handlers ──
 
+function defaultTaskBranch(id: string): string {
+  return `orchestrate/task-${id.replace(/[^A-Za-z0-9._-]/g, '-')}`
+}
+
+function normalizeMode(mode: unknown): TaskMode {
+  return mode === 'plan' ? 'plan' : 'build'
+}
+
+function normalizeSchedule(schedule: unknown): TaskSchedule | undefined {
+  if (!schedule || typeof schedule !== 'object') return undefined
+  const raw = schedule as Record<string, unknown>
+  const cron = typeof raw.cron === 'string' ? raw.cron.trim() : ''
+  if (!cron) return undefined
+  return { enabled: raw.enabled !== false, cron }
+}
+
+function columnToStatus(column: 'planning' | 'in-progress' | 'review' | 'done'): TaskStatus {
+  if (column === 'review') return 'review'
+  if (column === 'done') return 'done'
+  if (column === 'in-progress') return 'running'
+  return 'todo'
+}
+
+function normalizeStatus(status: unknown): TaskStatus | undefined {
+  if (
+    status === 'todo' ||
+    status === 'running' ||
+    status === 'review' ||
+    status === 'done' ||
+    status === 'failed'
+  ) {
+    return status
+  }
+  return undefined
+}
+
 export async function handleCreateTask(
-  args: { title: string; column?: 'planning' | 'in-progress' | 'review' | 'done'; steps?: string[] },
+  args: {
+    prompt?: string
+    title?: string
+    mode?: TaskMode
+    branch?: string
+    branchName?: string
+    agent?: string
+    pinned?: boolean
+    schedule?: TaskSchedule
+  },
   deps: TaskHandlerDeps
 ): Promise<McpResponse> {
   try {
     const mgr = requireTaskManager(deps)
-    const board = await mgr.loadBoard()
+    const taskList = await mgr.loadTasks()
     const id = mgr.generateId()
-    const col = args.column || 'planning'
-    board.columns[col].push(id)
-    const taskMeta: import('@shared/types').TaskMeta = {
-      title: args.title,
-      createdAt: new Date().toISOString()
+    const prompt = (args.prompt || args.title || '').trim()
+    if (!prompt) return fail('Task prompt is required')
+    const now = new Date().toISOString()
+    const task: SimpleTask = {
+      id,
+      prompt,
+      mode: normalizeMode(args.mode),
+      status: 'todo',
+      branchName: (args.branchName || args.branch || '').trim() || defaultTaskBranch(id),
+      agentType: args.agent || 'claude-code',
+      pinned: args.pinned === true,
+      schedule: normalizeSchedule(args.schedule),
+      createdAt: now,
+      updatedAt: now
     }
-    if (args.steps && args.steps.length > 0) {
-      taskMeta.steps = args.steps.map((prompt) => ({
-        id: `step-${nanoid(8)}`,
-        prompt
-      }))
-    }
-    board.tasks[id] = taskMeta
-    await mgr.saveBoard(board)
-    await mgr.writeMarkdown(id, `# ${args.title}\n\n`)
+    taskList.order.push(id)
+    taskList.tasks[id] = task
+    await mgr.saveTasks(taskList)
     deps.notifyStateChanged('tasks')
-    return ok({ id, title: args.title, column: col, stepCount: taskMeta.steps?.length ?? 0 })
+    return ok(task)
   } catch (err) {
     return fail(err instanceof Error ? err.message : String(err))
   }
@@ -160,10 +208,10 @@ export async function handleReadTask(
 ): Promise<McpResponse> {
   try {
     const mgr = requireTaskManager(deps)
-    const board = await mgr.loadBoard()
-    if (!board.tasks[args.task_id]) return fail(`Task ${args.task_id} not found`)
-    const content = await mgr.readMarkdown(args.task_id)
-    return ok({ id: args.task_id, title: board.tasks[args.task_id].title, content })
+    const taskList = await mgr.loadTasks()
+    const task = taskList.tasks[args.task_id]
+    if (!task) return fail(`Task ${args.task_id} not found`)
+    return ok(task)
   } catch (err) {
     return fail(err instanceof Error ? err.message : String(err))
   }
@@ -172,18 +220,16 @@ export async function handleReadTask(
 export async function handleListTasks(deps: TaskHandlerDeps): Promise<McpResponse> {
   try {
     const mgr = requireTaskManager(deps)
-    const board = await mgr.loadBoard()
-    const result: Record<string, Array<{ id: string; title: string; stepCount: number }>> = {}
-    for (const [col, ids] of Object.entries(board.columns)) {
-      result[col] = ids
-        .filter((id) => board.tasks[id])
-        .map((id) => ({
-          id,
-          title: board.tasks[id].title,
-          stepCount: board.tasks[id].steps?.length ?? 0
-        }))
+    const taskList = await mgr.loadTasks()
+    const manual: SimpleTask[] = []
+    const scheduled: SimpleTask[] = []
+    for (const id of taskList.order) {
+      const task = taskList.tasks[id]
+      if (!task) continue
+      if (task.schedule?.enabled) scheduled.push(task)
+      else manual.push(task)
     }
-    return ok(result)
+    return ok({ manual, scheduled })
   } catch (err) {
     return fail(err instanceof Error ? err.message : String(err))
   }
@@ -195,37 +241,59 @@ export async function handleMoveTask(
 ): Promise<McpResponse> {
   try {
     const mgr = requireTaskManager(deps)
-    const board = await mgr.loadBoard()
-    if (!board.tasks[args.task_id]) return fail(`Task ${args.task_id} not found`)
-    for (const col of Object.keys(board.columns) as Array<keyof typeof board.columns>) {
-      board.columns[col] = board.columns[col].filter((id) => id !== args.task_id)
-    }
-    board.columns[args.column].push(args.task_id)
-    await mgr.saveBoard(board)
+    const taskList = await mgr.loadTasks()
+    const task = taskList.tasks[args.task_id]
+    if (!task) return fail(`Task ${args.task_id} not found`)
+    task.status = columnToStatus(args.column)
+    task.updatedAt = new Date().toISOString()
+    await mgr.saveTasks(taskList)
     deps.notifyStateChanged('tasks')
-    return ok({ id: args.task_id, column: args.column })
+    return ok({ id: args.task_id, status: task.status })
   } catch (err) {
     return fail(err instanceof Error ? err.message : String(err))
   }
 }
 
 export async function handleEditTask(
-  args: { task_id: string; title?: string; content?: string },
+  args: {
+    task_id: string
+    prompt?: string
+    title?: string
+    content?: string
+    mode?: TaskMode
+    branch?: string
+    branchName?: string
+    agent?: string
+    pinned?: boolean
+    schedule?: TaskSchedule | null
+    status?: TaskStatus
+  },
   deps: TaskHandlerDeps
 ): Promise<McpResponse> {
   try {
     const mgr = requireTaskManager(deps)
-    const board = await mgr.loadBoard()
-    if (!board.tasks[args.task_id]) return fail(`Task ${args.task_id} not found`)
-    if (args.title) {
-      board.tasks[args.task_id].title = args.title
-      await mgr.saveBoard(board)
+    const taskList = await mgr.loadTasks()
+    const task = taskList.tasks[args.task_id]
+    if (!task) return fail(`Task ${args.task_id} not found`)
+    const prompt = args.prompt ?? args.content ?? args.title
+    if (prompt !== undefined) {
+      const trimmed = prompt.trim()
+      if (!trimmed) return fail('Task prompt is required')
+      task.prompt = trimmed
     }
-    if (args.content !== undefined) {
-      await mgr.writeMarkdown(args.task_id, args.content)
-    }
+    if (args.mode !== undefined) task.mode = normalizeMode(args.mode)
+    const branch = args.branchName ?? args.branch
+    if (branch !== undefined) task.branchName = branch.trim() || defaultTaskBranch(args.task_id)
+    if (args.agent !== undefined) task.agentType = args.agent || task.agentType
+    if (args.pinned !== undefined) task.pinned = args.pinned
+    if (args.schedule !== undefined)
+      task.schedule = args.schedule === null ? undefined : normalizeSchedule(args.schedule)
+    const status = normalizeStatus(args.status)
+    if (status) task.status = status
+    task.updatedAt = new Date().toISOString()
+    await mgr.saveTasks(taskList)
     deps.notifyStateChanged('tasks')
-    return ok({ id: args.task_id })
+    return ok(task)
   } catch (err) {
     return fail(err instanceof Error ? err.message : String(err))
   }
@@ -237,14 +305,11 @@ export async function handleDeleteTask(
 ): Promise<McpResponse> {
   try {
     const mgr = requireTaskManager(deps)
-    const board = await mgr.loadBoard()
-    if (!board.tasks[args.task_id]) return fail(`Task ${args.task_id} not found`)
-    for (const col of Object.keys(board.columns) as Array<keyof typeof board.columns>) {
-      board.columns[col] = board.columns[col].filter((id) => id !== args.task_id)
-    }
-    delete board.tasks[args.task_id]
-    await mgr.saveBoard(board)
-    await mgr.deleteMarkdown(args.task_id)
+    const taskList = await mgr.loadTasks()
+    if (!taskList.tasks[args.task_id]) return fail(`Task ${args.task_id} not found`)
+    taskList.order = taskList.order.filter((id) => id !== args.task_id)
+    delete taskList.tasks[args.task_id]
+    await mgr.saveTasks(taskList)
     deps.notifyStateChanged('tasks')
     return ok({ id: args.task_id })
   } catch (err) {
@@ -258,17 +323,11 @@ export async function handleSendToAgent(
 ): Promise<McpResponse> {
   try {
     const mgr = requireTaskManager(deps)
-    const board = await mgr.loadBoard()
-    if (!board.tasks[args.task_id]) return fail(`Task ${args.task_id} not found`)
-    const agent = args.agent || 'claude-code'
-    // Move to in-progress
-    for (const col of Object.keys(board.columns) as Array<keyof typeof board.columns>) {
-      board.columns[col] = board.columns[col].filter((id) => id !== args.task_id)
-    }
-    board.columns['in-progress'].unshift(args.task_id)
-    await mgr.saveBoard(board)
+    const taskList = await mgr.loadTasks()
+    const task = taskList.tasks[args.task_id]
+    if (!task) return fail(`Task ${args.task_id} not found`)
+    const agent = args.agent || task.agentType || 'claude-code'
     deps.notifyStateChanged('task-agent', { taskId: args.task_id, agent })
-    deps.notifyStateChanged('tasks')
     return ok({ id: args.task_id, agent })
   } catch (err) {
     return fail(err instanceof Error ? err.message : String(err))
@@ -281,14 +340,11 @@ export async function handleTriggerTask(
 ): Promise<McpResponse> {
   try {
     const mgr = requireTaskManager(deps)
-    const board = await mgr.loadBoard()
-    const task = board.tasks[args.task_id]
+    const taskList = await mgr.loadTasks()
+    const task = taskList.tasks[args.task_id]
     if (!task) return fail(`Task ${args.task_id} not found`)
-    if (!task.steps || task.steps.length === 0) {
-      return fail(`Task ${args.task_id} has no steps to execute`)
-    }
     deps.notifyStateChanged('task-trigger', { taskId: args.task_id })
-    return ok({ taskId: args.task_id, title: task.title, stepCount: task.steps.length })
+    return ok({ taskId: args.task_id, prompt: task.prompt })
   } catch (err) {
     return fail(err instanceof Error ? err.message : String(err))
   }
@@ -478,9 +534,7 @@ export async function handleActivateSkill(
     const matches = skills.filter((s) => s.name === args.name && s.enabled)
     if (matches.length === 0) return fail(`Skill "${args.name}" not found or disabled`)
     const skill =
-      matches.length === 1
-        ? matches[0]
-        : matches.find((s) => s.source === 'project') || matches[0]
+      matches.length === 1 ? matches[0] : matches.find((s) => s.source === 'project') || matches[0]
     const content = await mgr.getSkillContent(skill.path)
     return ok({ name: skill.name, content })
   } catch (err) {

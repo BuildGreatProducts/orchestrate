@@ -1,5 +1,5 @@
 import { BrowserWindow, WebContentsView } from 'electron'
-import type { BrowserTabInfo, BrowserBounds } from '@shared/types'
+import type { BrowserTabInfo, BrowserBounds, BrowserSnapshot } from '@shared/types'
 
 interface ManagedBrowserTab {
   id: string
@@ -105,9 +105,7 @@ export class BrowserViewManager {
       const detail = isConnectionRefused
         ? `<strong style="color:#e4e4e7">${validatedURL}</strong> refused to connect.`
         : `${errorDescription} (${errorCode})`
-      const hint = isConnectionRefused
-        ? 'Check that the dev server is running and try again.'
-        : ''
+      const hint = isConnectionRefused ? 'Check that the dev server is running and try again.' : ''
 
       const escapedUrl = validatedURL.replace(/'/g, "\\'")
       const html = `<!DOCTYPE html>
@@ -178,6 +176,19 @@ export class BrowserViewManager {
       } catch {
         // Already removed
       }
+    }
+  }
+
+  async capture(id: string): Promise<BrowserSnapshot | null> {
+    const tab = this.tabs.get(id)
+    if (!tab?.bounds || tab.bounds.width <= 0 || tab.bounds.height <= 0) return null
+
+    const image = await tab.view.webContents.capturePage()
+    if (image.isEmpty()) return null
+
+    return {
+      dataUrl: image.toDataURL(),
+      bounds: tab.bounds
     }
   }
 

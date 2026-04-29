@@ -68,13 +68,8 @@ function readBody(req: IncomingMessage): Promise<unknown> {
 
 /** Create a fresh McpServer with all tool registrations */
 function createMcpInstance(deps: ToolExecutorDeps): McpServer {
-  const {
-    getCurrentFolder,
-    getTaskManager,
-    getGitManager,
-    getSkillManager,
-    notifyStateChanged
-  } = deps
+  const { getCurrentFolder, getTaskManager, getGitManager, getSkillManager, notifyStateChanged } =
+    deps
 
   const taskDeps = { getTaskManager, notifyStateChanged }
   const gitDeps = { getGitManager, notifyStateChanged }
@@ -89,34 +84,43 @@ function createMcpInstance(deps: ToolExecutorDeps): McpServer {
 
   // ── Task tools ──
 
+  const taskScheduleSchema = z
+    .object({
+      enabled: z.boolean().default(true).describe('Whether the schedule is enabled'),
+      cron: z.string().describe('Cron expression, e.g. 0 10 * * *')
+    })
+    .optional()
+
   server.tool(
     'create_task',
-    'Create a new task on the kanban board, optionally with ordered steps.',
+    'Create a simple task with one prompt, mode, branch, agent, and optional schedule.',
     {
-      title: z.string().describe('Task title'),
-      column: z
-        .enum(['planning', 'in-progress', 'review', 'done'])
-        .optional()
-        .describe('Column to place the task in (default: planning)'),
-      steps: z.array(z.string()).optional().describe('Ordered list of step prompts for multi-step tasks')
+      prompt: z.string().optional().describe('Task prompt'),
+      title: z.string().optional().describe('Legacy alias for prompt'),
+      mode: z.enum(['plan', 'build']).optional().describe('Task mode (default: build)'),
+      branch: z.string().optional().describe('Branch to run the task in'),
+      branchName: z.string().optional().describe('Branch to run the task in'),
+      agent: z.string().optional().describe('Agent ID (default: claude-code)'),
+      pinned: z.boolean().optional().describe('Whether the task is pinned to the top'),
+      schedule: taskScheduleSchema.describe('Optional schedule')
     },
     async (args) => handleCreateTask(args, taskDeps)
   )
 
   server.tool(
     'read_task',
-    'Read the markdown content of a task.',
+    'Read a simple task.',
     { task_id: z.string().describe('The task ID') },
     async (args) => handleReadTask(args, taskDeps)
   )
 
-  server.tool('list_tasks', 'List all tasks on the kanban board.', async () =>
+  server.tool('list_tasks', 'List all simple tasks grouped by manual and scheduled.', async () =>
     handleListTasks(taskDeps)
   )
 
   server.tool(
     'move_task',
-    'Move a task to a different column on the board.',
+    'Legacy alias: update a task status using an old kanban column name.',
     {
       task_id: z.string().describe('The task ID'),
       column: z.enum(['planning', 'in-progress', 'review', 'done']).describe('Target column')
@@ -126,38 +130,46 @@ function createMcpInstance(deps: ToolExecutorDeps): McpServer {
 
   server.tool(
     'edit_task',
-    'Edit a task title or markdown content.',
+    'Edit a simple task prompt, mode, branch, agent, pin state, schedule, or status.',
     {
       task_id: z.string().describe('The task ID'),
-      title: z.string().optional().describe('New title'),
-      content: z.string().optional().describe('New markdown content')
+      prompt: z.string().optional().describe('New prompt'),
+      title: z.string().optional().describe('Legacy alias for prompt'),
+      content: z.string().optional().describe('Legacy alias for prompt'),
+      mode: z.enum(['plan', 'build']).optional().describe('Task mode'),
+      branch: z.string().optional().describe('Branch to run the task in'),
+      branchName: z.string().optional().describe('Branch to run the task in'),
+      agent: z.string().optional().describe('Agent ID'),
+      pinned: z.boolean().optional().describe('Whether the task is pinned to the top'),
+      schedule: taskScheduleSchema.nullable().optional().describe('Schedule or null to remove'),
+      status: z
+        .enum(['todo', 'running', 'review', 'done', 'failed'])
+        .optional()
+        .describe('Task status')
     },
     async (args) => handleEditTask(args, taskDeps)
   )
 
   server.tool(
     'delete_task',
-    'Delete a task from the board.',
+    'Delete a simple task.',
     { task_id: z.string().describe('The task ID to delete') },
     async (args) => handleDeleteTask(args, taskDeps)
   )
 
   server.tool(
     'send_to_agent',
-    'Send a task to be executed by an AI agent (Claude Code or Codex).',
+    'Start a simple task with an AI agent.',
     {
       task_id: z.string().describe('The task ID'),
-      agent: z
-        .enum(['claude-code', 'codex'])
-        .optional()
-        .describe('Agent type (default: claude-code)')
+      agent: z.string().optional().describe('Agent ID (defaults to the task agent)')
     },
     async (args) => handleSendToAgent(args, taskDeps)
   )
 
   server.tool(
     'trigger_task',
-    'Trigger a multi-step task to start executing its steps sequentially. Returns an error if the task has no steps.',
+    'Legacy alias: start a simple task.',
     { task_id: z.string().describe('The ID of the task to trigger') },
     async (args) => handleTriggerTask(args, taskDeps)
   )
@@ -222,10 +234,7 @@ function createMcpInstance(deps: ToolExecutorDeps): McpServer {
     'list_save_points',
     'List recent git save points (commits).',
     {
-      limit: z
-        .number()
-        .optional()
-        .describe('Maximum number of save points to return (default: 10)')
+      limit: z.number().optional().describe('Maximum number of save points to return (default: 10)')
     },
     async (args) => handleListSavePoints(args, gitDeps)
   )
@@ -279,7 +288,9 @@ export async function startMcpServer(
     const providedSecret = req.headers['x-mcp-secret'] as string | undefined
     if (!providedSecret || !constantTimeEqual(providedSecret, MCP_SECRET)) {
       res.writeHead(403, { 'Content-Type': 'application/json' })
-      res.end(JSON.stringify({ jsonrpc: '2.0', error: { code: -32000, message: 'Forbidden' }, id: null }))
+      res.end(
+        JSON.stringify({ jsonrpc: '2.0', error: { code: -32000, message: 'Forbidden' }, id: null })
+      )
       return
     }
 

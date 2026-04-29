@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react'
-import { FolderOpen, Globe, History, LayoutList, Puzzle, TerminalSquare } from 'lucide-react'
+import { FolderOpen, Globe, History, Puzzle, TerminalSquare } from 'lucide-react'
 import type { ProjectDetailTabId } from '@shared/types'
 
 type ProjectDetailTabIcon = ComponentType<{ size?: number; className?: string }>
@@ -12,7 +12,6 @@ export interface ProjectDetailTabDefinition {
 
 export const PROJECT_DETAIL_TABS: ProjectDetailTabDefinition[] = [
   { id: 'browser', label: 'Browser', icon: Globe },
-  { id: 'tasks', label: 'Tasks', icon: LayoutList },
   { id: 'commands', label: 'Commands', icon: TerminalSquare },
   { id: 'files', label: 'Files', icon: FolderOpen },
   { id: 'history', label: 'History', icon: History },

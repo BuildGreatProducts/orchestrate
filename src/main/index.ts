@@ -86,19 +86,22 @@ app.whenReady().then(() => {
       // Reschedule tasks for the new project
       const taskMgr = getTaskManager()
       if (taskMgr) {
-        taskMgr.loadBoard().then((board) => taskScheduler.rescheduleAllTasks(board)).catch((err) => {
-          console.error('[Scheduler] Failed to reschedule tasks:', err)
-        })
+        taskMgr
+          .loadTasks()
+          .then((tasks) => taskScheduler.rescheduleAllTasks(tasks))
+          .catch((err) => {
+            console.error('[Scheduler] Failed to reschedule tasks:', err)
+          })
       }
     }
   )
   registerFileHandlers(() => mainWindow, getCurrentFolder)
   registerTerminalHandlers(() => mainWindow, getCurrentFolder)
   registerTaskHandlers(() => mainWindow, getCurrentFolder, getPtyManager, taskScheduler)
-  taskScheduler.setBoardLoader(async () => {
+  taskScheduler.setTaskLoader(async () => {
     const mgr = getTaskManager()
     if (!mgr) throw new Error('No task manager')
-    return mgr.loadBoard()
+    return mgr.loadTasks()
   })
   registerGitHandlers(() => mainWindow, getCurrentFolder)
   registerWorktreeHandlers(() => mainWindow, getCurrentFolder)
@@ -110,9 +113,14 @@ app.whenReady().then(() => {
   registerStubHandlers()
 
   // Register settings IPC handlers
-  const settingsStore = new Store<Record<string, unknown>>({ name: 'settings', defaults: { defaultBrowserUrl: 'http://localhost:3000' } })
+  const settingsStore = new Store<Record<string, unknown>>({
+    name: 'settings',
+    defaults: { defaultBrowserUrl: 'http://localhost:3000' }
+  })
   ipcMain.handle('settings:get', (_event, key: string) => settingsStore.get(key))
-  ipcMain.handle('settings:set', (_event, key: string, value: unknown) => { settingsStore.set(key, value) })
+  ipcMain.handle('settings:set', (_event, key: string, value: unknown) => {
+    settingsStore.set(key, value)
+  })
 
   // Register MCP IPC handlers
   ipcMain.handle('mcp:getUrl', () => getMcpServerUrl())

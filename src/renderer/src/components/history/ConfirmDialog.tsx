@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react'
+import { useAppModalLayer } from '@renderer/hooks/useAppModalLayer'
 
 export default function ConfirmDialog({
   title,
@@ -17,6 +18,7 @@ export default function ConfirmDialog({
 }): React.JSX.Element {
   const dialogRef = useRef<HTMLDivElement>(null)
   const cancelRef = useRef<HTMLButtonElement>(null)
+  useAppModalLayer(true)
 
   // Focus the cancel button on mount
   useEffect(() => {
@@ -59,14 +61,14 @@ export default function ConfirmDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+      className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/35 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
       aria-labelledby="confirm-dialog-title"
       ref={dialogRef}
       onKeyDown={handleKeyDown}
     >
-      <div className="mx-4 w-full max-w-md rounded-lg border border-zinc-800 bg-zinc-900 p-6 shadow-xl">
+      <div className="mx-4 w-full max-w-md rounded-lg bg-zinc-900 p-6 shadow-xl">
         <h3 id="confirm-dialog-title" className="text-lg font-semibold text-zinc-200">
           {title}
         </h3>

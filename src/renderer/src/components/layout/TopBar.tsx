@@ -1,4 +1,4 @@
-import { FolderPlus, PanelBottom, Settings } from 'lucide-react'
+import { FolderPlus, LayoutList, PanelBottom, Settings } from 'lucide-react'
 import { useAppStore } from '@renderer/stores/app'
 import { useAllProjectsAgentStatus } from '@renderer/hooks/useProjectAgentStatus'
 import { AGENT_COLORS, ATTENTION_BG } from '@renderer/lib/agent-colors'
@@ -45,6 +45,8 @@ export default function TopBar(): React.JSX.Element {
   const showPage = useAppStore((s) => s.showPage)
   const bottomTerminalOpen = useAppStore((s) => s.bottomTerminalOpen)
   const toggleBottomTerminal = useAppStore((s) => s.toggleBottomTerminal)
+  const tasksSidebarOpen = useAppStore((s) => s.tasksSidebarOpen)
+  const toggleTasksSidebar = useAppStore((s) => s.toggleTasksSidebar)
   const agentStatusMap = useAllProjectsAgentStatus()
 
   const handleAddProject = async (): Promise<void> => {
@@ -150,6 +152,21 @@ export default function TopBar(): React.JSX.Element {
       >
         {currentFolder && (
           <>
+            <button
+              type="button"
+              onClick={toggleTasksSidebar}
+              className={`rounded-md p-1.5 transition-colors ${
+                tasksSidebarOpen
+                  ? 'bg-zinc-700 text-white'
+                  : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200'
+              }`}
+              title={tasksSidebarOpen ? 'Hide tasks' : 'Show tasks'}
+              aria-label={tasksSidebarOpen ? 'Hide tasks' : 'Show tasks'}
+              aria-pressed={tasksSidebarOpen}
+            >
+              <LayoutList size={16} />
+            </button>
+
             <div className="flex items-center gap-1">
               {PROJECT_DETAIL_TABS.map(({ id, label, icon: Icon }) => {
                 const active = contentView.type === 'project-detail' && projectDetailTab === id

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronRight, GitBranch, Send, Terminal, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, GitBranch, Terminal, Trash2 } from 'lucide-react'
 import type { TerminalTab } from '@renderer/stores/terminal'
 import { useMirrorTerminal } from '@renderer/hooks/useMirrorTerminal'
 
@@ -10,29 +10,30 @@ interface AgentCardProps {
 
 function getStatus(tab: TerminalTab): { label: string; className: string } {
   if (tab.exited) {
-    return { label: `Exited${tab.exitCode !== undefined ? ` ${tab.exitCode}` : ''}`, className: 'bg-zinc-700 text-zinc-300' }
+    return {
+      label: `Exited${tab.exitCode !== undefined ? ` ${tab.exitCode}` : ''}`,
+      className: 'bg-zinc-700 text-zinc-300'
+    }
   }
   if (tab.bell) {
-    return { label: 'Needs input', className: 'bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/25' }
+    return {
+      label: 'Needs input',
+      className: 'bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/25'
+    }
   }
   if (tab.busy) {
-    return { label: 'Running', className: 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/25' }
+    return {
+      label: 'Running',
+      className: 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/25'
+    }
   }
   return { label: 'Idle', className: 'bg-zinc-800 text-zinc-400' }
 }
 
 export default function AgentCard({ tab, onClose }: AgentCardProps): React.JSX.Element {
   const [collapsed, setCollapsed] = useState(false)
-  const [message, setMessage] = useState('')
   const { containerRef } = useMirrorTerminal({ id: tab.id })
   const status = getStatus(tab)
-
-  const handleSend = (): void => {
-    const trimmed = message.trim()
-    if (!trimmed) return
-    window.orchestrate.writeTerminal(tab.id, `${trimmed}\r`)
-    setMessage('')
-  }
 
   return (
     <section className="overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900">
@@ -46,7 +47,9 @@ export default function AgentCard({ tab, onClose }: AgentCardProps): React.JSX.E
         >
           <div className="flex min-w-0 items-center gap-2">
             <span className="truncate text-sm font-medium text-zinc-200">{tab.name}</span>
-            <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${status.className}`}>
+            <span
+              className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${status.className}`}
+            >
               {status.label}
             </span>
           </div>
@@ -85,31 +88,6 @@ export default function AgentCard({ tab, onClose }: AgentCardProps): React.JSX.E
           }`}
           style={{ padding: collapsed ? 0 : '4px 0 0 4px' }}
         />
-        {!collapsed && (
-          <div className="flex items-center gap-2 border-t border-zinc-800 px-3 py-2">
-            <input
-              value={message}
-              onChange={(event) => setMessage(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  event.preventDefault()
-                  handleSend()
-                }
-              }}
-              placeholder="Send message..."
-              className="h-8 min-w-0 flex-1 rounded-md border border-zinc-700 bg-zinc-950 px-2.5 text-sm text-zinc-200 outline-none placeholder:text-zinc-600 focus:border-zinc-500"
-            />
-            <button
-              type="button"
-              onClick={handleSend}
-              disabled={!message.trim()}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white text-zinc-950 transition-colors hover:bg-zinc-200 disabled:pointer-events-none disabled:opacity-40"
-              aria-label="Send message"
-            >
-              <Send size={14} />
-            </button>
-          </div>
-        )}
       </div>
     </section>
   )

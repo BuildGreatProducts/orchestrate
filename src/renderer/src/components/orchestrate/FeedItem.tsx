@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { ExternalLink, Send } from 'lucide-react'
+import { ExternalLink } from 'lucide-react'
 import type { TerminalTab } from '@renderer/stores/terminal'
 import { useTerminalStore } from '@renderer/stores/terminal'
 import { useAppStore } from '@renderer/stores/app'
@@ -24,7 +24,6 @@ interface FeedItemProps {
 
 export default function FeedItem({ tab, projectName }: FeedItemProps): React.JSX.Element {
   const { containerRef } = useMirrorTerminal({ id: tab.id })
-  const [message, setMessage] = useState('')
   const [, setTick] = useState(0)
 
   // Re-render periodically to keep the relative time fresh
@@ -38,19 +37,6 @@ export default function FeedItem({ tab, projectName }: FeedItemProps): React.JSX
     useAppStore.getState().showProjectDetail(tab.projectFolder)
   }
 
-  const handleSend = (): void => {
-    if (!message.trim()) return
-    window.orchestrate.writeTerminal(tab.id, message + '\r')
-    setMessage('')
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent): void => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSend()
-    }
-  }
-
   return (
     <div className="w-full rounded-lg border border-zinc-800 bg-zinc-900">
       {/* Header */}
@@ -62,9 +48,7 @@ export default function FeedItem({ tab, projectName }: FeedItemProps): React.JSX
           <span className="text-zinc-500">/</span>
           <span className="font-medium text-zinc-200">{tab.name}</span>
           <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
-          {tab.bellAt && (
-            <span className="text-xs text-zinc-500">{timeAgo(tab.bellAt)}</span>
-          )}
+          {tab.bellAt && <span className="text-xs text-zinc-500">{timeAgo(tab.bellAt)}</span>}
         </div>
         <button
           onClick={handleGoToTerminal}
@@ -85,27 +69,6 @@ export default function FeedItem({ tab, projectName }: FeedItemProps): React.JSX
         className="h-[240px] overflow-hidden"
         style={{ padding: '4px 0 0 4px' }}
       />
-
-      {/* Message input */}
-      <div className="flex items-center gap-2 border-t border-zinc-800 px-4 py-2.5">
-        <input
-          type="text"
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Send a message to this agent..."
-          aria-label="Message to agent"
-          className="h-[34px] flex-1 rounded-md border border-zinc-700 bg-zinc-800 px-3 text-sm text-zinc-200 placeholder-zinc-500 outline-none transition-colors focus:border-zinc-500"
-        />
-        <button
-          onClick={handleSend}
-          disabled={!message.trim()}
-          aria-label="Send message"
-          className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded bg-white text-zinc-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_1px_3px_rgba(0,0,0,0.4),0_0px_1px_rgba(0,0,0,0.3)] transition-colors hover:bg-zinc-100 active:bg-zinc-200 active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.2)] disabled:opacity-40 disabled:pointer-events-none"
-        >
-          <Send size={14} />
-        </button>
-      </div>
     </div>
   )
 }

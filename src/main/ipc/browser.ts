@@ -16,6 +16,7 @@ const channels = [
   'browser:setBounds',
   'browser:show',
   'browser:hideAll',
+  'browser:capture',
   'browser:closeAll',
   'browser:toggleDevTools'
 ]
@@ -80,6 +81,10 @@ export function registerBrowserHandlers(getWindow: () => BrowserWindow | null): 
 
   ipcMain.handle('browser:hideAll', async () => {
     browserManager!.hideAll()
+  })
+
+  ipcMain.handle('browser:capture', async (_, id: string) => {
+    return browserManager!.capture(id)
   })
 
   ipcMain.handle('browser:closeAll', async () => {

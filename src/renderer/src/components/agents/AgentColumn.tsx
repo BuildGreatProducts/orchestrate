@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Plus, Terminal } from 'lucide-react'
 import { useTerminalStore } from '@renderer/stores/terminal'
 import { AGENT_TERMINAL_SURFACE_WIDTH } from '@renderer/lib/layout-constants'
+import { useAppModalLayer } from '@renderer/hooks/useAppModalLayer'
 import AgentCard from './AgentCard'
 import AgentSpawnDialog from './AgentSpawnDialog'
 
@@ -13,6 +15,7 @@ export default function AgentColumn({ projectFolder }: AgentColumnProps): React.
   const tabs = useTerminalStore((s) => s.tabs)
   const requestCloseTab = useTerminalStore((s) => s.requestCloseTab)
   const [spawnOpen, setSpawnOpen] = useState(false)
+  useAppModalLayer(spawnOpen)
 
   const agentTabs = useMemo(
     () => tabs.filter((tab) => tab.projectFolder === projectFolder && tab.kind === 'agent'),
@@ -21,13 +24,15 @@ export default function AgentColumn({ projectFolder }: AgentColumnProps): React.
 
   return (
     <aside
-      className="flex min-h-0 max-w-full shrink-0 flex-col rounded-lg border border-zinc-800 bg-black"
+      className="flex min-h-0 max-w-full shrink-0 flex-col border-r-2 border-zinc-900 bg-black"
       style={{ width: AGENT_TERMINAL_SURFACE_WIDTH }}
     >
-      <div className="flex h-12 items-center justify-between border-b border-zinc-800 px-4">
-        <div>
-          <h2 className="text-sm font-medium text-zinc-200">Agents</h2>
-          <p className="text-xs text-zinc-600">{agentTabs.length} terminal agent{agentTabs.length === 1 ? '' : 's'}</p>
+      <div className="flex h-12 items-center justify-between px-4">
+        <div className="flex items-center gap-2">
+          <h2 className="font-ovo text-lg tracking-tight text-zinc-200">Agents</h2>
+          <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-zinc-800 px-1.5 text-[11px] font-medium leading-none text-zinc-400">
+            {agentTabs.length}
+          </span>
         </div>
         <button
           type="button"
@@ -39,19 +44,33 @@ export default function AgentColumn({ projectFolder }: AgentColumnProps): React.
         </button>
       </div>
 
-      {spawnOpen && (
-        <div className="border-b border-zinc-800 p-3">
-          <AgentSpawnDialog projectFolder={projectFolder} onClose={() => setSpawnOpen(false)} />
-        </div>
-      )}
+      {spawnOpen &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/35 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="agent-spawn-dialog-title"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) setSpawnOpen(false)
+            }}
+          >
+            <div className="mx-4 w-full max-w-sm">
+              <AgentSpawnDialog projectFolder={projectFolder} onClose={() => setSpawnOpen(false)} />
+            </div>
+          </div>,
+          document.body
+        )}
 
       <div className="min-h-0 flex-1 overflow-y-auto dark-scrollbar p-3">
         {agentTabs.length === 0 ? (
-          <div className="flex h-full min-h-80 flex-col items-center justify-center gap-3 text-center">
+          <div className="flex h-full min-h-80 flex-col items-center justify-center gap-3 px-6 text-center">
             <Terminal size={22} className="text-zinc-700" />
             <div>
-              <p className="text-sm text-zinc-500">No agents running</p>
-              <p className="mt-1 text-xs text-zinc-700">Start an agent from a branch to see it here.</p>
+              <h3 className="font-ovo text-3xl tracking-tight text-zinc-300">No Agents</h3>
+              <p className="mt-1 text-xs leading-relaxed text-zinc-600">
+                Running agents will appear here.
+              </p>
             </div>
           </div>
         ) : (

@@ -58,10 +58,7 @@ export default function AddWorktreeDialog({
   }
 
   return (
-    <div
-      ref={dialogRef}
-      className="w-64 overflow-hidden rounded-lg border border-zinc-700 bg-zinc-800 p-3 shadow-xl"
-    >
+    <div ref={dialogRef} className="w-72 overflow-hidden rounded-lg bg-zinc-800 p-6 shadow-xl">
       <div className="mb-2 flex items-center gap-2 text-sm font-medium text-zinc-200">
         <GitBranch size={14} className="text-emerald-500" />
         New Worktree
@@ -76,7 +73,7 @@ export default function AddWorktreeDialog({
           if (e.key === 'Enter' && !creating) handleSubmit()
         }}
         placeholder="feat/my-feature"
-        className="mb-1.5 w-full rounded border border-zinc-600 bg-zinc-900 px-2 py-1.5 text-sm text-zinc-200 outline-none placeholder:text-zinc-600 focus:border-zinc-400"
+        className="mb-1.5 w-full rounded bg-zinc-900/70 px-2 py-1.5 text-sm text-zinc-200 outline-none transition-colors placeholder:text-zinc-600 hover:bg-zinc-900 focus:bg-zinc-900"
         disabled={creating}
       />
 

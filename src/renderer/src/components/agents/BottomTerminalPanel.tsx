@@ -101,8 +101,8 @@ export default function BottomTerminalPanel({
   }
 
   return (
-    <section className="flex h-72 w-full shrink-0 flex-col rounded-lg border border-zinc-800 bg-black">
-      <div className="flex h-10 items-center border-b border-zinc-800 px-3">
+    <section className="flex h-72 w-full shrink-0 flex-col border-t-2 border-zinc-900 bg-black">
+      <div className="flex h-10 items-center px-3">
         <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto dark-scrollbar">
           {terminalTabs.map((tab) => {
             const active = tab.id === visibleActiveTabId
@@ -171,7 +171,7 @@ export default function BottomTerminalPanel({
             <div
               ref={menuRef}
               style={menuStyle}
-              className="w-48 overflow-hidden rounded-md border border-zinc-700 bg-zinc-800 py-1 shadow-xl"
+              className="w-48 overflow-hidden rounded-md bg-zinc-800 py-1 shadow-xl"
             >
               <button
                 onClick={() => void handleCreatePlainTerminal()}
@@ -199,8 +199,11 @@ export default function BottomTerminalPanel({
 
       <div className="relative min-h-0 flex-1">
         {terminalTabs.length === 0 && (
-          <div className="absolute inset-0 flex items-center justify-center text-sm text-zinc-600">
-            No terminal tabs
+          <div className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center">
+            <h3 className="font-ovo text-3xl tracking-tight text-zinc-300">No Terminals</h3>
+            <p className="mt-1 text-xs leading-relaxed text-zinc-600">
+              Terminal sessions will appear here.
+            </p>
           </div>
         )}
         {terminalTabs.map((tab) => (
