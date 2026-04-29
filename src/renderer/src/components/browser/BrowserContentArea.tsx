@@ -46,7 +46,10 @@ export default function BrowserContentArea(): React.JSX.Element {
 
   // Show/hide views based on whether the browser tab is active and settings are closed
   useEffect(() => {
-    if (modalLayerOpen) return undefined
+    if (modalLayerOpen) {
+      window.orchestrate.hideAllBrowserTabs()
+      return undefined
+    }
 
     const shouldShow =
       contentView.type === 'project-detail' && projectDetailTab === 'browser' && activeTabId

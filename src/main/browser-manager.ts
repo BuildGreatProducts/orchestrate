@@ -1,4 +1,4 @@
-import { BrowserWindow, WebContentsView } from 'electron'
+import { BrowserWindow, WebContentsView, type NativeImage } from 'electron'
 import type { BrowserTabInfo, BrowserBounds, BrowserSnapshot } from '@shared/types'
 
 interface ManagedBrowserTab {
@@ -53,8 +53,15 @@ export class BrowserViewManager {
       }
     }
 
-    tab.view.webContents.close()
     this.tabs.delete(id)
+    const webContents = tab.view?.webContents
+    if (webContents && !webContents.isDestroyed()) {
+      try {
+        webContents.close()
+      } catch {
+        // Renderer may already be gone
+      }
+    }
 
     if (notifyClosed) {
       this.onTabClosed(id)
@@ -183,7 +190,12 @@ export class BrowserViewManager {
     const tab = this.tabs.get(id)
     if (!tab?.bounds || tab.bounds.width <= 0 || tab.bounds.height <= 0) return null
 
-    const image = await tab.view.webContents.capturePage()
+    let image: NativeImage
+    try {
+      image = await tab.view.webContents.capturePage()
+    } catch {
+      return null
+    }
     if (image.isEmpty()) return null
 
     return {

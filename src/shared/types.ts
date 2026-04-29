@@ -326,7 +326,9 @@ export interface OrchestrateAPI {
   // Tasks
   loadTasks: () => Promise<TaskListState>
   saveTasks: (tasks: TaskListState) => Promise<void>
-  deleteTask: (id: string) => Promise<void>
+  deleteTask: (
+    id: string
+  ) => Promise<{ success: boolean; id?: string; deleted?: boolean; error?: string }>
   sendToAgent: (id: string, agent: AgentType) => Promise<void>
 
   // Legacy task aliases
@@ -352,7 +354,7 @@ export interface OrchestrateAPI {
   onAgentStateChanged: (callback: (domain: string, data?: unknown) => void) => () => void
 
   // Git / History
-  isGitRepo: () => Promise<boolean>
+  isGitRepo: (projectFolder?: string) => Promise<boolean>
   initRepo: () => Promise<void>
   getHistory: (limit?: number) => Promise<SavePoint[]>
   getStatus: () => Promise<GitStatus>

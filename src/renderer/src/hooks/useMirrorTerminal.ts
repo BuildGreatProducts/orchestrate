@@ -42,6 +42,11 @@ export function useMirrorTerminal({ id }: UseMirrorTerminalOptions): UseMirrorTe
           return false
         }
 
+        const currentDims = getPtyDimensions(id)
+        if (currentDims?.cols === dims.cols && currentDims.rows === dims.rows) {
+          return true
+        }
+
         window.orchestrate.resizeTerminal(id, dims.cols, dims.rows)
         setPtyDimensions(id, dims.cols, dims.rows)
         signalTerminalReady(id, dims.cols, dims.rows)

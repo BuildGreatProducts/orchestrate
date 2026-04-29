@@ -93,7 +93,14 @@ export function ensureGlobalIpcListeners(): void {
     const tasksState = useTasksStore.getState()
     const run = (): void => {
       const task = useTasksStore.getState().taskList?.tasks[taskId]
-      if (task) executeTask(taskId, task.agentType)
+      if (task) {
+        void executeTask(taskId, task.agentType).catch((err) => {
+          console.error(
+            `[Scheduler] Failed to execute scheduled task ${taskId} with agent ${task.agentType}:`,
+            err
+          )
+        })
+      }
     }
     if (tasksState.taskList?.tasks[taskId]) {
       run()

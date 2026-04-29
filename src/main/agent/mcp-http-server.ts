@@ -234,7 +234,14 @@ function createMcpInstance(deps: ToolExecutorDeps): McpServer {
     'list_save_points',
     'List recent git save points (commits).',
     {
-      limit: z.number().optional().describe('Maximum number of save points to return (default: 10)')
+      limit: z
+        .number()
+        .int()
+        .min(1)
+        .max(100)
+        .optional()
+        .default(10)
+        .describe('Maximum number of save points to return (1-100, default: 10)')
     },
     async (args) => handleListSavePoints(args, gitDeps)
   )

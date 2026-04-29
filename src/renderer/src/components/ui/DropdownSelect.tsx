@@ -118,6 +118,11 @@ export default function DropdownSelect({
   }
 
   const handleTriggerKeyDown = (event: KeyboardEvent<HTMLButtonElement>): void => {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      if (open) setOpen(false)
+      return
+    }
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault()
       if (!open) openDropdown()

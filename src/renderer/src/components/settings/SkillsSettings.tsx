@@ -108,7 +108,7 @@ function AddSkillMenu({
             if (e.metaKey || e.ctrlKey) e.stopPropagation()
           }}
           placeholder="https://github.com/user/skill.git"
-          className="min-w-0 flex-1 rounded bg-zinc-800/70 px-2 py-1 text-xs text-zinc-200 outline-none transition-colors placeholder-zinc-500 hover:bg-zinc-800 focus:bg-zinc-800"
+          className="min-w-0 flex-1 rounded bg-zinc-800/70 px-2 py-1 text-xs text-zinc-200 outline-none transition-colors placeholder:text-zinc-500 hover:bg-zinc-800 focus:bg-zinc-800"
           autoFocus
         />
         <button

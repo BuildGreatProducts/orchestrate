@@ -176,7 +176,7 @@ const api: OrchestrateAPI = {
   openSkillsFolder: (target) => ipcRenderer.invoke('skill:openFolder', target),
 
   // Git / History
-  isGitRepo: () => ipcRenderer.invoke('git:isRepo'),
+  isGitRepo: (projectFolder?) => ipcRenderer.invoke('git:isRepo', projectFolder),
   initRepo: () => ipcRenderer.invoke('git:init'),
   getHistory: (limit?) => ipcRenderer.invoke('git:history', limit),
   getStatus: () => ipcRenderer.invoke('git:status'),

@@ -286,10 +286,25 @@ export async function handleEditTask(
     if (branch !== undefined) task.branchName = branch.trim() || defaultTaskBranch(args.task_id)
     if (args.agent !== undefined) task.agentType = args.agent || task.agentType
     if (args.pinned !== undefined) task.pinned = args.pinned
-    if (args.schedule !== undefined)
-      task.schedule = args.schedule === null ? undefined : normalizeSchedule(args.schedule)
-    const status = normalizeStatus(args.status)
-    if (status) task.status = status
+    if (args.schedule !== undefined) {
+      if (args.schedule === null) {
+        task.schedule = undefined
+      } else {
+        let schedule: TaskSchedule | undefined
+        try {
+          schedule = normalizeSchedule(args.schedule)
+        } catch (err) {
+          return fail(`Invalid task schedule: ${err instanceof Error ? err.message : String(err)}`)
+        }
+        if (!schedule) return fail('Invalid task schedule')
+        task.schedule = schedule
+      }
+    }
+    if (args.status !== undefined) {
+      const status = normalizeStatus(args.status)
+      if (!status) return fail(`Invalid task status: ${String(args.status)}`)
+      task.status = status
+    }
     task.updatedAt = new Date().toISOString()
     await mgr.saveTasks(taskList)
     deps.notifyStateChanged('tasks')
@@ -464,14 +479,14 @@ export async function handleCreateSavePoint(
 }
 
 export async function handleListSavePoints(
-  args: { limit?: number },
+  args: { limit: number },
   deps: GitHandlerDeps
 ): Promise<McpResponse> {
   try {
     const git = requireGitManager(deps)
     const isRepo = await git.isRepo()
     if (!isRepo) return fail('Not a git repository')
-    const history = await git.getHistory(args.limit || 10)
+    const history = await git.getHistory(args.limit)
     return ok(history)
   } catch (err) {
     return fail(err instanceof Error ? err.message : String(err))

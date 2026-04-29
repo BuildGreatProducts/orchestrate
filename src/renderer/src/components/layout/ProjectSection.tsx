@@ -161,17 +161,16 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
     return map
   }, [tabs])
 
-  // Check git repo and load worktrees on mount/expansion
-  // Uses listWorktrees (which takes folder explicitly) instead of isGitRepo
-  // (which depends on getCurrentFolder and may throw before a project is active)
+  // Check git repo and load worktrees on mount/expansion.
   useEffect(() => {
     if (!expanded) return
     let active = true
     loadWorktrees(folder)
       .then(() => {
-        if (!active) return
-        const list = useWorktreeStore.getState().worktrees[folder]
-        setIsGitRepo(Array.isArray(list) && list.length > 0)
+        return window.orchestrate.isGitRepo(folder)
+      })
+      .then((repo) => {
+        if (active) setIsGitRepo(Boolean(repo))
       })
       .catch(() => {
         if (active) setIsGitRepo(false)

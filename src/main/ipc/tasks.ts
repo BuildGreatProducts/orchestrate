@@ -99,9 +99,29 @@ export function registerTaskHandlers(
   })
 
   ipcMain.handle('task:delete', async (_, id: string) => {
-    validateTaskId(id)
-    // Simple tasks keep legacy markdown/board files as backup, so deletion is
-    // handled by saving tasks.json from the renderer.
+    try {
+      validateTaskId(id)
+      const mgr = getManager()
+      const tasks = await mgr.loadTasks()
+      const deleted = Boolean(tasks.tasks[id])
+      if (deleted) {
+        tasks.order = tasks.order.filter((taskId) => taskId !== id)
+        delete tasks.tasks[id]
+        await mgr.saveTasks(tasks)
+        try {
+          scheduler?.rescheduleAllTasks(tasks)
+        } catch (err) {
+          console.error('[Tasks] Failed to reschedule tasks after delete:', err)
+        }
+      }
+      return { success: true, id, deleted }
+    } catch (err) {
+      return {
+        success: false,
+        id: typeof id === 'string' ? id : undefined,
+        error: err instanceof Error ? err.message : String(err)
+      }
+    }
   })
 
   ipcMain.handle('task:sendToAgent', async (_, id: string, _agent: AgentType) => {

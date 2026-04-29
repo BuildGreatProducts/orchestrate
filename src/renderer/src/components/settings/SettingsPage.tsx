@@ -224,7 +224,7 @@ export default function SettingsPage(): React.JSX.Element {
                           if (e.metaKey || e.ctrlKey) e.stopPropagation()
                         }}
                         placeholder="Agent name"
-                        className="w-full rounded bg-zinc-800/70 px-3 py-1.5 text-sm text-zinc-200 outline-none transition-colors placeholder-zinc-600 hover:bg-zinc-800 focus:bg-zinc-800"
+                        className="w-full rounded bg-zinc-800/70 px-3 py-1.5 text-sm text-zinc-200 outline-none transition-colors placeholder:text-zinc-600 hover:bg-zinc-800 focus:bg-zinc-800"
                         autoFocus
                       />
                       <input
@@ -237,7 +237,7 @@ export default function SettingsPage(): React.JSX.Element {
                           if (e.metaKey || e.ctrlKey) e.stopPropagation()
                         }}
                         placeholder="CLI command (e.g. aider)"
-                        className="w-full rounded bg-zinc-800/70 px-3 py-1.5 text-sm text-zinc-200 outline-none transition-colors placeholder-zinc-600 hover:bg-zinc-800 focus:bg-zinc-800"
+                        className="w-full rounded bg-zinc-800/70 px-3 py-1.5 text-sm text-zinc-200 outline-none transition-colors placeholder:text-zinc-600 hover:bg-zinc-800 focus:bg-zinc-800"
                       />
                       <div className="flex gap-2">
                         <button
@@ -302,7 +302,7 @@ export default function SettingsPage(): React.JSX.Element {
                     if (e.metaKey || e.ctrlKey) e.stopPropagation()
                   }}
                   placeholder="Agent name"
-                  className="w-full rounded bg-zinc-800/70 px-3 py-1.5 text-sm text-zinc-200 outline-none transition-colors placeholder-zinc-600 hover:bg-zinc-800 focus:bg-zinc-800"
+                  className="w-full rounded bg-zinc-800/70 px-3 py-1.5 text-sm text-zinc-200 outline-none transition-colors placeholder:text-zinc-600 hover:bg-zinc-800 focus:bg-zinc-800"
                   autoFocus
                 />
                 <input
@@ -315,7 +315,7 @@ export default function SettingsPage(): React.JSX.Element {
                     if (e.metaKey || e.ctrlKey) e.stopPropagation()
                   }}
                   placeholder="CLI command (e.g. aider)"
-                  className="w-full rounded bg-zinc-800/70 px-3 py-1.5 text-sm text-zinc-200 outline-none transition-colors placeholder-zinc-600 hover:bg-zinc-800 focus:bg-zinc-800"
+                  className="w-full rounded bg-zinc-800/70 px-3 py-1.5 text-sm text-zinc-200 outline-none transition-colors placeholder:text-zinc-600 hover:bg-zinc-800 focus:bg-zinc-800"
                 />
                 <div className="flex gap-2">
                   <button
@@ -368,7 +368,7 @@ export default function SettingsPage(): React.JSX.Element {
                   if (e.metaKey || e.ctrlKey) e.stopPropagation()
                 }}
                 placeholder="http://localhost:3000"
-                className="min-w-0 flex-1 rounded bg-zinc-800/70 px-3 py-1.5 text-sm text-zinc-200 outline-none transition-colors placeholder-zinc-600 hover:bg-zinc-800 focus:bg-zinc-800"
+                className="min-w-0 flex-1 rounded bg-zinc-800/70 px-3 py-1.5 text-sm text-zinc-200 outline-none transition-colors placeholder:text-zinc-600 hover:bg-zinc-800 focus:bg-zinc-800"
               />
               <button
                 onClick={handleSaveUrl}

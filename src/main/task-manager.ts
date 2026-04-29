@@ -242,7 +242,9 @@ export class TaskManager {
         const markdown = await this.readMarkdown(id).catch(() => '')
         const promptFromMarkdown = stripMarkdownHeading(markdown, task.title)
         const firstStep = Array.isArray(task.steps)
-          ? task.steps.find((step) => step.prompt.trim())
+          ? task.steps.find(
+              (step) => typeof step?.prompt === 'string' && step.prompt.trim().length > 0
+            )
           : undefined
         const prompt = promptFromMarkdown || firstStep?.prompt.trim() || task.title
         const rawTask = task as typeof task & {

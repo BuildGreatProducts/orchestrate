@@ -53,10 +53,10 @@ export default function FeedItem({ tab, projectName }: FeedItemProps): React.JSX
         <button
           onClick={handleGoToTerminal}
           className="flex items-center gap-1 rounded px-2 py-1 text-xs text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-200"
-          title="Go to terminal"
+          title="Open project details"
         >
           <ExternalLink size={12} />
-          <span>Open</span>
+          <span>Details</span>
         </button>
       </div>
 

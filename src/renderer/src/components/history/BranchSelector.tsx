@@ -2,6 +2,8 @@ import { GitBranch } from 'lucide-react'
 import DropdownSelect from '@renderer/components/ui/DropdownSelect'
 import type { BranchInfo } from '@shared/types'
 
+const ALL_BRANCHES_VALUE = '___ALL_BRANCHES___'
+
 export default function BranchSelector({
   branches,
   selectedBranch,
@@ -13,7 +15,7 @@ export default function BranchSelector({
 }): React.JSX.Element {
   const localBranches = branches.filter((branch) => !branch.isRemote)
   const options = [
-    { value: '__all__', label: 'All branches' },
+    { value: ALL_BRANCHES_VALUE, label: 'All branches' },
     ...localBranches.map((branch) => ({
       value: branch.name,
       label: branch.name,
@@ -26,12 +28,12 @@ export default function BranchSelector({
     <div className="flex items-center gap-2 border-b border-zinc-800 px-3 py-2">
       <DropdownSelect
         ariaLabel="Branch"
-        value={selectedBranch ?? '__all__'}
+        value={selectedBranch ?? ALL_BRANCHES_VALUE}
         leadingIcon={<GitBranch size={11} />}
         monospaced
         searchPlaceholder="Filter branches..."
         options={options}
-        onChange={(value) => onSelect(value === '__all__' ? null : value)}
+        onChange={(value) => onSelect(value === ALL_BRANCHES_VALUE ? null : value)}
         className="max-w-[180px]"
       />
     </div>

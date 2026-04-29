@@ -22,6 +22,8 @@ export default function BrowserToolbar(): React.JSX.Element {
   useEffect(() => {
     if (activeTabUrl !== undefined) {
       setUrlInput(activeTabUrl)
+    } else {
+      setUrlInput('')
     }
   }, [activeTabUrl, activeBrowserTabId])
 

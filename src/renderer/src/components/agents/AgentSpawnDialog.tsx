@@ -88,7 +88,7 @@ export default function AgentSpawnDialog({
     let worktrees = useWorktreeStore.getState().worktrees[projectFolder] ?? []
     const existing = worktrees.find((item) => item.branch === trimmedBranch)
     if (existing) {
-      return existing.isMain ? undefined : existing.path
+      return useWorktree ? existing.path : existing.isMain ? undefined : existing.path
     }
 
     const path = await addWorktree(projectFolder, trimmedBranch)

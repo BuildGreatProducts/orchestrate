@@ -97,7 +97,7 @@ function cronFrequency(cron: string): string {
   if (minute === '0' && hour === '10' && dayOfMonth === '*' && dayOfWeek === '1-5') {
     return 'Weekdays 10:00'
   }
-  if (minute !== '*' && hour === '*') return 'Hourly'
+  if (/^\d+$/.test(minute) && hour === '*') return 'Hourly'
   return cron
 }
 

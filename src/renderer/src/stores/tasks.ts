@@ -39,6 +39,10 @@ function normalizePrompt(prompt: string): string {
   return prompt.trim()
 }
 
+function trimString(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : ''
+}
+
 function cloneTasksWithTask(taskList: TaskListState, task: SimpleTask): TaskListState {
   return {
     ...taskList,
@@ -63,10 +67,12 @@ function columnForStatus(status: SimpleTask['status']): ColumnId {
   return 'planning'
 }
 
-function stripMarkdownHeading(content: string, title: string): string {
-  const lines = content.replace(/\r\n/g, '\n').split('\n')
+function stripMarkdownHeading(content: unknown, title: unknown): string {
+  const text = typeof content === 'string' ? content : ''
+  const titleText = trimString(title)
+  const lines = text.replace(/\r\n/g, '\n').split('\n')
   while (lines.length > 0 && lines[0].trim() === '') lines.shift()
-  if (lines[0]?.trim().replace(/^#+\s*/, '') === title.trim()) {
+  if (titleText && lines[0]?.trim().replace(/^#+\s*/, '') === titleText) {
     lines.shift()
   }
   return lines.join('\n').trim()
@@ -82,8 +88,13 @@ async function taskListFromLegacyBoard(board: BoardState): Promise<TaskListState
 
       const markdown = await window.orchestrate.readTaskMarkdown(id).catch(() => '')
       const markdownPrompt = stripMarkdownHeading(markdown, task.title)
-      const firstStep = task.steps?.find((step) => step.prompt.trim())
-      const prompt = markdownPrompt || firstStep?.prompt.trim() || task.title
+      const firstStep = Array.isArray(task.steps)
+        ? task.steps.find(
+            (step) => typeof step?.prompt === 'string' && step.prompt.trim().length > 0
+          )
+        : undefined
+      const prompt = markdownPrompt || trimString(firstStep?.prompt) || trimString(task.title) || id
+      const branchName = trimString(task.worktree?.branchName) || defaultTaskBranch(id)
       const now = new Date().toISOString()
 
       taskList.order.push(id)
@@ -92,7 +103,7 @@ async function taskListFromLegacyBoard(board: BoardState): Promise<TaskListState
         prompt,
         mode: 'build',
         status: legacyStatusForColumn(column),
-        branchName: task.worktree?.branchName?.trim() || defaultTaskBranch(id),
+        branchName,
         agentType: task.agentType || 'claude-code',
         pinned: false,
         schedule: task.schedule,

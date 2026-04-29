@@ -103,7 +103,11 @@ export default function BottomTerminalPanel({
   return (
     <section className="flex h-72 w-full shrink-0 flex-col border-t-2 border-zinc-900 bg-black">
       <div className="flex h-10 items-center px-3">
-        <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto dark-scrollbar">
+        <div
+          role="tablist"
+          aria-orientation="horizontal"
+          className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto dark-scrollbar"
+        >
           {terminalTabs.map((tab) => {
             const active = tab.id === visibleActiveTabId
             return (

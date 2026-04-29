@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Plus, X, GripVertical, Play, Globe, FolderOpen } from 'lucide-react'
 import {
@@ -130,6 +129,7 @@ export default function CommandDetailPanel(): React.JSX.Element | null {
   const commandId = editingCommand?.id ?? null
   const existingCommand = commandId ? (commands.find((c) => c.id === commandId) ?? null) : null
 
+  /* eslint-disable react-hooks/set-state-in-effect -- Syncing the draft form from the selected command is intentional here. */
   useEffect(() => {
     if (!editingCommand) return
     setName(editingCommand.name ?? '')
@@ -142,6 +142,7 @@ export default function CommandDetailPanel(): React.JSX.Element | null {
     setMenuOpen(false)
     setConfirmingDelete(false)
   }, [editingCommand])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Close menu on outside click
   useEffect(() => {

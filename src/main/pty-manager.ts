@@ -9,7 +9,7 @@ function resolveShell(): string {
 
 export class PtyManager {
   private sessions = new Map<string, IPty>()
-  private intentionallyClosed = new Set<string>()
+  private intentionallyClosed = new WeakSet<IPty>()
 
   constructor(
     private onOutput: (id: string, data: string) => void,
@@ -25,7 +25,7 @@ export class PtyManager {
     // Clean up any existing session with the same id
     if (this.sessions.has(id)) {
       const old = this.sessions.get(id)!
-      this.intentionallyClosed.add(id)
+      this.intentionallyClosed.add(old)
       old.kill()
       this.sessions.delete(id)
     }
@@ -48,8 +48,9 @@ export class PtyManager {
     })
 
     ptyProcess.onExit(({ exitCode }) => {
+      if (this.sessions.get(id) !== ptyProcess) return
       this.sessions.delete(id)
-      if (this.intentionallyClosed.delete(id)) return
+      if (this.intentionallyClosed.has(ptyProcess)) return
       this.onExit(id, exitCode)
     })
   }
@@ -71,14 +72,14 @@ export class PtyManager {
   close(id: string): void {
     const session = this.sessions.get(id)
     if (!session) return
-    this.intentionallyClosed.add(id)
+    this.intentionallyClosed.add(session)
     session.kill()
     this.sessions.delete(id)
   }
 
   closeAll(): void {
-    for (const [id, session] of this.sessions.entries()) {
-      this.intentionallyClosed.add(id)
+    for (const session of this.sessions.values()) {
+      this.intentionallyClosed.add(session)
       session.kill()
     }
     this.sessions.clear()

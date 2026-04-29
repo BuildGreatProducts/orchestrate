@@ -82,7 +82,13 @@ interface TerminalState {
   removeTabFromGroup: (tabId: string) => void
   reorderTabInGroup: (groupId: string, oldIndex: number, newIndex: number) => void
   reorderTabs: (oldIndex: number, newIndex: number) => void
-  createTabInGroup: (cwd: string, groupId: string, name?: string, command?: string, worktreePath?: string) => Promise<string>
+  createTabInGroup: (
+    cwd: string,
+    groupId: string,
+    name?: string,
+    command?: string,
+    worktreePath?: string
+  ) => Promise<string>
   findOrCreateGroup: (name: string, projectFolder: string) => string
 }
 
@@ -100,7 +106,10 @@ const bellClearTimers = new Map<string, ReturnType<typeof setTimeout>>()
 // Stores recent output per terminal so mirror terminals can replay history on mount.
 // Budget is byte-based to prevent memory bloat from large chunks.
 const MAX_OUTPUT_BUFFER_BYTES = 512 * 1024 // 512 KB per terminal
-const outputBuffers = new Map<string, { entries: { text: string; bytes: number }[]; totalBytes: number }>()
+const outputBuffers = new Map<
+  string,
+  { entries: { text: string; bytes: number }[]; totalBytes: number }
+>()
 
 function appendToBuffer(id: string, data: string): void {
   let buf = outputBuffers.get(id)
@@ -172,6 +181,27 @@ function clearLifecycleTimers(id: string): void {
   bellClearTimers.delete(id)
 }
 
+function scheduleBellClear(id: string): void {
+  const store = useTerminalStore.getState()
+  const tab = store.tabs.find((item) => item.id === id)
+  if (!tab || tab.exited || !tab.bell) return
+
+  const existingBellClearTimer = bellClearTimers.get(id)
+  if (existingBellClearTimer) clearTimeout(existingBellClearTimer)
+
+  bellClearTimers.set(
+    id,
+    setTimeout(() => {
+      const currentStore = useTerminalStore.getState()
+      const currentTab = currentStore.tabs.find((item) => item.id === id)
+      if (currentTab && !currentTab.exited && currentTab.bell) {
+        currentStore.clearBell(id)
+      }
+      bellClearTimers.delete(id)
+    }, 2000)
+  )
+}
+
 let globalListenersRegistered = false
 
 function ensureGlobalListeners(): void {
@@ -179,14 +209,15 @@ function ensureGlobalListeners(): void {
   globalListenersRegistered = true
 
   window.orchestrate.onTerminalOutput((id, data) => {
-    broadcastOutput(id, data)
-
     const store = useTerminalStore.getState()
     const tab = store.tabs.find((t) => t.id === id)
     if (!tab || tab.exited) return
 
+    broadcastOutput(id, data)
+
     if (data.includes('\x07')) {
       store.markBell(id)
+      scheduleBellClear(id)
     }
 
     if (!tab.busy) {
@@ -195,32 +226,33 @@ function ensureGlobalListeners(): void {
 
     const existingIdleTimer = idleTimers.get(id)
     if (existingIdleTimer) clearTimeout(existingIdleTimer)
-    idleTimers.set(id, setTimeout(() => {
-      useTerminalStore.getState().markBusy(id, false)
-      const bellClearTimer = bellClearTimers.get(id)
-      if (bellClearTimer) {
-        clearTimeout(bellClearTimer)
-        bellClearTimers.delete(id)
-      }
-    }, 800))
+    idleTimers.set(
+      id,
+      setTimeout(() => {
+        const currentStore = useTerminalStore.getState()
+        const currentTab = currentStore.tabs.find((item) => item.id === id)
+        if (!currentTab || currentTab.exited) return
+        currentStore.markBusy(id, false)
+        if (currentTab.bell && !bellClearTimers.has(id)) {
+          scheduleBellClear(id)
+        }
+      }, 800)
+    )
 
     if (tab.kind === 'agent') {
       const existingAttentionTimer = attentionTimers.get(id)
       if (existingAttentionTimer) clearTimeout(existingAttentionTimer)
-      attentionTimers.set(id, setTimeout(() => {
-        const s = useTerminalStore.getState()
-        const t = s.tabs.find((item) => item.id === id)
-        if (t && t.kind === 'agent' && !t.exited) {
-          s.markBell(id)
-        }
-      }, 3000))
-    }
-
-    if (tab.bell && !bellClearTimers.has(id)) {
-      bellClearTimers.set(id, setTimeout(() => {
-        useTerminalStore.getState().clearBell(id)
-        bellClearTimers.delete(id)
-      }, 2000))
+      attentionTimers.set(
+        id,
+        setTimeout(() => {
+          const s = useTerminalStore.getState()
+          const t = s.tabs.find((item) => item.id === id)
+          if (t && t.kind === 'agent' && !t.exited) {
+            s.markBell(id)
+            scheduleBellClear(id)
+          }
+        }, 3000)
+      )
     }
   })
 
@@ -362,7 +394,8 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     const { nextIndex } = get()
     const id = `terminal-${Date.now()}-${nextIndex}`
     const kind: TerminalKind = options.kind ?? (options.command ? 'agent' : 'terminal')
-    const tabName = options.name ?? (kind === 'agent' ? `Agent ${nextIndex}` : `Terminal ${nextIndex}`)
+    const tabName =
+      options.name ?? (kind === 'agent' ? `Agent ${nextIndex}` : `Terminal ${nextIndex}`)
     const initialDimensions = waitForTerminalSurface(id, kind)
 
     set((state) => ({
@@ -385,21 +418,27 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       ],
       activeTabId: id,
       nextIndex: state.nextIndex + 1,
-      ...(options.groupId ? {
-        groups: state.groups.map((g) =>
-          g.id === options.groupId ? { ...g, tabIds: [...g.tabIds, id] } : g
-        )
-      } : {})
+      ...(options.groupId
+        ? {
+            groups: state.groups.map((g) =>
+              g.id === options.groupId ? { ...g, tabIds: [...g.tabIds, id] } : g
+            )
+          }
+        : {})
     }))
 
     if (kind === 'agent') {
-      attentionTimers.set(id, setTimeout(() => {
-        const s = useTerminalStore.getState()
-        const t = s.tabs.find((tab) => tab.id === id)
-        if (t && t.kind === 'agent' && !t.exited) {
-          s.markBell(id)
-        }
-      }, 3000))
+      attentionTimers.set(
+        id,
+        setTimeout(() => {
+          const s = useTerminalStore.getState()
+          const t = s.tabs.find((tab) => tab.id === id)
+          if (t && t.kind === 'agent' && !t.exited) {
+            s.markBell(id)
+            scheduleBellClear(id)
+          }
+        }, 3000)
+      )
     }
 
     const effectiveCwd = options.worktreePath ?? options.cwd
@@ -506,10 +545,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     // Only suppress non-agent bells when the bottom terminal is visibly focused.
     if (tab.kind !== 'agent' && id === activeTabId) {
       const appState = useAppStore.getState()
-      if (
-        appState.bottomTerminalOpen &&
-        appState.currentFolder === tab.projectFolder
-      ) {
+      if (appState.bottomTerminalOpen && appState.currentFolder === tab.projectFolder) {
         return
       }
     }
@@ -555,7 +591,10 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     const id = `group-${Date.now()}-${nextGroupIndex}`
     const groupName = name ?? `Group ${nextGroupIndex}`
     set((state) => ({
-      groups: [...state.groups, { id, name: groupName, projectFolder, collapsed: false, tabIds: [] }],
+      groups: [
+        ...state.groups,
+        { id, name: groupName, projectFolder, collapsed: false, tabIds: [] }
+      ],
       nextGroupIndex: state.nextGroupIndex + 1
     }))
     return id
@@ -575,9 +614,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
 
   toggleGroupCollapsed: (groupId: string) => {
     set((state) => ({
-      groups: state.groups.map((g) =>
-        g.id === groupId ? { ...g, collapsed: !g.collapsed } : g
-      )
+      groups: state.groups.map((g) => (g.id === groupId ? { ...g, collapsed: !g.collapsed } : g))
     }))
   },
 
@@ -624,7 +661,13 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     }))
   },
 
-  createTabInGroup: async (cwd: string, groupId: string, name?: string, command?: string, worktreePath?: string) => {
+  createTabInGroup: async (
+    cwd: string,
+    groupId: string,
+    name?: string,
+    command?: string,
+    worktreePath?: string
+  ) => {
     return get().createTab({ cwd, name, command, worktreePath, groupId })
   },
 

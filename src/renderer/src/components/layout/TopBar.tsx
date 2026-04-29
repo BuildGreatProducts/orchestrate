@@ -30,7 +30,7 @@ function Logo(): React.JSX.Element {
 const isMac = navigator?.userAgent?.includes('Mac')
 
 function projectName(path: string): string {
-  return path.split(/[/\\]/).pop() ?? path
+  return path.split(/[/\\]/).filter(Boolean).pop() ?? path
 }
 
 export default function TopBar(): React.JSX.Element {
