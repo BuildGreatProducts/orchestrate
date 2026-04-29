@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/set-state-in-effect */
 import {
   useCallback,
   useEffect,
@@ -158,7 +157,7 @@ function taskHasFailed(task: SimpleTask, agentTab: TerminalTab | undefined): boo
   return (
     task.status === 'failed' ||
     task.lastRun?.status === 'failed' ||
-    Boolean(agentTab?.exited && (agentTab.exitCode ?? 1) !== 0)
+    Boolean(agentTab?.exited && agentTab.exitCode !== undefined && agentTab.exitCode !== 0)
   )
 }
 
@@ -264,12 +263,14 @@ function TaskScheduleControl({
   const scheduleCron = task.schedule?.cron
   const selectedCron = selectedPreset === '__custom__' ? customCron : selectedPreset
 
+  /* eslint-disable react-hooks/set-state-in-effect -- Sync local schedule editor state when the task schedule changes externally. */
   useEffect(() => {
     const schedule =
       scheduleEnabled && scheduleCron ? { enabled: true, cron: scheduleCron } : undefined
     setSelectedPreset(schedulePresetFor(schedule))
     setCustomCron(scheduleCron || SCHEDULE_PRESETS[0].value)
   }, [scheduleCron, scheduleEnabled])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const commitCustomCron = useCallback(() => {
     if (disabled) return
@@ -351,6 +352,7 @@ function TaskDialog({ branches, agents }: TaskDialogProps): React.JSX.Element | 
   const [schedulePreset, setSchedulePreset] = useState(SCHEDULE_PRESETS[0].value)
   const [customCron, setCustomCron] = useState(SCHEDULE_PRESETS[0].value)
 
+  /* eslint-disable react-hooks/set-state-in-effect -- Seed the dialog draft from the task being edited when the composer opens. */
   useEffect(() => {
     if (!composerOpen) return
     setPrompt(editingTask?.prompt ?? '')
@@ -361,6 +363,7 @@ function TaskDialog({ branches, agents }: TaskDialogProps): React.JSX.Element | 
     setCustomCron(editingTask?.schedule?.cron || SCHEDULE_PRESETS[0].value)
     requestAnimationFrame(() => promptRef.current?.focus())
   }, [composerOpen, editingTask, fallbackAgentId])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     if (!composerOpen) return

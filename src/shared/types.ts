@@ -328,7 +328,9 @@ export interface OrchestrateAPI {
   saveTasks: (tasks: TaskListState) => Promise<void>
   deleteTask: (
     id: string
-  ) => Promise<{ success: boolean; id?: string; deleted?: boolean; error?: string }>
+  ) => Promise<
+    { success: true; id: string; deleted: boolean } | { success: false; id?: string; error: string }
+  >
   sendToAgent: (id: string, agent: AgentType) => Promise<void>
 
   // Legacy task aliases

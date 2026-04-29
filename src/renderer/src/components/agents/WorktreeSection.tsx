@@ -232,8 +232,8 @@ export default function WorktreeSection({
                   onClick={() => handleNewAgent(agent.id)}
                   className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-sm text-zinc-300 hover:bg-zinc-700"
                 >
-                  <span className="min-w-0 truncate">{agent.displayName}</span>
                   <AgentIcon agentId={agent.id} className="h-3.5 w-3.5" />
+                  <span className="min-w-0 truncate">{agent.displayName}</span>
                 </button>
               ))}
               {savedCommands.length > 0 && (

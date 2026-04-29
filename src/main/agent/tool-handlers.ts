@@ -3,6 +3,7 @@
  */
 import { readFile, writeFile, unlink, readdir, stat, mkdir, realpath } from 'fs/promises'
 import { dirname, isAbsolute, join, resolve, relative, parse as pathParse } from 'path'
+import { CronExpressionParser } from 'cron-parser'
 import type { TaskManager } from '../task-manager'
 import type { GitManager } from '../git-manager'
 import type { SkillManager } from '../skill-manager'
@@ -137,6 +138,11 @@ function normalizeSchedule(schedule: unknown): TaskSchedule | undefined {
   const raw = schedule as Record<string, unknown>
   const cron = typeof raw.cron === 'string' ? raw.cron.trim() : ''
   if (!cron) return undefined
+  try {
+    CronExpressionParser.parse(cron)
+  } catch {
+    return undefined
+  }
   return { enabled: raw.enabled !== false, cron }
 }
 
@@ -488,14 +494,15 @@ export async function handleCreateSavePoint(
 }
 
 export async function handleListSavePoints(
-  args: { limit: number },
+  args: { limit?: number },
   deps: GitHandlerDeps
 ): Promise<McpResponse> {
   try {
     const git = requireGitManager(deps)
     const isRepo = await git.isRepo()
     if (!isRepo) return fail('Not a git repository')
-    const history = await git.getHistory(args.limit)
+    const limit = args.limit ?? 10
+    const history = await git.getHistory(limit)
     return ok(history)
   } catch (err) {
     return fail(err instanceof Error ? err.message : String(err))

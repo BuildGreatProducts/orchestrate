@@ -137,6 +137,47 @@ export default function DropdownSelect({
     closeDropdown()
   }
 
+  const handleDropdownKeyDown = (event: KeyboardEvent<HTMLElement>): void => {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      event.stopPropagation()
+      closeDropdown()
+      return
+    }
+
+    if (
+      event.key !== 'ArrowDown' &&
+      event.key !== 'ArrowUp' &&
+      event.key !== 'Home' &&
+      event.key !== 'End'
+    ) {
+      return
+    }
+
+    const optionElements = Array.from(
+      listboxRef.current?.querySelectorAll<HTMLElement>('[role="option"]') ?? []
+    )
+    if (optionElements.length === 0) return
+
+    event.preventDefault()
+    event.stopPropagation()
+
+    const currentIndex = optionElements.findIndex((option) => option === document.activeElement)
+    let nextIndex = currentIndex
+    if (event.key === 'Home') {
+      nextIndex = 0
+    } else if (event.key === 'End') {
+      nextIndex = optionElements.length - 1
+    } else if (event.key === 'ArrowDown') {
+      nextIndex = currentIndex < 0 ? 0 : (currentIndex + 1) % optionElements.length
+    } else if (event.key === 'ArrowUp') {
+      nextIndex =
+        currentIndex <= 0 ? optionElements.length - 1 : (currentIndex - 1) % optionElements.length
+    }
+
+    optionElements[nextIndex]?.focus()
+  }
+
   const handleTriggerKeyDown = (event: KeyboardEvent<HTMLButtonElement>): void => {
     if (event.key === 'Escape') {
       event.preventDefault()
@@ -193,12 +234,7 @@ export default function DropdownSelect({
           <div
             ref={dropdownRef}
             style={style}
-            onKeyDown={(event) => {
-              if (event.key === 'Escape') {
-                event.preventDefault()
-                closeDropdown()
-              }
-            }}
+            onKeyDown={handleDropdownKeyDown}
             className="overflow-hidden rounded-md bg-zinc-800 shadow-xl"
           >
             {searchPlaceholder && (
@@ -212,7 +248,7 @@ export default function DropdownSelect({
                     if (event.key === 'Enter' && canUseCustomValue) {
                       handleSelect(trimmedSearch)
                     }
-                    if (event.key === 'Escape') closeDropdown()
+                    handleDropdownKeyDown(event)
                   }}
                   placeholder={searchPlaceholder}
                   className="w-full rounded bg-zinc-900/70 px-2 py-1 text-xs text-zinc-200 outline-none transition-colors placeholder:text-zinc-600 focus:bg-zinc-900"

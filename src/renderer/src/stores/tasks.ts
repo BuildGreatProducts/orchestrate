@@ -252,7 +252,12 @@ export const useTasksStore = create<TasksState>((set, get) => ({
       }
 
       if (changed) {
-        saveTaskListToApi(loaded).catch(() => {})
+        saveTaskListToApi(loaded).catch((err) => {
+          console.error(
+            `[Tasks] Failed to persist consistency fix for task list (${loaded.order.length} tasks: ${loaded.order.join(', ')}):`,
+            err
+          )
+        })
       }
 
       set({ taskList: loaded, isLoading: false, hasLoaded: true })
@@ -381,7 +386,6 @@ export const useTasksStore = create<TasksState>((set, get) => ({
       tasks
     }
     await get().saveTaskList(next)
-    await window.orchestrate.deleteTask(id)
   },
 
   setTaskStatus: async (id, status) => {
