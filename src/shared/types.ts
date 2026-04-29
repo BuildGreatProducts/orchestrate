@@ -7,7 +7,7 @@ export const NAV_PAGES: { id: NavPageId; label: string }[] = [
   { id: 'browser', label: 'Browser' }
 ]
 
-export type ProjectDetailTabId = 'tasks' | 'files' | 'history' | 'commands'
+export type ProjectDetailTabId = 'browser' | 'commands' | 'files' | 'history' | 'skills'
 
 export type ContentView =
   | { type: 'orchestrate' }
@@ -30,14 +30,66 @@ export interface FileChangeEvent {
   path: string
 }
 
-// ── Kanban / Tasks ──
+// ── Simple Tasks ──
 
-export type ColumnId = 'planning' | 'in-progress' | 'review' | 'done'
+export type TaskMode = 'plan' | 'build'
+
+export type TaskStatus = 'todo' | 'running' | 'review' | 'done' | 'failed'
 
 export interface TaskSchedule {
   enabled: boolean
-  cron: string // e.g. "0 9 * * 1-5"
+  cron: string // e.g. "0 10 * * *"
 }
+
+export interface SimpleTaskRun {
+  id: string
+  startedAt: string
+  finishedAt?: string
+  status: 'running' | 'completed' | 'failed'
+  terminalId?: string
+  worktreePath?: string
+  exitCode?: number
+}
+
+export interface SimpleTask {
+  id: string
+  prompt: string
+  mode: TaskMode
+  status: TaskStatus
+  branchName: string
+  agentType: AgentType
+  pinned: boolean
+  schedule?: TaskSchedule
+  createdAt: string
+  updatedAt: string
+  lastRun?: SimpleTaskRun
+}
+
+export interface TaskListState {
+  version: 1
+  order: string[]
+  tasks: Record<string, SimpleTask>
+}
+
+export interface CreateSimpleTaskInput {
+  prompt: string
+  mode: TaskMode
+  branchName?: string
+  agentType: AgentType
+  pinned?: boolean
+  schedule?: TaskSchedule
+}
+
+export type UpdateSimpleTaskInput = Partial<
+  Pick<
+    SimpleTask,
+    'prompt' | 'mode' | 'branchName' | 'agentType' | 'pinned' | 'schedule' | 'status'
+  >
+>
+
+// ── Legacy Kanban / Tasks ──
+
+export type ColumnId = 'planning' | 'in-progress' | 'review' | 'done'
 
 export interface TaskStep {
   id: string
@@ -67,6 +119,10 @@ export interface TaskMeta {
   schedule?: TaskSchedule
   agentType?: AgentType // agent to use for scheduled runs
   groupName?: string // agent group to place terminal tabs in
+  worktree?: {
+    enabled: boolean
+    branchName?: string
+  }
 }
 
 export interface BoardState {
@@ -194,6 +250,11 @@ export interface BrowserBounds {
   height: number
 }
 
+export interface BrowserSnapshot {
+  dataUrl: string
+  bounds: BrowserBounds
+}
+
 // ── Updates ──
 
 export type UpdateStatus =
@@ -226,6 +287,11 @@ export interface UpdateState {
 
 // ── IPC API Contract ──
 
+export interface TerminalDimensions {
+  cols: number
+  rows: number
+}
+
 export interface OrchestrateAPI {
   // Folder
   selectFolder: () => Promise<string | null>
@@ -245,7 +311,12 @@ export interface OrchestrateAPI {
   watchFolder: (callback: (event: FileChangeEvent) => void) => () => void
 
   // Terminals
-  createTerminal: (id: string, cwd: string, command?: string) => Promise<void>
+  createTerminal: (
+    id: string,
+    cwd: string,
+    command?: string,
+    dimensions?: TerminalDimensions
+  ) => Promise<void>
   writeTerminal: (id: string, data: string) => void
   resizeTerminal: (id: string, cols: number, rows: number) => void
   closeTerminal: (id: string) => Promise<void>
@@ -253,19 +324,31 @@ export interface OrchestrateAPI {
   onTerminalExit: (callback: (id: string, exitCode: number) => void) => () => void
 
   // Tasks
+  loadTasks: () => Promise<TaskListState>
+  saveTasks: (tasks: TaskListState) => Promise<void>
+  deleteTask: (
+    id: string
+  ) => Promise<
+    { success: true; id: string; deleted: boolean } | { success: false; id?: string; error: string }
+  >
+  sendToAgent: (id: string, agent: AgentType) => Promise<void>
+
+  // Legacy task aliases
   loadBoard: () => Promise<BoardState>
   saveBoard: (board: BoardState) => Promise<void>
   readTaskMarkdown: (id: string) => Promise<string>
   writeTaskMarkdown: (id: string, content: string) => Promise<void>
-  deleteTask: (id: string) => Promise<void>
-  sendToAgent: (id: string, agent: AgentType) => Promise<void>
 
   // Task schedule triggers
   onTaskScheduleTrigger: (callback: (taskId: string) => void) => () => void
 
   // Saved Commands
   listCommands: (projectFolder?: string) => Promise<SavedCommand[]>
-  loadCommand: (id: string, scope: CommandScope, projectFolder?: string) => Promise<SavedCommand | null>
+  loadCommand: (
+    id: string,
+    scope: CommandScope,
+    projectFolder?: string
+  ) => Promise<SavedCommand | null>
   saveCommand: (command: SavedCommand, projectFolder?: string) => Promise<void>
   deleteCommand: (id: string, scope: CommandScope, projectFolder?: string) => Promise<void>
 
@@ -273,7 +356,7 @@ export interface OrchestrateAPI {
   onAgentStateChanged: (callback: (domain: string, data?: unknown) => void) => () => void
 
   // Git / History
-  isGitRepo: () => Promise<boolean>
+  isGitRepo: (projectFolder?: string) => Promise<boolean>
   initRepo: () => Promise<void>
   getHistory: (limit?: number) => Promise<SavePoint[]>
   getStatus: () => Promise<GitStatus>
@@ -295,11 +378,28 @@ export interface OrchestrateAPI {
 
   // Worktrees
   listWorktrees: (projectFolder: string) => Promise<WorktreeInfo[]>
-  addWorktree: (projectFolder: string, path: string, branch: string, createBranch: boolean) => Promise<void>
+  addWorktree: (
+    projectFolder: string,
+    path: string,
+    branch: string,
+    createBranch: boolean
+  ) => Promise<void>
   removeWorktree: (projectFolder: string, worktreePath: string, force?: boolean) => Promise<void>
-  diffWorktreeFiles: (projectFolder: string, baseBranch: string, compareBranch: string) => Promise<FileDiff[]>
-  diffWorktreeFile: (projectFolder: string, baseBranch: string, compareBranch: string, filePath: string) => Promise<{ before: string; after: string }>
-  mergeWorktree: (projectFolder: string, branch: string) => Promise<{ success: boolean; conflicts?: string[] }>
+  diffWorktreeFiles: (
+    projectFolder: string,
+    baseBranch: string,
+    compareBranch: string
+  ) => Promise<FileDiff[]>
+  diffWorktreeFile: (
+    projectFolder: string,
+    baseBranch: string,
+    compareBranch: string,
+    filePath: string
+  ) => Promise<{ before: string; after: string }>
+  mergeWorktree: (
+    projectFolder: string,
+    branch: string
+  ) => Promise<{ success: boolean; conflicts?: string[] }>
 
   // Browser
   createBrowserTab: (id: string, url: string) => Promise<void>
@@ -312,6 +412,7 @@ export interface OrchestrateAPI {
   setBrowserBounds: (id: string, bounds: BrowserBounds) => Promise<void>
   showBrowserTab: (id: string) => Promise<void>
   hideAllBrowserTabs: () => Promise<void>
+  captureBrowserTab: (id: string) => Promise<BrowserSnapshot | null>
   closeAllBrowserTabs: () => Promise<void>
   toggleBrowserDevTools: (id: string) => Promise<void>
   onBrowserTabUpdated: (callback: (tab: BrowserTabInfo) => void) => () => void

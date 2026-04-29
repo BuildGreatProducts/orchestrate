@@ -32,11 +32,20 @@ export function registerTerminalHandlers(
     }
   )
 
-  ipcMain.handle('terminal:create', async (_, id: string, cwd: string, command?: string) => {
-    const folder = getCurrentFolder()
-    const resolvedCwd = cwd || folder || process.env.HOME || '/'
-    ptyManager!.create(id, resolvedCwd, command)
-  })
+  ipcMain.handle(
+    'terminal:create',
+    async (
+      _,
+      id: string,
+      cwd: string,
+      command?: string,
+      dimensions?: { cols: number; rows: number }
+    ) => {
+      const folder = getCurrentFolder()
+      const resolvedCwd = cwd || folder || process.env.HOME || '/'
+      ptyManager!.create(id, resolvedCwd, command, dimensions)
+    }
+  )
 
   ipcMain.handle('terminal:close', async (_, id: string) => {
     ptyManager!.close(id)

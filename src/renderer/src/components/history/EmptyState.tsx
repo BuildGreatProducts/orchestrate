@@ -16,7 +16,7 @@ export default function EmptyState(): React.JSX.Element {
   }
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-4 p-4 text-center">
+    <div className="flex h-full w-full flex-1 flex-col items-center justify-center gap-4 p-4 text-center">
       <h2 className="font-ovo text-6xl tracking-tight text-zinc-200">History</h2>
       <p className="max-w-xs text-sm text-zinc-500">
         Track changes and create save points to restore your project at any time.

@@ -1,5 +1,11 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { VscChevronRight, VscChevronDown, VscFolder, VscFolderOpened, VscFile } from 'react-icons/vsc'
+import {
+  VscChevronRight,
+  VscChevronDown,
+  VscFolder,
+  VscFolderOpened,
+  VscFile
+} from 'react-icons/vsc'
 import { useAppStore } from '@renderer/stores/app'
 import { useFilesStore } from '@renderer/stores/files'
 import { useHistoryStore } from '@renderer/stores/history'
@@ -68,10 +74,7 @@ function InlineCreateInput({
   const Icon = type === 'folder' ? VscFolder : VscFile
 
   return (
-    <div
-      style={{ paddingLeft: depth * 16 + 8 }}
-      className="flex items-center gap-1 py-0.5 pr-2"
-    >
+    <div style={{ paddingLeft: depth * 16 + 8 }} className="flex items-center gap-1 py-0.5 pr-2">
       <span className="flex w-4 shrink-0 items-center justify-center" />
       <Icon className="shrink-0 text-zinc-500" size={16} />
       <input
@@ -80,7 +83,7 @@ function InlineCreateInput({
         onChange={(e) => setName(e.target.value)}
         onKeyDown={handleKeyDown}
         onBlur={() => finish()}
-        className="min-w-0 flex-1 bg-zinc-800 px-1 text-sm text-zinc-200 outline-none ring-1 ring-zinc-600 focus:ring-zinc-500"
+        className="min-w-0 flex-1 rounded bg-zinc-800/70 px-1 text-sm text-zinc-200 outline-none transition-colors hover:bg-zinc-800 focus:bg-zinc-800"
         placeholder={type === 'file' ? 'filename' : 'folder name'}
       />
     </div>
@@ -162,11 +165,7 @@ function FileNode({
     [handleClick]
   )
 
-  const Chevron = entry.isDirectory
-    ? isOpen
-      ? VscChevronDown
-      : VscChevronRight
-    : null
+  const Chevron = entry.isDirectory ? (isOpen ? VscChevronDown : VscChevronRight) : null
 
   const FileIcon = entry.isDirectory ? (isOpen ? VscFolderOpened : VscFolder) : VscFile
   const isHidden = entry.name.startsWith('.')
@@ -205,10 +204,15 @@ function FileNode({
         <span className="flex w-4 shrink-0 items-center justify-center">
           {Chevron ? <Chevron size={16} className="text-zinc-500" /> : null}
         </span>
-        <FileIcon className={`shrink-0 ${isHidden ? 'text-zinc-600' : 'text-zinc-500'}`} size={16} />
+        <FileIcon
+          className={`shrink-0 ${isHidden ? 'text-zinc-600' : 'text-zinc-500'}`}
+          size={16}
+        />
         <span className="truncate">{entry.name}</span>
         {fileStatus && (
-          <span className={`ml-auto shrink-0 font-mono text-xs font-bold ${STATUS_COLORS[fileStatus] ?? ''}`}>
+          <span
+            className={`ml-auto shrink-0 font-mono text-xs font-bold ${STATUS_COLORS[fileStatus] ?? ''}`}
+          >
             {fileStatus}
           </span>
         )}
@@ -265,7 +269,8 @@ export default function FileTree({
   const fileStatusMap = useHistoryStore((s) => s.fileStatusMap)
   const { treeData, isLoading, error, loadChildren } = useFileTree()
 
-  const isRootTarget = creating !== null && currentFolder !== null && creating.parentDir === currentFolder
+  const isRootTarget =
+    creating !== null && currentFolder !== null && creating.parentDir === currentFolder
 
   if (!currentFolder) {
     return (

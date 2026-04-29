@@ -18,7 +18,7 @@ export default function BrowserTabBar(): React.JSX.Element {
   }
 
   return (
-    <div className="flex h-9 items-center gap-0 overflow-x-auto border-b border-zinc-800 bg-zinc-900">
+    <div className="flex h-9 items-center gap-0 overflow-x-auto border-b border-zinc-800 bg-black">
       {tabs.map((tab) => {
         const isActive = tab.id === activeTabId
 
@@ -37,8 +37,8 @@ export default function BrowserTabBar(): React.JSX.Element {
             }}
             className={`group flex h-full items-center gap-1.5 border-r border-zinc-800 px-3 text-sm ${
               isActive
-                ? 'bg-zinc-800 text-white'
-                : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200'
+                ? 'bg-black text-white'
+                : 'bg-black text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'
             } cursor-default select-none`}
           >
             {tab.isLoading && <Loader2 size={12} className="shrink-0 animate-spin text-zinc-400" />}

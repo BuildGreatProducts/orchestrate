@@ -1,7 +1,14 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
-import { addOutputSubscriber, getOutputBuffer, getPtyDimensions } from '@renderer/stores/terminal'
+import {
+  addOutputSubscriber,
+  getOutputBuffer,
+  getPtyDimensions,
+  setPtyDimensions,
+  signalTerminalReady,
+  isUsableTerminalDimensions
+} from '@renderer/stores/terminal'
 
 interface UseMirrorTerminalOptions {
   id: string
@@ -13,9 +20,9 @@ interface UseMirrorTerminalResult {
 
 /**
  * Creates a mirror xterm.js Terminal that subscribes to the same PTY output
- * as the primary terminal. Uses the PTY's actual column width so buffered
- * and live output renders correctly. Supports interactive input but does NOT
- * send resize IPC (the primary terminal owns PTY dimensions).
+ * as the primary terminal. Agent cards are the visible terminal surface for
+ * agents, so this hook owns the PTY dimensions and waits to replay output until
+ * xterm has a stable fitted size.
  */
 export function useMirrorTerminal({ id }: UseMirrorTerminalOptions): UseMirrorTerminalResult {
   const termRef = useRef<Terminal | null>(null)
@@ -23,20 +30,43 @@ export function useMirrorTerminal({ id }: UseMirrorTerminalOptions): UseMirrorTe
   const containerElRef = useRef<HTMLDivElement | null>(null)
   const observerRef = useRef<ResizeObserver | null>(null)
   const attachedRef = useRef(false)
+  const outputReadyRef = useRef(false)
 
-  /** Fit rows to container but keep cols matching the PTY */
+  /** Fit to the visible container and sync the backing PTY to that geometry. */
   const fitToContainer = useCallback(
-    (term: Terminal, fitAddon: FitAddon) => {
+    (fitAddon: FitAddon): boolean => {
       try {
-        // Use FitAddon to calculate the right row count for the container
         fitAddon.fit()
-        // Override cols to match the PTY so output renders correctly
-        const ptyDims = getPtyDimensions(id)
-        if (ptyDims && term.cols !== ptyDims.cols) {
-          term.resize(ptyDims.cols, term.rows)
+        const dims = fitAddon.proposeDimensions()
+        if (!dims || !isUsableTerminalDimensions(dims.cols, dims.rows)) {
+          return false
         }
+
+        const currentDims = getPtyDimensions(id)
+        if (currentDims?.cols === dims.cols && currentDims.rows === dims.rows) {
+          signalTerminalReady(id, dims.cols, dims.rows)
+          return true
+        }
+
+        window.orchestrate.resizeTerminal(id, dims.cols, dims.rows)
+        setPtyDimensions(id, dims.cols, dims.rows)
+        signalTerminalReady(id, dims.cols, dims.rows)
+        return true
       } catch {
         // ignore
+        return false
+      }
+    },
+    [id]
+  )
+
+  const flushPendingOutput = useCallback(
+    (term: Terminal) => {
+      if (outputReadyRef.current) return
+      outputReadyRef.current = true
+      const output = getOutputBuffer(id)
+      if (output) {
+        term.write(output)
       }
     },
     [id]
@@ -49,18 +79,26 @@ export function useMirrorTerminal({ id }: UseMirrorTerminalOptions): UseMirrorTe
       if (!term || !fitAddon || attachedRef.current) return
 
       el.replaceChildren()
-      term.open(el)
+      if (term.element) {
+        el.appendChild(term.element)
+      } else {
+        term.open(el)
+      }
       attachedRef.current = true
 
       requestAnimationFrame(() => {
         if (!attachedRef.current) return
-        fitToContainer(term, fitAddon)
+        if (fitToContainer(fitAddon)) {
+          flushPendingOutput(term)
+        }
       })
 
       const observer = new ResizeObserver(() => {
         requestAnimationFrame(() => {
           if (termRef.current && fitAddonRef.current) {
-            fitToContainer(termRef.current, fitAddonRef.current)
+            if (fitToContainer(fitAddonRef.current)) {
+              flushPendingOutput(termRef.current)
+            }
           }
         })
       })
@@ -68,7 +106,7 @@ export function useMirrorTerminal({ id }: UseMirrorTerminalOptions): UseMirrorTe
       observer.observe(el)
       observerRef.current = observer
     },
-    [fitToContainer]
+    [fitToContainer, flushPendingOutput]
   )
 
   useEffect(() => {
@@ -119,15 +157,13 @@ export function useMirrorTerminal({ id }: UseMirrorTerminalOptions): UseMirrorTe
       window.orchestrate.writeTerminal(id, data)
     })
 
-    // Replay buffered output so the mirror shows existing content
-    const buffered = getOutputBuffer(id)
-    if (buffered) {
-      term.write(buffered)
-    }
+    outputReadyRef.current = false
 
     // Subscribe to live output
     const unsubscribe = addOutputSubscriber(id, (data) => {
-      term.write(data)
+      if (outputReadyRef.current) {
+        term.write(data)
+      }
     })
 
     // Attach if container already captured
@@ -142,15 +178,21 @@ export function useMirrorTerminal({ id }: UseMirrorTerminalOptions): UseMirrorTe
       termRef.current = null
       fitAddonRef.current = null
       attachedRef.current = false
+      outputReadyRef.current = false
     }
   }, [id, attachToContainer])
 
   const containerRef = useCallback(
     (el: HTMLDivElement | null) => {
-      containerElRef.current = el
-      if (el) {
-        attachToContainer(el)
+      if (!el) {
+        observerRef.current?.disconnect()
+        observerRef.current = null
+        attachedRef.current = false
+        containerElRef.current = null
+        return
       }
+      containerElRef.current = el
+      attachToContainer(el)
     },
     [attachToContainer]
   )

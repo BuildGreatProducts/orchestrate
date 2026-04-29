@@ -2,7 +2,7 @@ import { ipcMain, BrowserWindow } from 'electron'
 import { markChannelRegistered } from './stubs'
 import { getGitManager } from './git'
 import { TaskManager } from '../task-manager'
-import type { BoardState, AgentType } from '@shared/types'
+import type { AgentType, BoardState, TaskListState } from '@shared/types'
 import type { PtyManager } from '../pty-manager'
 import type { TaskScheduler } from '../task-scheduler'
 
@@ -40,6 +40,8 @@ export function registerTaskHandlers(
   scheduler?: TaskScheduler
 ): void {
   getCurrentFolderFn = getCurrentFolder
+  markChannelRegistered('task:loadTasks')
+  markChannelRegistered('task:saveTasks')
   markChannelRegistered('task:loadBoard')
   markChannelRegistered('task:saveBoard')
   markChannelRegistered('task:readMarkdown')
@@ -59,6 +61,21 @@ export function registerTaskHandlers(
     return taskManager
   }
 
+  ipcMain.handle('task:loadTasks', async () => {
+    const mgr = getManager()
+    return mgr.loadTasks()
+  })
+
+  ipcMain.handle('task:saveTasks', async (_, tasks: TaskListState) => {
+    const mgr = getManager()
+    await mgr.saveTasks(tasks)
+    try {
+      scheduler?.rescheduleAllTasks(tasks)
+    } catch (err) {
+      console.error('[Tasks] Failed to reschedule tasks:', err)
+    }
+  })
+
   ipcMain.handle('task:loadBoard', async () => {
     const mgr = getManager()
     return mgr.loadBoard()
@@ -67,11 +84,6 @@ export function registerTaskHandlers(
   ipcMain.handle('task:saveBoard', async (_, board: BoardState) => {
     const mgr = getManager()
     await mgr.saveBoard(board)
-    try {
-      scheduler?.rescheduleAllTasks(board)
-    } catch (err) {
-      console.error('[Tasks] Failed to reschedule tasks:', err)
-    }
   })
 
   ipcMain.handle('task:readMarkdown', async (_, id: string) => {
@@ -87,25 +99,45 @@ export function registerTaskHandlers(
   })
 
   ipcMain.handle('task:delete', async (_, id: string) => {
-    validateTaskId(id)
-    const mgr = getManager()
-    await mgr.deleteMarkdown(id)
+    try {
+      validateTaskId(id)
+      const mgr = getManager()
+      const tasks = await mgr.loadTasks()
+      const deleted = Boolean(tasks.tasks[id])
+      if (deleted) {
+        tasks.order = tasks.order.filter((taskId) => taskId !== id)
+        delete tasks.tasks[id]
+        await mgr.saveTasks(tasks)
+        try {
+          scheduler?.rescheduleAllTasks(tasks)
+        } catch (err) {
+          console.error('[Tasks] Failed to reschedule tasks after delete:', err)
+        }
+      }
+      return { success: true, id, deleted }
+    } catch (err) {
+      return {
+        success: false,
+        id: typeof id === 'string' ? id : undefined,
+        error: err instanceof Error ? err.message : String(err)
+      }
+    }
   })
 
   ipcMain.handle('task:sendToAgent', async (_, id: string, _agent: AgentType) => {
+    void _agent
     validateTaskId(id)
     const mgr = getManager()
-    const board = await mgr.loadBoard()
-    if (!board.tasks[id]) {
+    const tasks = await mgr.loadTasks()
+    if (!tasks.tasks[id]) {
       throw new Error(`Task ${id} not found`)
     }
 
-    // Auto-save before agent run
     const gitMgr = getGitManager()
     if (gitMgr) {
       try {
         const isRepo = await gitMgr.isRepo()
-        if (isRepo) await gitMgr.autoSaveBeforeAgent(board.tasks[id].title)
+        if (isRepo) await gitMgr.autoSaveBeforeAgent(tasks.tasks[id].prompt.slice(0, 80))
       } catch (err) {
         console.warn('[Tasks] Auto-save failed:', err)
       }

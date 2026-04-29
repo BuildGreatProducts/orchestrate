@@ -13,7 +13,15 @@ import {
   type DragEndEvent
 } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { ChevronRight, ChevronDown, Plus, FolderPlus, Terminal, GitBranch, Github } from 'lucide-react'
+import {
+  ChevronRight,
+  ChevronDown,
+  Plus,
+  FolderPlus,
+  Terminal,
+  GitBranch,
+  Github
+} from 'lucide-react'
 import { useTerminalStore } from '@renderer/stores/terminal'
 import { useAppStore } from '@renderer/stores/app'
 import DraggableAgentItem from '@renderer/components/agents/DraggableAgentItem'
@@ -23,6 +31,7 @@ import { useAgentsStore } from '@renderer/stores/agents'
 import { buildAgentCommand } from '@renderer/lib/agent-command-builder'
 import { executeSavedCommand } from '@renderer/lib/command-execution'
 import { toast } from '@renderer/stores/toast'
+import { AgentIcon } from '@renderer/lib/agent-icons'
 import type { SavedCommand } from '@shared/types'
 import { useAllProjectsAgentStatus } from '@renderer/hooks/useProjectAgentStatus'
 import { AGENT_COLORS, ATTENTION_BG } from '@renderer/lib/agent-colors'
@@ -83,19 +92,14 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
   const reorderTabs = useTerminalStore((s) => s.reorderTabs)
 
   // Filter tabs and groups to this project
-  const tabs = useMemo(
-    () => allTabs.filter((t) => t.projectFolder === folder),
-    [allTabs, folder]
-  )
+  const tabs = useMemo(() => allTabs.filter((t) => t.projectFolder === folder), [allTabs, folder])
   const groups = useMemo(
     () => allGroups.filter((g) => g.projectFolder === folder),
     [allGroups, folder]
   )
 
   const [activeId, setActiveId] = useState<string | null>(null)
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
-  )
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
   // Derive ungrouped tab IDs
   const groupedTabIds = useMemo(() => {
@@ -110,10 +114,7 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
     () => tabs.filter((t) => !groupedTabIds.has(t.id) && !t.worktreePath),
     [tabs, groupedTabIds]
   )
-  const ungroupedTabIds = useMemo(
-    () => ungroupedTabs.map((t) => t.id),
-    [ungroupedTabs]
-  )
+  const ungroupedTabIds = useMemo(() => ungroupedTabs.map((t) => t.id), [ungroupedTabs])
 
   const findContainer = useCallback(
     (tabId: string): string => {
@@ -145,10 +146,7 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
   const [worktreeDialogStyle, setWorktreeDialogStyle] = useState<CSSProperties>({})
 
   // Non-main worktrees to display
-  const displayWorktrees = useMemo(
-    () => worktreeList.filter((w) => !w.isMain),
-    [worktreeList]
-  )
+  const displayWorktrees = useMemo(() => worktreeList.filter((w) => !w.isMain), [worktreeList])
 
   // Tabs belonging to worktrees vs ungrouped
   const worktreeTabsByPath = useMemo(() => {
@@ -163,31 +161,40 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
     return map
   }, [tabs])
 
-  // Check git repo and load worktrees on mount/expansion
-  // Uses listWorktrees (which takes folder explicitly) instead of isGitRepo
-  // (which depends on getCurrentFolder and may throw before a project is active)
+  // Check git repo and load worktrees on mount/expansion.
   useEffect(() => {
     if (!expanded) return
     let active = true
-    loadWorktrees(folder).then(() => {
-      if (!active) return
-      const list = useWorktreeStore.getState().worktrees[folder]
-      setIsGitRepo(Array.isArray(list) && list.length > 0)
-    }).catch(() => {
-      if (active) setIsGitRepo(false)
-    })
-    if (typeof window.orchestrate.getRemoteUrl === 'function') {
-      window.orchestrate.getRemoteUrl(folder).then((url) => {
-        if (active) setRemoteUrl(url)
-      }).catch(() => {
-        if (active) setRemoteUrl(null)
+    loadWorktrees(folder)
+      .then(() => {
+        return window.orchestrate.isGitRepo(folder)
       })
+      .then((repo) => {
+        if (active) setIsGitRepo(Boolean(repo))
+      })
+      .catch(() => {
+        if (active) setIsGitRepo(false)
+      })
+    if (typeof window.orchestrate.getRemoteUrl === 'function') {
+      window.orchestrate
+        .getRemoteUrl(folder)
+        .then((url) => {
+          if (active) setRemoteUrl(url)
+        })
+        .catch(() => {
+          if (active) setRemoteUrl(null)
+        })
     }
-    return () => { active = false }
+    return () => {
+      active = false
+    }
   }, [expanded, folder, loadWorktrees])
 
   const openAgentMenu = (): void => {
-    window.orchestrate.listCommands(folder).then(setSavedCommands).catch(() => {})
+    window.orchestrate
+      .listCommands(folder)
+      .then(setSavedCommands)
+      .catch(() => {})
     if (newAgentBtnRef.current) {
       const rect = newAgentBtnRef.current.getBoundingClientRect()
       setMenuStyle({
@@ -204,8 +211,10 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
     if (!newAgentMenuOpen) return
     const handleClick = (e: MouseEvent): void => {
       if (
-        newAgentMenuRef.current && !newAgentMenuRef.current.contains(e.target as Node) &&
-        newAgentBtnRef.current && !newAgentBtnRef.current.contains(e.target as Node)
+        newAgentMenuRef.current &&
+        !newAgentMenuRef.current.contains(e.target as Node) &&
+        newAgentBtnRef.current &&
+        !newAgentBtnRef.current.contains(e.target as Node)
       ) {
         setNewAgentMenuOpen(false)
       }
@@ -253,11 +262,14 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
   // DnD handlers
   const dragOriginRef = useRef<{ tabId: string; container: string } | null>(null)
 
-  const handleDragStart = useCallback((event: DragStartEvent) => {
-    const tabId = event.active.id as string
-    dragOriginRef.current = { tabId, container: findContainer(tabId) }
-    setActiveId(tabId)
-  }, [findContainer])
+  const handleDragStart = useCallback(
+    (event: DragStartEvent) => {
+      const tabId = event.active.id as string
+      dragOriginRef.current = { tabId, container: findContainer(tabId) }
+      setActiveId(tabId)
+    },
+    [findContainer]
+  )
 
   const handleDragOver = useCallback(
     (event: DragOverEvent) => {
@@ -357,21 +369,20 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
 
   const projectName = folder.split(/[/\\]/).pop() ?? folder
 
-  const isProjectActive =
-    currentFolder === folder && contentView.type === 'project-detail'
+  const isProjectActive = currentFolder === folder && contentView.type === 'project-detail'
 
   return (
     <div>
       {/* Project header */}
-      <div className={`group/project flex items-center gap-1 rounded-md px-1.5 py-1.5 ${
-        isProjectActive ? 'bg-zinc-800' : 'hover:bg-zinc-800/50'
-      }`}>
+      <div
+        className={`group/project flex items-center gap-1 rounded-md px-1.5 py-1.5 ${
+          isProjectActive ? 'bg-zinc-800' : 'hover:bg-zinc-800/50'
+        }`}
+      >
         <button
           onClick={() => showProjectDetail(folder)}
           className={`flex min-w-0 items-center gap-1.5 rounded px-1 py-0.5 text-left text-sm font-medium transition-colors ${
-            isProjectActive
-              ? 'text-white'
-              : 'text-zinc-300 hover:text-white'
+            isProjectActive ? 'text-white' : 'text-zinc-300 hover:text-white'
           }`}
           title={folder}
         >
@@ -440,7 +451,12 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
               } else {
                 if (worktreeBtnRef.current) {
                   const rect = worktreeBtnRef.current.getBoundingClientRect()
-                  setWorktreeDialogStyle({ position: 'fixed', top: rect.bottom + 4, left: rect.left, zIndex: 9999 })
+                  setWorktreeDialogStyle({
+                    position: 'fixed',
+                    top: rect.bottom + 4,
+                    left: rect.left,
+                    zIndex: 9999
+                  })
                 }
                 setShowAddWorktree(true)
               }
@@ -472,21 +488,24 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
             <div
               ref={newAgentMenuRef}
               style={menuStyle}
-              className="w-44 overflow-hidden rounded-md border border-zinc-700 bg-zinc-800 py-1 shadow-xl"
+              className="w-44 overflow-hidden rounded-md bg-zinc-800 py-1 shadow-xl"
             >
               {enabledAgents.map((agent) => (
                 <button
                   key={agent.id}
                   onClick={() => handleNewAgentWithType(agent.id)}
-                  className="flex w-full items-center px-3 py-1.5 text-left text-sm text-zinc-300 hover:bg-zinc-700"
+                  className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-sm text-zinc-300 hover:bg-zinc-700"
                 >
-                  {agent.displayName}
+                  <span className="min-w-0 truncate">{agent.displayName}</span>
+                  <AgentIcon agentId={agent.id} className="h-3.5 w-3.5" />
                 </button>
               ))}
               {savedCommands.length > 0 && (
                 <>
                   <div className="my-1 border-t border-zinc-700" />
-                  <div className="px-3 py-1 text-[11px] font-medium text-zinc-500">Saved Commands</div>
+                  <div className="px-3 py-1 text-[11px] font-medium text-zinc-500">
+                    Saved Commands
+                  </div>
                   {savedCommands.map((cmd) => (
                     <button
                       key={cmd.id}
@@ -513,10 +532,7 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
         {showAddWorktree &&
           createPortal(
             <div style={worktreeDialogStyle}>
-              <AddWorktreeDialog
-                projectFolder={folder}
-                onClose={() => setShowAddWorktree(false)}
-              />
+              <AddWorktreeDialog projectFolder={folder} onClose={() => setShowAddWorktree(false)} />
             </div>,
             document.body
           )}
@@ -551,9 +567,7 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
                         key={tab.id}
                         tab={tab}
                         colorIndex={getAgentColorIndex(tab.id, tabs)}
-                        isActive={
-                          tab.id === activeTabId && contentView.type === 'terminal'
-                        }
+                        isActive={tab.id === activeTabId && contentView.type === 'terminal'}
                         onSelect={handleSelectTab}
                         onClose={requestCloseTab}
                       />
@@ -587,9 +601,7 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
                   group={group}
                   tabs={tabs}
                   projectFolder={folder}
-                  activeTabId={
-                    contentView.type === 'terminal' ? activeTabId : null
-                  }
+                  activeTabId={contentView.type === 'terminal' ? activeTabId : null}
                   onSelectTab={handleSelectTab}
                   onCloseTab={requestCloseTab}
                 />

@@ -27,6 +27,7 @@ export function useAllProjectsAgentStatus(): Map<string, ProjectAgentStatus> {
     // Group all tabs by project folder
     const tabsByProject = new Map<string, typeof tabs>()
     for (const tab of tabs) {
+      if (tab.kind !== 'agent') continue
       const existing = tabsByProject.get(tab.projectFolder)
       if (existing) {
         existing.push(tab)

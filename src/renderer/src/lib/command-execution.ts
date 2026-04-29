@@ -27,18 +27,22 @@ export async function executeSavedCommand(commandOrId: SavedCommand | string, fo
     return false
   }
 
-  const termStore = useTerminalStore.getState()
-  const groupId = termStore.findOrCreateGroup(command.name, folder)
-
   let firstTabId: string | null = null
   for (const entry of command.commands) {
     const tabName = entry.label || entry.command
-    const tabId = await termStore.createTabInGroup(folder, groupId, tabName, entry.command, worktreePath)
+    const tabId = await useTerminalStore.getState().createTab({
+      cwd: folder,
+      name: tabName,
+      command: entry.command,
+      kind: 'command',
+      worktreePath,
+      launchMode: worktreePath ? 'worktree' : 'direct'
+    })
     if (!firstTabId) firstTabId = tabId
   }
 
   if (firstTabId) {
-    termStore.setActiveTab(firstTabId)
+    useTerminalStore.getState().setActiveTab(firstTabId)
   }
   await useAppStore.getState().showTerminal(folder)
   return true

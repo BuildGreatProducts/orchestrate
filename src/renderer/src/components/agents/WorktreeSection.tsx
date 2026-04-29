@@ -8,6 +8,7 @@ import { useAppStore } from '@renderer/stores/app'
 import { buildAgentCommand } from '@renderer/lib/agent-command-builder'
 import { executeSavedCommand } from '@renderer/lib/command-execution'
 import { toast } from '@renderer/stores/toast'
+import { AgentIcon } from '@renderer/lib/agent-icons'
 import DraggableAgentItem from './DraggableAgentItem'
 import { getAgentColorIndex } from '@renderer/lib/agent-colors'
 import type { WorktreeInfo, SavedCommand } from '@shared/types'
@@ -39,7 +40,8 @@ export default function WorktreeSection({
   const showTerminal = useAppStore((s) => s.showTerminal)
   const contentView = useAppStore((s) => s.contentView)
 
-  const isActive = contentView.type === 'worktree-detail' && contentView.worktreePath === worktree.path
+  const isActive =
+    contentView.type === 'worktree-detail' && contentView.worktreePath === worktree.path
 
   const allAgents = useAgentsStore((s) => s.agents)
   const enabledAgents = useMemo(() => allAgents.filter((a) => a.enabled), [allAgents])
@@ -58,8 +60,10 @@ export default function WorktreeSection({
     if (!menuOpen) return
     const handleClick = (e: MouseEvent): void => {
       if (
-        menuRef.current && !menuRef.current.contains(e.target as Node) &&
-        addBtnRef.current && !addBtnRef.current.contains(e.target as Node)
+        menuRef.current &&
+        !menuRef.current.contains(e.target as Node) &&
+        addBtnRef.current &&
+        !addBtnRef.current.contains(e.target as Node)
       ) {
         setMenuOpen(false)
       }
@@ -69,7 +73,14 @@ export default function WorktreeSection({
   }, [menuOpen])
 
   const openAgentMenu = (): void => {
-    window.orchestrate.listCommands(projectFolder).then(setSavedCommands).catch(() => {})
+    window.orchestrate
+      .listCommands(projectFolder)
+      .then(setSavedCommands)
+      .catch((err) => {
+        console.error('[Worktree] Failed to load saved commands:', err)
+        toast.error('Failed to load saved commands')
+        setSavedCommands([])
+      })
     if (addBtnRef.current) {
       const rect = addBtnRef.current.getBoundingClientRect()
       setMenuStyle({ position: 'fixed', top: rect.bottom + 4, left: rect.left, zIndex: 9999 })
@@ -86,8 +97,19 @@ export default function WorktreeSection({
         if (!agentConfig) return
         const mcpConfigPath = await window.orchestrate.getMcpConfigPath().catch(() => null)
         const codexMcpFlags = await window.orchestrate.getCodexMcpFlags().catch(() => null)
-        const cmd = buildAgentCommand({ agent: agentConfig, prompt: '', mcpConfigPath, codexMcpFlags })
-        tabId = await createTab(projectFolder, agentConfig.displayName, cmd, undefined, worktree.path)
+        const cmd = buildAgentCommand({
+          agent: agentConfig,
+          prompt: '',
+          mcpConfigPath,
+          codexMcpFlags
+        })
+        tabId = await createTab(
+          projectFolder,
+          agentConfig.displayName,
+          cmd,
+          undefined,
+          worktree.path
+        )
       } else {
         tabId = await createTab(projectFolder, undefined, undefined, undefined, worktree.path)
       }
@@ -117,7 +139,9 @@ export default function WorktreeSection({
         try {
           await removeWorktree(projectFolder, worktree.path, true)
         } catch (forceErr) {
-          toast.error(`Failed to remove worktree: ${forceErr instanceof Error ? forceErr.message : String(forceErr)}`)
+          toast.error(
+            `Failed to remove worktree: ${forceErr instanceof Error ? forceErr.message : String(forceErr)}`
+          )
           setConfirmRemove(false)
           return
         }
@@ -141,9 +165,11 @@ export default function WorktreeSection({
   return (
     <div className="mt-1">
       {/* Worktree header */}
-      <div className={`group/wt flex items-center gap-1 rounded-md px-2.5 py-1.5 ${
-        isActive ? 'bg-zinc-800' : 'hover:bg-zinc-800/50'
-      }`}>
+      <div
+        className={`group/wt flex items-center gap-1 rounded-md px-2.5 py-1.5 ${
+          isActive ? 'bg-zinc-800' : 'hover:bg-zinc-800/50'
+        }`}
+      >
         <GitBranch size={13} className="flex-shrink-0 text-emerald-500" />
 
         <button
@@ -202,21 +228,24 @@ export default function WorktreeSection({
             <div
               ref={menuRef}
               style={menuStyle}
-              className="w-44 overflow-hidden rounded-md border border-zinc-700 bg-zinc-800 py-1 shadow-xl"
+              className="w-44 overflow-hidden rounded-md bg-zinc-800 py-1 shadow-xl"
             >
               {enabledAgents.map((agent) => (
                 <button
                   key={agent.id}
                   onClick={() => handleNewAgent(agent.id)}
-                  className="flex w-full items-center px-3 py-1.5 text-left text-sm text-zinc-300 hover:bg-zinc-700"
+                  className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-sm text-zinc-300 hover:bg-zinc-700"
                 >
-                  {agent.displayName}
+                  <AgentIcon agentId={agent.id} className="h-3.5 w-3.5" />
+                  <span className="min-w-0 truncate">{agent.displayName}</span>
                 </button>
               ))}
               {savedCommands.length > 0 && (
                 <>
                   <div className="my-1 border-t border-zinc-700" />
-                  <div className="px-3 py-1 text-[11px] font-medium text-zinc-500">Saved Commands</div>
+                  <div className="px-3 py-1 text-[11px] font-medium text-zinc-500">
+                    Saved Commands
+                  </div>
                   {savedCommands.map((cmd) => (
                     <button
                       key={cmd.id}
@@ -245,12 +274,21 @@ export default function WorktreeSection({
       {/* Confirm remove banner */}
       {confirmRemove && (
         <div className="mx-1.5 mb-1 flex items-center justify-between rounded bg-red-950/40 px-2 py-1.5 text-xs text-red-300">
-          <span>{runningAgents.length} running agent{runningAgents.length > 1 ? 's' : ''} will be terminated</span>
+          <span>
+            {runningAgents.length} running agent{runningAgents.length > 1 ? 's' : ''} will be
+            terminated
+          </span>
           <div className="flex gap-1">
-            <button onClick={handleRemove} className="rounded bg-red-700 px-2 py-0.5 text-white hover:bg-red-600">
+            <button
+              onClick={handleRemove}
+              className="rounded bg-red-700 px-2 py-0.5 text-white hover:bg-red-600"
+            >
               Remove
             </button>
-            <button onClick={() => setConfirmRemove(false)} className="rounded bg-zinc-700 px-2 py-0.5 hover:bg-zinc-600">
+            <button
+              onClick={() => setConfirmRemove(false)}
+              className="rounded bg-zinc-700 px-2 py-0.5 hover:bg-zinc-600"
+            >
               Cancel
             </button>
           </div>

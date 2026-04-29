@@ -19,7 +19,12 @@ const stubs: StubDef[] = [
   { channel: 'terminal:close', returns: undefined },
 
   // Tasks
-  { channel: 'task:loadBoard', returns: { columns: { planning: [], 'in-progress': [], review: [], done: [] }, tasks: {} } },
+  { channel: 'task:loadTasks', returns: { version: 1, order: [], tasks: {} } },
+  { channel: 'task:saveTasks', returns: undefined },
+  {
+    channel: 'task:loadBoard',
+    returns: { columns: { planning: [], 'in-progress': [], review: [], done: [] }, tasks: {} }
+  },
   { channel: 'task:saveBoard', returns: undefined },
   { channel: 'task:readMarkdown', returns: '' },
   { channel: 'task:writeMarkdown', returns: undefined },
@@ -55,6 +60,7 @@ const stubs: StubDef[] = [
   { channel: 'browser:setBounds', returns: undefined },
   { channel: 'browser:show', returns: undefined },
   { channel: 'browser:hideAll', returns: undefined },
+  { channel: 'browser:capture', returns: null },
   { channel: 'browser:closeAll', returns: undefined },
   { channel: 'browser:toggleDevTools', returns: undefined },
 

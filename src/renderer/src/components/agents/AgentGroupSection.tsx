@@ -9,6 +9,7 @@ import { useAppStore } from '@renderer/stores/app'
 import { buildAgentCommand } from '@renderer/lib/agent-command-builder'
 import { executeSavedCommand } from '@renderer/lib/command-execution'
 import { toast } from '@renderer/stores/toast'
+import { AgentIcon } from '@renderer/lib/agent-icons'
 import DraggableAgentItem from './DraggableAgentItem'
 import { getAgentColorIndex } from '@renderer/lib/agent-colors'
 import type { SavedCommand } from '@shared/types'
@@ -65,8 +66,10 @@ export default function AgentGroupSection({
     if (!menuOpen) return
     const handleClick = (e: MouseEvent): void => {
       if (
-        menuRef.current && !menuRef.current.contains(e.target as Node) &&
-        addBtnRef.current && !addBtnRef.current.contains(e.target as Node)
+        menuRef.current &&
+        !menuRef.current.contains(e.target as Node) &&
+        addBtnRef.current &&
+        !addBtnRef.current.contains(e.target as Node)
       ) {
         setMenuOpen(false)
       }
@@ -84,7 +87,10 @@ export default function AgentGroupSection({
   }
 
   const openAgentMenu = (): void => {
-    window.orchestrate.listCommands(projectFolder).then(setSavedCommands).catch(() => {})
+    window.orchestrate
+      .listCommands(projectFolder)
+      .then(setSavedCommands)
+      .catch(() => {})
     if (addBtnRef.current) {
       const rect = addBtnRef.current.getBoundingClientRect()
       setMenuStyle({ position: 'fixed', top: rect.bottom + 4, left: rect.left, zIndex: 9999 })
@@ -101,7 +107,12 @@ export default function AgentGroupSection({
         if (!agentConfig) return
         const mcpConfigPath = await window.orchestrate.getMcpConfigPath().catch(() => null)
         const codexMcpFlags = await window.orchestrate.getCodexMcpFlags().catch(() => null)
-        const cmd = buildAgentCommand({ agent: agentConfig, prompt: '', mcpConfigPath, codexMcpFlags })
+        const cmd = buildAgentCommand({
+          agent: agentConfig,
+          prompt: '',
+          mcpConfigPath,
+          codexMcpFlags
+        })
         tabId = await createTabInGroup(projectFolder, group.id, agentConfig.displayName, cmd)
       } else {
         tabId = await createTabInGroup(projectFolder, group.id)
@@ -145,7 +156,7 @@ export default function AgentGroupSection({
             }}
             onClick={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}
-            className="min-w-0 flex-1 rounded border border-zinc-600 bg-zinc-900 px-1.5 py-0.5 text-sm font-medium text-zinc-200 outline-none focus:border-zinc-400"
+            className="min-w-0 flex-1 rounded bg-zinc-900/70 px-1.5 py-0.5 text-sm font-medium text-zinc-200 outline-none transition-colors hover:bg-zinc-900 focus:bg-zinc-900"
           />
         ) : (
           <span
@@ -180,9 +191,7 @@ export default function AgentGroupSection({
 
         <span
           className={`flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] leading-none ${
-            groupTabs.length > 0
-              ? 'bg-zinc-700 text-zinc-300'
-              : 'bg-zinc-800 text-zinc-600'
+            groupTabs.length > 0 ? 'bg-zinc-700 text-zinc-300' : 'bg-zinc-800 text-zinc-600'
           }`}
         >
           {groupTabs.length}
@@ -219,21 +228,24 @@ export default function AgentGroupSection({
             <div
               ref={menuRef}
               style={menuStyle}
-              className="w-44 overflow-hidden rounded-md border border-zinc-700 bg-zinc-800 py-1 shadow-xl"
+              className="w-44 overflow-hidden rounded-md bg-zinc-800 py-1 shadow-xl"
             >
               {enabledAgents.map((agent) => (
                 <button
                   key={agent.id}
                   onClick={() => handleNewAgent(agent.id)}
-                  className="flex w-full items-center px-3 py-1.5 text-left text-sm text-zinc-300 hover:bg-zinc-700"
+                  className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-sm text-zinc-300 hover:bg-zinc-700"
                 >
-                  {agent.displayName}
+                  <span className="min-w-0 truncate">{agent.displayName}</span>
+                  <AgentIcon agentId={agent.id} className="h-3.5 w-3.5" />
                 </button>
               ))}
               {savedCommands.length > 0 && (
                 <>
                   <div className="my-1 border-t border-zinc-700" />
-                  <div className="px-3 py-1 text-[11px] font-medium text-zinc-500">Saved Commands</div>
+                  <div className="px-3 py-1 text-[11px] font-medium text-zinc-500">
+                    Saved Commands
+                  </div>
                   {savedCommands.map((cmd) => (
                     <button
                       key={cmd.id}
@@ -267,7 +279,10 @@ export default function AgentGroupSection({
             isOver ? 'bg-zinc-800/40' : ''
           }`}
         >
-          <SortableContext items={groupTabs.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+          <SortableContext
+            items={groupTabs.map((t) => t.id)}
+            strategy={verticalListSortingStrategy}
+          >
             {groupTabs.map((tab) => (
               <DraggableAgentItem
                 key={tab.id}

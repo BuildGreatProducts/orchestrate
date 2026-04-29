@@ -54,7 +54,11 @@ function SortableCommandEntry({
   }
 
   return (
-    <div ref={setNodeRef} style={style} className="rounded-lg border border-zinc-700/60 bg-zinc-800/50">
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="rounded-lg border border-zinc-700/60 bg-zinc-800/50"
+    >
       <div className="flex items-center gap-2 border-b border-zinc-700/40 px-3 py-2">
         <button
           {...attributes}
@@ -83,17 +87,19 @@ function SortableCommandEntry({
             value={entry.command}
             onChange={(e) => onChangeCommand(entry._id, e.target.value)}
             placeholder="e.g., npm run dev"
-            className="w-full rounded border border-zinc-700 bg-zinc-900/50 px-2 py-1 font-mono text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-zinc-500 focus:outline-none"
+            className="w-full rounded bg-zinc-800/70 px-2 py-1 font-mono text-sm text-zinc-200 outline-none transition-colors placeholder:text-zinc-600 hover:bg-zinc-800 focus:bg-zinc-800 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900"
           />
         </div>
         <div>
-          <label className="mb-1 block text-[11px] text-zinc-500">Label <span className="text-zinc-600">(optional)</span></label>
+          <label className="mb-1 block text-[11px] text-zinc-500">
+            Label <span className="text-zinc-600">(optional)</span>
+          </label>
           <input
             type="text"
             value={entry.label ?? ''}
             onChange={(e) => onChangeLabel(entry._id, e.target.value)}
             placeholder="e.g., Frontend server"
-            className="w-full rounded border border-zinc-700/50 bg-transparent px-2 py-1 text-sm text-zinc-300 placeholder:text-zinc-600 focus:border-zinc-500 focus:outline-none"
+            className="w-full rounded bg-zinc-800/50 px-2 py-1 text-sm text-zinc-300 outline-none transition-colors placeholder:text-zinc-600 hover:bg-zinc-800 focus:bg-zinc-800 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900"
           />
         </div>
       </div>
@@ -121,8 +127,9 @@ export default function CommandDetailPanel(): React.JSX.Element | null {
 
   const isEdit = !!editingCommand?.id
   const commandId = editingCommand?.id ?? null
-  const existingCommand = commandId ? commands.find((c) => c.id === commandId) ?? null : null
+  const existingCommand = commandId ? (commands.find((c) => c.id === commandId) ?? null) : null
 
+  /* eslint-disable react-hooks/set-state-in-effect -- Syncing the draft form from the selected command is intentional here. */
   useEffect(() => {
     if (!editingCommand) return
     setName(editingCommand.name ?? '')
@@ -135,6 +142,7 @@ export default function CommandDetailPanel(): React.JSX.Element | null {
     setMenuOpen(false)
     setConfirmingDelete(false)
   }, [editingCommand])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Close menu on outside click
   useEffect(() => {
@@ -217,7 +225,16 @@ export default function CommandDetailPanel(): React.JSX.Element | null {
       const msg = err instanceof Error ? err.message : String(err)
       toast.error(`Failed to save command: ${msg}`)
     }
-  }, [name, scope, entries, isEdit, existingCommand, createCommand, updateCommand, setEditingCommand])
+  }, [
+    name,
+    scope,
+    entries,
+    isEdit,
+    existingCommand,
+    createCommand,
+    updateCommand,
+    setEditingCommand
+  ])
 
   const handleDelete = useCallback(() => {
     setMenuOpen(false)
@@ -265,7 +282,10 @@ export default function CommandDetailPanel(): React.JSX.Element | null {
               </button>
 
               {menuOpen && (
-                <div role="menu" className="absolute right-0 top-full z-50 mt-1 w-32 overflow-hidden rounded-md border border-zinc-700 bg-zinc-800 py-1 shadow-xl">
+                <div
+                  role="menu"
+                  className="absolute right-0 top-full z-50 mt-1 w-32 overflow-hidden rounded-md bg-zinc-800 py-1 shadow-xl"
+                >
                   <button
                     role="menuitem"
                     onClick={handleDelete}
@@ -327,9 +347,7 @@ export default function CommandDetailPanel(): React.JSX.Element | null {
             </button>
           </div>
           <p className="mt-1 text-[11px] text-zinc-600">
-            {scope === 'global'
-              ? 'Available in all projects'
-              : 'Only available in this project'}
+            {scope === 'global' ? 'Available in all projects' : 'Only available in this project'}
           </p>
         </div>
 

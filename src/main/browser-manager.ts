@@ -1,5 +1,5 @@
-import { BrowserWindow, WebContentsView } from 'electron'
-import type { BrowserTabInfo, BrowserBounds } from '@shared/types'
+import { BrowserWindow, WebContentsView, type NativeImage } from 'electron'
+import type { BrowserTabInfo, BrowserBounds, BrowserSnapshot } from '@shared/types'
 
 interface ManagedBrowserTab {
   id: string
@@ -38,6 +38,34 @@ export class BrowserViewManager {
     const tab = this.tabs.get(id)
     if (!tab) return
     this.onTabUpdated(this.buildTabInfo(id, tab.view))
+  }
+
+  private disposeTab(id: string, notifyClosed: boolean): void {
+    const tab = this.tabs.get(id)
+    if (!tab) return
+
+    const win = this.getWindow()
+    if (win && !win.isDestroyed()) {
+      try {
+        win.contentView.removeChildView(tab.view)
+      } catch {
+        // View may already be removed
+      }
+    }
+
+    this.tabs.delete(id)
+    const webContents = tab.view?.webContents
+    if (webContents && !webContents.isDestroyed()) {
+      try {
+        webContents.close()
+      } catch {
+        // Renderer may already be gone
+      }
+    }
+
+    if (notifyClosed) {
+      this.onTabClosed(id)
+    }
   }
 
   create(id: string, url: string): void {
@@ -84,9 +112,7 @@ export class BrowserViewManager {
       const detail = isConnectionRefused
         ? `<strong style="color:#e4e4e7">${validatedURL}</strong> refused to connect.`
         : `${errorDescription} (${errorCode})`
-      const hint = isConnectionRefused
-        ? 'Check that the dev server is running and try again.'
-        : ''
+      const hint = isConnectionRefused ? 'Check that the dev server is running and try again.' : ''
 
       const escapedUrl = validatedURL.replace(/'/g, "\\'")
       const html = `<!DOCTYPE html>
@@ -105,8 +131,7 @@ export class BrowserViewManager {
     })
 
     wc.on('render-process-gone', () => {
-      this.onTabClosed(id)
-      this.tabs.delete(id)
+      this.disposeTab(id, true)
     })
 
     win.contentView.addChildView(view)
@@ -114,20 +139,7 @@ export class BrowserViewManager {
   }
 
   close(id: string): void {
-    const tab = this.tabs.get(id)
-    if (!tab) return
-
-    const win = this.getWindow()
-    if (win && !win.isDestroyed()) {
-      try {
-        win.contentView.removeChildView(tab.view)
-      } catch {
-        // View may already be removed
-      }
-    }
-
-    tab.view.webContents.close()
-    this.tabs.delete(id)
+    this.disposeTab(id, true)
   }
 
   setBounds(id: string, bounds: BrowserBounds): void {
@@ -170,6 +182,24 @@ export class BrowserViewManager {
       } catch {
         // Already removed
       }
+    }
+  }
+
+  async capture(id: string): Promise<BrowserSnapshot | null> {
+    const tab = this.tabs.get(id)
+    if (!tab?.bounds || tab.bounds.width <= 0 || tab.bounds.height <= 0) return null
+
+    let image: NativeImage
+    try {
+      image = await tab.view.webContents.capturePage()
+    } catch {
+      return null
+    }
+    if (image.isEmpty()) return null
+
+    return {
+      dataUrl: image.toDataURL(),
+      bounds: tab.bounds
     }
   }
 
@@ -218,17 +248,8 @@ export class BrowserViewManager {
   }
 
   closeAll(): void {
-    const win = this.getWindow()
-    for (const tab of this.tabs.values()) {
-      if (win && !win.isDestroyed()) {
-        try {
-          win.contentView.removeChildView(tab.view)
-        } catch {
-          // Already removed
-        }
-      }
-      tab.view.webContents.close()
+    for (const id of Array.from(this.tabs.keys())) {
+      this.disposeTab(id, true)
     }
-    this.tabs.clear()
   }
 }

@@ -108,7 +108,7 @@ function AddSkillMenu({
             if (e.metaKey || e.ctrlKey) e.stopPropagation()
           }}
           placeholder="https://github.com/user/skill.git"
-          className="min-w-0 flex-1 rounded border border-zinc-600 bg-zinc-800 px-2 py-1 text-xs text-zinc-200 placeholder-zinc-500 outline-none focus:border-zinc-500"
+          className="min-w-0 flex-1 rounded bg-zinc-800/70 px-2 py-1 text-xs text-zinc-200 outline-none transition-colors placeholder:text-zinc-500 hover:bg-zinc-800 focus:bg-zinc-800"
           autoFocus
         />
         <button
@@ -129,7 +129,7 @@ function AddSkillMenu({
   }
 
   return (
-    <div ref={menuRef} className="mt-1 rounded border border-zinc-700 bg-zinc-800 py-1 shadow-lg">
+    <div ref={menuRef} className="mt-1 rounded bg-zinc-800 py-1 shadow-lg">
       <button
         onClick={async () => {
           await addFromFolder(target)
@@ -243,45 +243,65 @@ export default function SkillsSettings(): React.JSX.Element {
   const projectSkills = skills.filter((s) => s.source === 'project')
 
   return (
-    <div className="flex flex-1 items-start justify-center overflow-y-auto p-6">
-      <div className="w-full max-w-md space-y-6">
-        <h2 className="text-lg font-semibold text-zinc-200">Agent Skills</h2>
-        <p className="text-sm text-zinc-400">
-          Skills extend the AI agent with specialized knowledge and workflows. Each skill is a
-          folder containing a SKILL.md file.
-        </p>
-
-        {error && (
-          <p className="rounded border border-red-900 bg-red-950 px-3 py-2 text-xs text-red-400">
-            {error}
+    <div className="flex h-full w-full flex-1 overflow-y-auto">
+      <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col justify-center px-6 py-8">
+        <div className="text-center">
+          <h2 className="font-ovo text-6xl tracking-tight text-zinc-200">Skills</h2>
+          <p className="mx-auto mt-3 max-w-md text-sm text-zinc-500">
+            Skills extend the AI agent with specialized knowledge and workflows. Each skill is a
+            folder containing a SKILL.md file.
           </p>
-        )}
+        </div>
 
-        {isLoading ? (
-          <p className="text-sm text-zinc-500">Loading skills...</p>
-        ) : (
-          <>
-            <SkillGroup
-              title="Global skills (~/.orchestrate/skills/)"
-              skills={globalSkills}
-              target="global"
-            />
-            <SkillGroup title="Project skills (.skills/)" skills={projectSkills} target="project" />
-          </>
-        )}
+        <div className="mx-auto mt-8 w-full max-w-md space-y-6 text-left">
+          {error && (
+            <p
+              role="alert"
+              aria-live="assertive"
+              aria-atomic="true"
+              className="rounded border border-red-900 bg-red-950 px-3 py-2 text-xs text-red-400"
+            >
+              {error}
+            </p>
+          )}
 
-        <p className="text-xs text-zinc-500">
-          Learn more about the{' '}
-          <a
-            href="https://agentskills.io"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-zinc-400 underline hover:text-zinc-300"
-          >
-            Agent Skills
-          </a>{' '}
-          open standard.
-        </p>
+          {isLoading ? (
+            <p
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+              className="text-sm text-zinc-500"
+            >
+              Loading skills...
+            </p>
+          ) : (
+            <>
+              <SkillGroup
+                title="Global skills (~/.orchestrate/skills/)"
+                skills={globalSkills}
+                target="global"
+              />
+              <SkillGroup
+                title="Project skills (.skills/)"
+                skills={projectSkills}
+                target="project"
+              />
+            </>
+          )}
+
+          <p className="text-xs text-zinc-500">
+            Learn more about the{' '}
+            <a
+              href="https://agentskills.io"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-zinc-400 underline hover:text-zinc-300"
+            >
+              Agent Skills
+            </a>{' '}
+            open standard.
+          </p>
+        </div>
       </div>
     </div>
   )

@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import TopBar from '@renderer/components/layout/TopBar'
-import LeftSidebar from '@renderer/components/layout/LeftSidebar'
+import WorkspaceShell from '@renderer/components/layout/WorkspaceShell'
 import ToastContainer from '@renderer/components/ui/ToastContainer'
 import { useAppStore } from '@renderer/stores/app'
 import { useFilesStore } from '@renderer/stores/files'
@@ -8,19 +8,17 @@ import { useTerminalStore } from '@renderer/stores/terminal'
 import { useTasksStore } from '@renderer/stores/tasks'
 import { ensureGlobalIpcListeners } from '@renderer/stores/ipc-listeners'
 import { useAgentsStore } from '@renderer/stores/agents'
-import type { ProjectDetailTabId } from '@shared/types'
 import OrchestrateTab from '@renderer/components/orchestrate/OrchestrateTab'
-import SkillsSettings from '@renderer/components/settings/SkillsSettings'
-import BrowserTab from '@renderer/components/browser/BrowserTab'
 import SettingsPage from '@renderer/components/settings/SettingsPage'
-import TerminalContentArea from '@renderer/components/agents/TerminalContentArea'
-import ProjectDetailPage from '@renderer/components/project/ProjectDetailPage'
-import WorktreeDetailPage from '@renderer/components/worktree/WorktreeDetailPage'
+import ConfirmDialog from '@renderer/components/history/ConfirmDialog'
+import { PROJECT_DETAIL_TAB_IDS } from '@renderer/lib/project-detail-tabs'
+import { cn } from '@renderer/lib/utils'
 
 function App(): React.JSX.Element {
   const contentView = useAppStore((s) => s.contentView)
   const loadLastFolder = useAppStore((s) => s.loadLastFolder)
   const loadProjects = useAppStore((s) => s.loadProjects)
+  const modalLayerOpen = useAppStore((s) => s.modalLayerDepth > 0)
 
   useEffect(() => {
     loadLastFolder()
@@ -35,15 +33,14 @@ function App(): React.JSX.Element {
       const mod = e.metaKey || e.ctrlKey
       if (!mod) return
 
-      // Cmd/Ctrl+1–4: Switch project detail tabs (when viewing project detail)
-      const detailTabs: ProjectDetailTabId[] = ['tasks', 'commands', 'files', 'history']
-      if (e.key >= '1' && e.key <= '4') {
+      // Cmd/Ctrl+1–5: Switch project detail tabs (when viewing project detail)
+      if (e.key >= '1' && e.key <= '6') {
         const cv = useAppStore.getState().contentView
         if (cv.type === 'project-detail') {
           e.preventDefault()
           const idx = parseInt(e.key, 10) - 1
-          if (detailTabs[idx]) {
-            useAppStore.getState().setProjectDetailTab(detailTabs[idx])
+          if (PROJECT_DETAIL_TAB_IDS[idx]) {
+            useAppStore.getState().setProjectDetailTab(PROJECT_DETAIL_TAB_IDS[idx])
           }
         }
         return
@@ -75,7 +72,7 @@ function App(): React.JSX.Element {
         if (folder) {
           useTerminalStore
             .getState()
-            .createTab(folder)
+            .createTab({ cwd: folder, kind: 'terminal' })
             .then(() => {
               useAppStore.getState().showTerminal()
             })
@@ -91,13 +88,8 @@ function App(): React.JSX.Element {
         e.preventDefault()
         const folder = useAppStore.getState().currentFolder
         if (folder) {
-          useAppStore
-            .getState()
-            .showProjectDetail(folder, 'tasks')
-            .then(() => useTasksStore.getState().createTask('planning', 'New task'))
-            .catch((err) => {
-              console.error('[Shortcut] Failed to create task:', err)
-            })
+          useAppStore.getState().setTasksSidebarOpen(true)
+          useTasksStore.getState().openComposer('manual')
         }
         return
       }
@@ -108,93 +100,93 @@ function App(): React.JSX.Element {
   }, [])
 
   return (
-    <div className="flex h-screen flex-col bg-zinc-900 text-white">
-      <TopBar />
-      <div className="flex flex-1 overflow-hidden">
-        <LeftSidebar />
-        <main className="relative mb-2.5 mr-2.5 ml-px mt-px flex-1 overflow-hidden rounded-lg bg-black ring-1 ring-zinc-800">
-          {/* Orchestrate — global feed */}
-          <div
-            className={
-              contentView.type === 'orchestrate'
-                ? 'flex h-full w-full animate-in fade-in duration-150'
-                : 'hidden'
-            }
-          >
-            <OrchestrateTab />
-          </div>
+    <div className="h-screen overflow-hidden bg-zinc-900 text-white">
+      <div
+        className={cn(
+          'flex h-full flex-col transition-[filter,transform] duration-150 ease-out motion-reduce:transition-none',
+          modalLayerOpen && 'scale-[0.997] blur-[2px] brightness-90'
+        )}
+      >
+        <TopBar />
+        <div className="min-h-0 flex-1 overflow-hidden p-3 pt-0">
+          <div className="relative h-full overflow-hidden">
+            <div
+              className={
+                contentView.type === 'orchestrate'
+                  ? 'flex h-full w-full animate-in fade-in duration-150'
+                  : 'hidden'
+              }
+            >
+              <OrchestrateTab />
+            </div>
 
-          {/* Project detail — tabbed Files/Tasks/History */}
-          <div
-            className={
-              contentView.type === 'project-detail'
-                ? 'flex h-full w-full animate-in fade-in duration-150'
-                : 'hidden'
-            }
-          >
-            <ProjectDetailPage />
-          </div>
+            <div
+              className={
+                contentView.type === 'project-detail' || contentView.type === 'worktree-detail'
+                  ? 'flex h-full w-full animate-in fade-in duration-150'
+                  : 'hidden'
+              }
+            >
+              <WorkspaceShell />
+            </div>
 
-          {/* Worktree detail — branch diff & merge */}
-          <div
-            className={
-              contentView.type === 'worktree-detail'
-                ? 'flex h-full w-full animate-in fade-in duration-150'
-                : 'hidden'
-            }
-          >
-            {contentView.type === 'worktree-detail' && (
-              <WorktreeDetailPage worktreePath={contentView.worktreePath} />
-            )}
+            <div
+              className={
+                contentView.type === 'page' && contentView.pageId === 'settings'
+                  ? 'flex h-full w-full animate-in fade-in duration-150'
+                  : 'hidden'
+              }
+            >
+              <SettingsPage />
+            </div>
           </div>
-
-          {/* Terminal view */}
-          <div
-            className={
-              contentView.type === 'terminal'
-                ? 'flex h-full w-full animate-in fade-in duration-150'
-                : 'hidden'
-            }
-          >
-            <TerminalContentArea />
-          </div>
-
-          {/* Settings */}
-          <div
-            className={
-              contentView.type === 'page' && contentView.pageId === 'settings'
-                ? 'flex h-full w-full animate-in fade-in duration-150'
-                : 'hidden'
-            }
-          >
-            <SettingsPage />
-          </div>
-
-          {/* Skills */}
-          <div
-            className={
-              contentView.type === 'page' && contentView.pageId === 'skills'
-                ? 'flex h-full w-full animate-in fade-in duration-150'
-                : 'hidden'
-            }
-          >
-            <SkillsSettings />
-          </div>
-
-          {/* Browser */}
-          <div
-            className={
-              contentView.type === 'page' && contentView.pageId === 'browser'
-                ? 'flex h-full w-full animate-in fade-in duration-150'
-                : 'hidden'
-            }
-          >
-            <BrowserTab />
-          </div>
-        </main>
+        </div>
+        <BrowserModalSnapshot />
       </div>
       <ToastContainer />
+      <CloseTerminalDialog />
     </div>
+  )
+}
+
+function BrowserModalSnapshot(): React.JSX.Element | null {
+  const modalLayerOpen = useAppStore((s) => s.modalLayerDepth > 0)
+  const snapshot = useAppStore((s) => s.browserModalSnapshot)
+
+  if (!modalLayerOpen || !snapshot) return null
+
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none fixed z-10 overflow-hidden bg-black"
+      style={{
+        left: snapshot.bounds.x,
+        top: snapshot.bounds.y,
+        width: snapshot.bounds.width,
+        height: snapshot.bounds.height
+      }}
+    >
+      <img src={snapshot.dataUrl} alt="" draggable={false} className="h-full w-full object-fill" />
+    </div>
+  )
+}
+
+function CloseTerminalDialog(): React.JSX.Element | null {
+  const pendingCloseTabId = useTerminalStore((s) => s.pendingCloseTabId)
+  const confirmCloseTab = useTerminalStore((s) => s.confirmCloseTab)
+  const cancelCloseTab = useTerminalStore((s) => s.cancelCloseTab)
+
+  if (pendingCloseTabId === null) return null
+
+  return (
+    <ConfirmDialog
+      title="Close Terminal"
+      description="This will terminate the running terminal process. Are you sure you want to close it?"
+      confirmLabel="Close"
+      variant="danger"
+      onConfirm={confirmCloseTab}
+      onCancel={cancelCloseTab}
+    />
   )
 }
 

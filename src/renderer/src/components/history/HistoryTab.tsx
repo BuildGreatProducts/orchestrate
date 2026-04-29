@@ -52,7 +52,7 @@ export default function HistoryTab(): React.JSX.Element {
   // No folder selected
   if (!currentFolder) {
     return (
-      <div className="flex flex-1 items-center justify-center p-4 text-sm text-zinc-500">
+      <div className="flex h-full w-full flex-1 items-center justify-center p-4 text-sm text-zinc-500">
         Select a folder to view history
       </div>
     )
@@ -61,7 +61,7 @@ export default function HistoryTab(): React.JSX.Element {
   // Still checking
   if (isGitRepo === null) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-2 p-4 text-sm text-zinc-500">
+      <div className="flex h-full w-full flex-1 flex-col items-center justify-center gap-2 p-4 text-sm text-zinc-500">
         <Spinner className="text-zinc-500" />
         <span>Checking git status...</span>
       </div>
@@ -76,7 +76,7 @@ export default function HistoryTab(): React.JSX.Element {
   // Loading initial data
   if (isLoading && !hasLoaded) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-2 p-4 text-sm text-zinc-500">
+      <div className="flex h-full w-full flex-1 flex-col items-center justify-center gap-2 p-4 text-sm text-zinc-500">
         <Spinner className="text-zinc-500" />
         <span>Loading history...</span>
       </div>
@@ -84,7 +84,7 @@ export default function HistoryTab(): React.JSX.Element {
   }
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
+    <div className="flex h-full min-w-0 w-full flex-1 flex-col overflow-hidden">
       {diffModal ? <DiffViewer /> : <BranchGraphView />}
 
       {confirmRevert !== null && (

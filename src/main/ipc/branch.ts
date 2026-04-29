@@ -24,6 +24,8 @@ export function registerBranchHandlers(
   _getWindow: () => BrowserWindow | null,
   _getCurrentFolder: () => string | null
 ): void {
+  void _getWindow
+  void _getCurrentFolder
   markChannelRegistered('branch:list')
   markChannelRegistered('branch:checkout')
   markChannelRegistered('branch:create')

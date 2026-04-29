@@ -9,16 +9,23 @@ function resolveShell(): string {
 
 export class PtyManager {
   private sessions = new Map<string, IPty>()
+  private intentionallyClosed = new WeakSet<IPty>()
 
   constructor(
     private onOutput: (id: string, data: string) => void,
     private onExit: (id: string, exitCode: number) => void
   ) {}
 
-  create(id: string, cwd: string, command?: string): void {
+  create(
+    id: string,
+    cwd: string,
+    command?: string,
+    dimensions?: { cols: number; rows: number }
+  ): void {
     // Clean up any existing session with the same id
     if (this.sessions.has(id)) {
       const old = this.sessions.get(id)!
+      this.intentionallyClosed.add(old)
       old.kill()
       this.sessions.delete(id)
     }
@@ -28,8 +35,8 @@ export class PtyManager {
 
     const ptyProcess = pty.spawn(shell, args, {
       name: 'xterm-256color',
-      cols: 80,
-      rows: 24,
+      cols: dimensions?.cols && dimensions.cols > 0 ? dimensions.cols : 80,
+      rows: dimensions?.rows && dimensions.rows > 0 ? dimensions.rows : 24,
       cwd,
       env: process.env as Record<string, string>
     })
@@ -41,7 +48,9 @@ export class PtyManager {
     })
 
     ptyProcess.onExit(({ exitCode }) => {
+      if (this.sessions.get(id) !== ptyProcess) return
       this.sessions.delete(id)
+      if (this.intentionallyClosed.has(ptyProcess)) return
       this.onExit(id, exitCode)
     })
   }
@@ -63,12 +72,14 @@ export class PtyManager {
   close(id: string): void {
     const session = this.sessions.get(id)
     if (!session) return
+    this.intentionallyClosed.add(session)
     session.kill()
     this.sessions.delete(id)
   }
 
   closeAll(): void {
     for (const session of this.sessions.values()) {
+      this.intentionallyClosed.add(session)
       session.kill()
     }
     this.sessions.clear()

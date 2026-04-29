@@ -190,6 +190,8 @@ export class GitManager {
 
   async getBranches(): Promise<BranchInfo[]> {
     try {
+      if (!(await this.isRepo())) return []
+
       const result = await this.git.branch(['-a', '-v', '--no-abbrev'])
       const branches: BranchInfo[] = []
       for (const [name, info] of Object.entries(result.branches)) {

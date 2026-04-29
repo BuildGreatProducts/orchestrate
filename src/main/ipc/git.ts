@@ -1,5 +1,5 @@
 import { ipcMain, BrowserWindow } from 'electron'
-import { normalize } from 'path'
+import { isAbsolute, normalize } from 'path'
 import { markChannelRegistered } from './stubs'
 import { GitManager } from '../git-manager'
 
@@ -70,7 +70,12 @@ export function registerGitHandlers(
     return gitManager
   }
 
-  ipcMain.handle('git:isRepo', async () => {
+  ipcMain.handle('git:isRepo', async (_, projectFolder?: string) => {
+    if (typeof projectFolder === 'string' && projectFolder.trim()) {
+      const normalizedFolder = normalize(projectFolder.trim())
+      if (!isAbsolute(normalizedFolder)) return false
+      return new GitManager(normalizedFolder).isRepo()
+    }
     return getManager().isRepo()
   })
 
@@ -120,9 +125,8 @@ export function registerGitHandlers(
   })
 
   ipcMain.handle('git:commitGraph', async (_, limit?: number, branch?: string) => {
-    const safeLimit = typeof limit === 'number' && limit > 0
-      ? Math.min(limit, MAX_COMMIT_LIMIT)
-      : 100
+    const safeLimit =
+      typeof limit === 'number' && limit > 0 ? Math.min(limit, MAX_COMMIT_LIMIT) : 100
     let safeBranch: string | undefined
     if (typeof branch === 'string' && branch.length > 0) {
       if (branch.length > MAX_BRANCH_LEN || !SAFE_BRANCH_RE.test(branch)) {

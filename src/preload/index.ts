@@ -4,7 +4,9 @@ import type {
   FileChangeEvent,
   BrowserTabInfo,
   BrowserBounds,
+  BrowserSnapshot,
   BoardState,
+  TaskListState,
   UpdateState
 } from '@shared/types'
 
@@ -35,7 +37,8 @@ const api: OrchestrateAPI = {
   },
 
   // Terminals
-  createTerminal: (id, cwd, command?) => ipcRenderer.invoke('terminal:create', id, cwd, command),
+  createTerminal: (id, cwd, command?, dimensions?) =>
+    ipcRenderer.invoke('terminal:create', id, cwd, command, dimensions),
   writeTerminal: (id, data) => ipcRenderer.send('terminal:input', id, data),
   resizeTerminal: (id, cols, rows) => ipcRenderer.send('terminal:resize', id, cols, rows),
   closeTerminal: (id) => ipcRenderer.invoke('terminal:close', id),
@@ -60,18 +63,26 @@ const api: OrchestrateAPI = {
   },
 
   // Tasks
-  loadBoard: () => ipcRenderer.invoke('task:loadBoard'),
-  saveBoard: (board: BoardState) => ipcRenderer.invoke('task:saveBoard', board),
-  readTaskMarkdown: (id: string) => ipcRenderer.invoke('task:readMarkdown', id),
-  writeTaskMarkdown: (id: string, content: string) => ipcRenderer.invoke('task:writeMarkdown', id, content),
+  loadTasks: () => ipcRenderer.invoke('task:loadTasks'),
+  saveTasks: (tasks: TaskListState) => ipcRenderer.invoke('task:saveTasks', tasks),
   deleteTask: (id: string) => ipcRenderer.invoke('task:delete', id),
   sendToAgent: (id: string, agent: string) => ipcRenderer.invoke('task:sendToAgent', id, agent),
 
+  // Legacy task aliases
+  loadBoard: () => ipcRenderer.invoke('task:loadBoard'),
+  saveBoard: (board: BoardState) => ipcRenderer.invoke('task:saveBoard', board),
+  readTaskMarkdown: (id: string) => ipcRenderer.invoke('task:readMarkdown', id),
+  writeTaskMarkdown: (id: string, content: string) =>
+    ipcRenderer.invoke('task:writeMarkdown', id, content),
+
   // Saved Commands
   listCommands: (projectFolder?) => ipcRenderer.invoke('command:list', projectFolder),
-  loadCommand: (id, scope, projectFolder?) => ipcRenderer.invoke('command:load', id, scope, projectFolder),
-  saveCommand: (command, projectFolder?) => ipcRenderer.invoke('command:save', command, projectFolder),
-  deleteCommand: (id, scope, projectFolder?) => ipcRenderer.invoke('command:delete', id, scope, projectFolder),
+  loadCommand: (id, scope, projectFolder?) =>
+    ipcRenderer.invoke('command:load', id, scope, projectFolder),
+  saveCommand: (command, projectFolder?) =>
+    ipcRenderer.invoke('command:save', command, projectFolder),
+  deleteCommand: (id, scope, projectFolder?) =>
+    ipcRenderer.invoke('command:delete', id, scope, projectFolder),
 
   onTaskScheduleTrigger: (callback: (taskId: string) => void) => {
     const handler = (_: Electron.IpcRendererEvent, taskId: string): void => {
@@ -106,6 +117,8 @@ const api: OrchestrateAPI = {
     ipcRenderer.invoke('browser:setBounds', id, bounds),
   showBrowserTab: (id: string) => ipcRenderer.invoke('browser:show', id),
   hideAllBrowserTabs: () => ipcRenderer.invoke('browser:hideAll'),
+  captureBrowserTab: (id: string): Promise<BrowserSnapshot | null> =>
+    ipcRenderer.invoke('browser:capture', id),
   closeAllBrowserTabs: () => ipcRenderer.invoke('browser:closeAll'),
   toggleBrowserDevTools: (id: string) => ipcRenderer.invoke('browser:toggleDevTools', id),
   onBrowserTabUpdated: (callback: (tab: BrowserTabInfo) => void) => {
@@ -163,7 +176,7 @@ const api: OrchestrateAPI = {
   openSkillsFolder: (target) => ipcRenderer.invoke('skill:openFolder', target),
 
   // Git / History
-  isGitRepo: () => ipcRenderer.invoke('git:isRepo'),
+  isGitRepo: (projectFolder?) => ipcRenderer.invoke('git:isRepo', projectFolder),
   initRepo: () => ipcRenderer.invoke('git:init'),
   getHistory: (limit?) => ipcRenderer.invoke('git:history', limit),
   getStatus: () => ipcRenderer.invoke('git:status'),
@@ -178,9 +191,12 @@ const api: OrchestrateAPI = {
 
   // Branches (project-specific)
   listBranches: (projectFolder) => ipcRenderer.invoke('branch:list', projectFolder),
-  checkoutBranch: (projectFolder, branch) => ipcRenderer.invoke('branch:checkout', projectFolder, branch),
-  createBranch: (projectFolder, branch) => ipcRenderer.invoke('branch:create', projectFolder, branch),
-  deleteBranch: (projectFolder, branch, force?) => ipcRenderer.invoke('branch:delete', projectFolder, branch, force),
+  checkoutBranch: (projectFolder, branch) =>
+    ipcRenderer.invoke('branch:checkout', projectFolder, branch),
+  createBranch: (projectFolder, branch) =>
+    ipcRenderer.invoke('branch:create', projectFolder, branch),
+  deleteBranch: (projectFolder, branch, force?) =>
+    ipcRenderer.invoke('branch:delete', projectFolder, branch, force),
   getRemoteUrl: (projectFolder) => ipcRenderer.invoke('branch:remoteUrl', projectFolder),
 
   // Worktrees

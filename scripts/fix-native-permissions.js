@@ -1,6 +1,7 @@
 // node-pty ships prebuilt spawn-helper binaries, but npm may strip
 // their execute permission during extraction. Without +x, posix_spawnp
 // fails at runtime when trying to create a PTY.
+/* eslint-disable @typescript-eslint/no-require-imports */
 const fs = require('fs')
 const path = require('path')
 

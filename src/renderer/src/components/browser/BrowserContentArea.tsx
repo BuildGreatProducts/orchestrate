@@ -10,15 +10,24 @@ function boundsEqual(a: BrowserBounds | null, b: BrowserBounds): boolean {
 export default function BrowserContentArea(): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null)
   const lastBoundsRef = useRef<BrowserBounds | null>(null)
-  const activeTabId = useBrowserStore((s) => s.activeTabId)
+  const activeTab = useBrowserStore((s) => {
+    if (!s.activeTabId) return null
+    return s.tabs.find((tab) => tab.id === s.activeTabId) ?? null
+  })
+  const activeTabId = activeTab?.id ?? null
   const contentView = useAppStore((s) => s.contentView)
+  const projectDetailTab = useAppStore((s) => s.projectDetailTab)
+  const modalLayerOpen = useAppStore((s) => s.modalLayerDepth > 0)
 
   // Reset cached bounds when switching browser sub-tabs
   const prevTabIdRef = useRef(activeTabId)
-  if (prevTabIdRef.current !== activeTabId) {
-    prevTabIdRef.current = activeTabId
-    lastBoundsRef.current = null
-  }
+
+  useEffect(() => {
+    if (prevTabIdRef.current !== activeTabId) {
+      prevTabIdRef.current = activeTabId
+      lastBoundsRef.current = null
+    }
+  }, [activeTabId])
 
   const reportBounds = useCallback(() => {
     if (!containerRef.current || !activeTabId) return
@@ -37,15 +46,52 @@ export default function BrowserContentArea(): React.JSX.Element {
 
   // Show/hide views based on whether the browser tab is active and settings are closed
   useEffect(() => {
-    const shouldShow = contentView.type === 'page' && contentView.pageId === 'browser' && activeTabId
+    if (modalLayerOpen) {
+      window.orchestrate.hideAllBrowserTabs()
+      return undefined
+    }
+
+    const shouldShow =
+      contentView.type === 'project-detail' && projectDetailTab === 'browser' && activeTabId
     if (shouldShow) {
       window.orchestrate.showBrowserTab(activeTabId)
-      // Report bounds after showing, with a small delay for layout to settle
-      requestAnimationFrame(() => reportBounds())
+
+      let settleTimeoutId: number | undefined
+      let retryTimeoutId: number | undefined
+      const frameId = requestAnimationFrame(() => {
+        reportBounds()
+
+        // The first show can race the BrowserView creation path.
+        settleTimeoutId = window.setTimeout(() => {
+          window.orchestrate.showBrowserTab(activeTabId)
+          reportBounds()
+        }, 50)
+
+        retryTimeoutId = window.setTimeout(() => {
+          window.orchestrate.showBrowserTab(activeTabId)
+          reportBounds()
+        }, 150)
+      })
+
+      return () => {
+        cancelAnimationFrame(frameId)
+        if (settleTimeoutId !== undefined) window.clearTimeout(settleTimeoutId)
+        if (retryTimeoutId !== undefined) window.clearTimeout(retryTimeoutId)
+      }
     } else {
       window.orchestrate.hideAllBrowserTabs()
     }
-  }, [contentView, activeTabId, reportBounds])
+    return undefined
+  }, [
+    contentView,
+    projectDetailTab,
+    activeTabId,
+    activeTab?.url,
+    activeTab?.title,
+    activeTab?.isLoading,
+    modalLayerOpen,
+    reportBounds
+  ])
 
   // ResizeObserver to continuously report bounds
   useEffect(() => {
