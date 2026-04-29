@@ -76,7 +76,11 @@ export default function WorktreeSection({
     window.orchestrate
       .listCommands(projectFolder)
       .then(setSavedCommands)
-      .catch(() => {})
+      .catch((err) => {
+        console.error('[Worktree] Failed to load saved commands:', err)
+        toast.error('Failed to load saved commands')
+        setSavedCommands([])
+      })
     if (addBtnRef.current) {
       const rect = addBtnRef.current.getBoundingClientRect()
       setMenuStyle({ position: 'fixed', top: rect.bottom + 4, left: rect.left, zIndex: 9999 })

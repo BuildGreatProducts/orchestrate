@@ -100,6 +100,15 @@ function cronFrequency(cron: string): string {
   return cron
 }
 
+function isValidCron(cron: string): boolean {
+  try {
+    CronExpressionParser.parse(cron)
+    return true
+  } catch {
+    return false
+  }
+}
+
 function nextRunLabel(cron: string): string | null {
   try {
     const next = CronExpressionParser.parse(cron).next().toDate()
@@ -259,6 +268,7 @@ function TaskScheduleControl({
   const updateTask = useTasksStore((s) => s.updateTask)
   const [selectedPreset, setSelectedPreset] = useState(schedulePresetFor(task.schedule))
   const [customCron, setCustomCron] = useState(task.schedule?.cron || SCHEDULE_PRESETS[0].value)
+  const [cronError, setCronError] = useState<string | null>(null)
   const scheduleEnabled = task.schedule?.enabled
   const scheduleCron = task.schedule?.cron
   const selectedCron = selectedPreset === '__custom__' ? customCron : selectedPreset
@@ -269,13 +279,19 @@ function TaskScheduleControl({
       scheduleEnabled && scheduleCron ? { enabled: true, cron: scheduleCron } : undefined
     setSelectedPreset(schedulePresetFor(schedule))
     setCustomCron(scheduleCron || SCHEDULE_PRESETS[0].value)
+    setCronError(null)
   }, [scheduleCron, scheduleEnabled])
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const commitCustomCron = useCallback(() => {
     if (disabled) return
     const cron = customCron.trim() || SCHEDULE_PRESETS[0].value
+    if (!isValidCron(cron)) {
+      setCronError('Invalid cron expression')
+      return
+    }
     setCustomCron(cron)
+    setCronError(null)
     if (cron !== scheduleCron) {
       void updateTask(task.id, { schedule: { enabled: true, cron } })
     }
@@ -290,6 +306,7 @@ function TaskScheduleControl({
         options={SCHEDULE_PRESETS}
         onChange={(value) => {
           setSelectedPreset(value)
+          setCronError(null)
           if (value === '__custom__') {
             return
           }
@@ -304,7 +321,10 @@ function TaskScheduleControl({
           aria-label="Custom cron"
           value={customCron}
           disabled={disabled}
-          onChange={(event) => setCustomCron(event.target.value)}
+          onChange={(event) => {
+            setCustomCron(event.target.value)
+            setCronError(null)
+          }}
           onBlur={commitCustomCron}
           onKeyDown={(event) => {
             if (event.key === 'Enter') {
@@ -320,6 +340,7 @@ function TaskScheduleControl({
           placeholder="0 10 * * *"
         />
       )}
+      {cronError && <div className="col-span-2 text-[11px] text-red-300">{cronError}</div>}
     </div>
   )
 }
@@ -351,6 +372,7 @@ function TaskDialog({ branches, agents }: TaskDialogProps): React.JSX.Element | 
   const [agentType, setAgentType] = useState(fallbackAgentId)
   const [schedulePreset, setSchedulePreset] = useState(SCHEDULE_PRESETS[0].value)
   const [customCron, setCustomCron] = useState(SCHEDULE_PRESETS[0].value)
+  const [formError, setFormError] = useState<string | null>(null)
 
   /* eslint-disable react-hooks/set-state-in-effect -- Seed the dialog draft from the task being edited when the composer opens. */
   useEffect(() => {
@@ -361,6 +383,7 @@ function TaskDialog({ branches, agents }: TaskDialogProps): React.JSX.Element | 
     setAgentType(editingTask?.agentType ?? fallbackAgentId)
     setSchedulePreset(schedulePresetFor(editingTask?.schedule))
     setCustomCron(editingTask?.schedule?.cron || SCHEDULE_PRESETS[0].value)
+    setFormError(null)
     requestAnimationFrame(() => promptRef.current?.focus())
   }, [composerOpen, editingTask, fallbackAgentId])
   /* eslint-enable react-hooks/set-state-in-effect */
@@ -384,12 +407,19 @@ function TaskDialog({ branches, agents }: TaskDialogProps): React.JSX.Element | 
     event.preventDefault()
     if (!canSubmit) return
 
+    const scheduleCron = cron || SCHEDULE_PRESETS[0].value
+    if (isScheduled && !isValidCron(scheduleCron)) {
+      setFormError('Invalid cron expression')
+      return
+    }
+    setFormError(null)
+
     const payload = {
       prompt,
       mode,
       branchName,
       agentType,
-      schedule: isScheduled ? { enabled: true, cron: cron || SCHEDULE_PRESETS[0].value } : undefined
+      schedule: isScheduled ? { enabled: true, cron: scheduleCron } : undefined
     }
 
     if (editingTask) {
@@ -521,6 +551,7 @@ function TaskDialog({ branches, agents }: TaskDialogProps): React.JSX.Element | 
                   options={SCHEDULE_PRESETS}
                   onChange={(value) => {
                     setSchedulePreset(value)
+                    setFormError(null)
                     if (value !== '__custom__') setCustomCron(value)
                   }}
                 />
@@ -531,13 +562,17 @@ function TaskDialog({ branches, agents }: TaskDialogProps): React.JSX.Element | 
               {schedulePreset === '__custom__' && (
                 <input
                   value={customCron}
-                  onChange={(event) => setCustomCron(event.target.value)}
+                  onChange={(event) => {
+                    setCustomCron(event.target.value)
+                    setFormError(null)
+                  }}
                   placeholder="0 10 * * *"
                   className="col-span-2 h-9 rounded-md bg-zinc-800/70 px-2 text-sm text-zinc-200 outline-none transition-colors placeholder:text-zinc-600 hover:bg-zinc-800 focus:bg-zinc-800"
                 />
               )}
             </div>
           )}
+          {formError && <p className="text-xs text-red-300">{formError}</p>}
         </div>
 
         <div className="mt-5 flex justify-end gap-2">
@@ -607,6 +642,26 @@ function TaskRow({
   const unpinTask = useCallback(() => {
     void updateTask(task.id, { pinned: false })
   }, [task.id, updateTask])
+  const handleRunToggle = useCallback(() => {
+    if (running) {
+      stopTask(task.id)
+      return
+    }
+    void startTask(task.id).catch((err) => {
+      console.error('[Tasks] Failed to start task:', err)
+    })
+  }, [running, startTask, stopTask, task.id])
+  const handleDeleteTask = useCallback(() => {
+    if (running) {
+      console.warn('[Tasks] Refusing to delete running task:', task.id)
+      setActionsOpen(false)
+      return
+    }
+    void deleteTask(task.id).catch((err) => {
+      console.error('[Tasks] Failed to delete task:', err)
+    })
+    setActionsOpen(false)
+  }, [deleteTask, running, task.id])
   const openActionsMenu = useCallback(() => {
     const rect = actionsButtonRef.current?.getBoundingClientRect()
     if (!rect) {
@@ -687,7 +742,7 @@ function TaskRow({
         <TaskPromptLabel task={task} onOpen={openTaskEditor} />
         <button
           type="button"
-          onClick={() => (running ? stopTask(task.id) : startTask(task.id))}
+          onClick={handleRunToggle}
           className={`flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-xs font-medium transition-colors ${
             running
               ? 'text-red-300 hover:bg-zinc-800'
@@ -793,11 +848,9 @@ function TaskRow({
             <button
               type="button"
               role="menuitem"
-              onClick={() => {
-                void deleteTask(task.id)
-                setActionsOpen(false)
-              }}
-              className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-xs text-red-300 transition-colors hover:bg-red-950/50 hover:text-red-200"
+              disabled={running}
+              onClick={handleDeleteTask}
+              className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-xs text-red-300 transition-colors hover:bg-red-950/50 hover:text-red-200 disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-red-300"
             >
               <Trash2 size={12} />
               Delete task

@@ -145,6 +145,15 @@ export default function DropdownSelect({
       return
     }
 
+    const target = event.target as HTMLElement | null
+    if (
+      target instanceof HTMLInputElement ||
+      target instanceof HTMLTextAreaElement ||
+      target?.isContentEditable
+    ) {
+      return
+    }
+
     if (
       event.key !== 'ArrowDown' &&
       event.key !== 'ArrowUp' &&
@@ -246,7 +255,10 @@ export default function DropdownSelect({
                   onChange={(event) => setSearch(event.target.value)}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter' && canUseCustomValue) {
+                      event.preventDefault()
+                      event.stopPropagation()
                       handleSelect(trimmedSearch)
+                      return
                     }
                     handleDropdownKeyDown(event)
                   }}

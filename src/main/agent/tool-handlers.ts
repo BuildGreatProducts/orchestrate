@@ -133,17 +133,23 @@ function normalizeMode(mode: unknown): TaskMode {
   return mode === 'plan' ? 'plan' : 'build'
 }
 
+function normalizeAgent(agent: unknown, fallback = 'claude-code'): string {
+  return typeof agent === 'string' && agent.trim() ? agent.trim() : fallback
+}
+
 function normalizeSchedule(schedule: unknown): TaskSchedule | undefined {
   if (!schedule || typeof schedule !== 'object') return undefined
   const raw = schedule as Record<string, unknown>
   const cron = typeof raw.cron === 'string' ? raw.cron.trim() : ''
   if (!cron) return undefined
+  if ('enabled' in raw && typeof raw.enabled !== 'boolean') return undefined
+  const enabled = typeof raw.enabled === 'boolean' ? raw.enabled : true
   try {
     CronExpressionParser.parse(cron)
   } catch {
     return undefined
   }
-  return { enabled: raw.enabled !== false, cron }
+  return { enabled, cron }
 }
 
 function columnToStatus(column: 'planning' | 'in-progress' | 'review' | 'done'): TaskStatus {
@@ -201,7 +207,7 @@ export async function handleCreateTask(
       mode: normalizeMode(args.mode),
       status: 'todo',
       branchName: (args.branchName || args.branch || '').trim() || defaultTaskBranch(id),
-      agentType: args.agent || 'claude-code',
+      agentType: normalizeAgent(args.agent),
       pinned: args.pinned === true,
       schedule,
       createdAt: now,
@@ -299,7 +305,7 @@ export async function handleEditTask(
     if (args.mode !== undefined) task.mode = normalizeMode(args.mode)
     const branch = args.branchName ?? args.branch
     if (branch !== undefined) task.branchName = branch.trim() || defaultTaskBranch(args.task_id)
-    if (args.agent !== undefined) task.agentType = args.agent || task.agentType
+    if (args.agent !== undefined) task.agentType = normalizeAgent(args.agent, task.agentType)
     if (args.pinned !== undefined) task.pinned = args.pinned
     if (args.schedule !== undefined) {
       if (args.schedule === null) {
@@ -356,7 +362,7 @@ export async function handleSendToAgent(
     const taskList = await mgr.loadTasks()
     const task = taskList.tasks[args.task_id]
     if (!task) return fail(`Task ${args.task_id} not found`)
-    const agent = args.agent || task.agentType || 'claude-code'
+    const agent = normalizeAgent(args.agent, normalizeAgent(task.agentType))
     deps.notifyStateChanged('task-agent', { taskId: args.task_id, agent })
     return ok({ id: args.task_id, agent })
   } catch (err) {
