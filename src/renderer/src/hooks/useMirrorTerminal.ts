@@ -44,6 +44,7 @@ export function useMirrorTerminal({ id }: UseMirrorTerminalOptions): UseMirrorTe
 
         const currentDims = getPtyDimensions(id)
         if (currentDims?.cols === dims.cols && currentDims.rows === dims.rows) {
+          signalTerminalReady(id, dims.cols, dims.rows)
           return true
         }
 

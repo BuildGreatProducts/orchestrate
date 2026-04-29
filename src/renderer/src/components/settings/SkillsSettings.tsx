@@ -255,13 +255,25 @@ export default function SkillsSettings(): React.JSX.Element {
 
         <div className="mx-auto mt-8 w-full max-w-md space-y-6 text-left">
           {error && (
-            <p className="rounded border border-red-900 bg-red-950 px-3 py-2 text-xs text-red-400">
+            <p
+              role="alert"
+              aria-live="assertive"
+              aria-atomic="true"
+              className="rounded border border-red-900 bg-red-950 px-3 py-2 text-xs text-red-400"
+            >
               {error}
             </p>
           )}
 
           {isLoading ? (
-            <p className="text-sm text-zinc-500">Loading skills...</p>
+            <p
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+              className="text-sm text-zinc-500"
+            >
+              Loading skills...
+            </p>
           ) : (
             <>
               <SkillGroup

@@ -1,5 +1,5 @@
 import { ipcMain, BrowserWindow } from 'electron'
-import { normalize } from 'path'
+import { isAbsolute, normalize } from 'path'
 import { markChannelRegistered } from './stubs'
 import { GitManager } from '../git-manager'
 
@@ -72,7 +72,9 @@ export function registerGitHandlers(
 
   ipcMain.handle('git:isRepo', async (_, projectFolder?: string) => {
     if (typeof projectFolder === 'string' && projectFolder.trim()) {
-      return new GitManager(projectFolder).isRepo()
+      const normalizedFolder = normalize(projectFolder.trim())
+      if (!isAbsolute(normalizedFolder)) return false
+      return new GitManager(normalizedFolder).isRepo()
     }
     return getManager().isRepo()
   })

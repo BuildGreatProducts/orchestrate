@@ -280,8 +280,14 @@ export const useTasksStore = create<TasksState>((set, get) => ({
   },
 
   saveTaskList: async (taskList) => {
+    const previousTaskList = get().taskList
     set({ taskList })
-    await saveTaskListToApi(taskList)
+    try {
+      await saveTaskListToApi(taskList)
+    } catch (err) {
+      set({ taskList: previousTaskList })
+      throw err
+    }
   },
 
   openComposer: (kind = 'manual', taskId = null) => {

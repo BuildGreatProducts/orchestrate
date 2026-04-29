@@ -237,7 +237,7 @@ function agentOptionsForTask(task: SimpleTask, agents: AgentConfig[]): AgentOpti
   return enabled.length > 0 ? enabled : [{ id: 'claude-code', displayName: 'Claude Code' }]
 }
 
-function agentTrailingIcon(agentId: string): ReactNode {
+function agentInlineIcon(agentId: string): ReactNode {
   return agentId === 'claude-code' || agentId === 'codex' ? (
     <AgentIcon agentId={agentId} />
   ) : undefined
@@ -467,6 +467,7 @@ function TaskDialog({ branches, agents }: TaskDialogProps): React.JSX.Element | 
                     status: 'todo',
                     branchName,
                     agentType,
+                    pinned: false,
                     createdAt: '',
                     updatedAt: ''
                   },
@@ -474,7 +475,7 @@ function TaskDialog({ branches, agents }: TaskDialogProps): React.JSX.Element | 
                 ).map((agent) => ({
                   value: agent.id,
                   label: agent.displayName,
-                  trailingIcon: agentTrailingIcon(agent.id)
+                  inlineIcon: agentInlineIcon(agent.id)
                 }))}
                 onChange={setAgentType}
               />
@@ -740,7 +741,7 @@ function TaskRow({
           options={agentOptions.map((agent) => ({
             value: agent.id,
             label: agent.displayName,
-            trailingIcon: agentTrailingIcon(agent.id)
+            inlineIcon: agentInlineIcon(agent.id)
           }))}
           searchPlaceholder="Filter agents..."
           onChange={(value) => void updateTask(task.id, { agentType: value })}
@@ -873,18 +874,21 @@ export default function TasksSidebar({ projectFolder }: TasksSidebarProps): Reac
           ))}
         </div>
 
-        <div className="mt-3 flex h-8 items-center justify-between px-1">
-          <h3 className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
-            Scheduled
-          </h3>
+        <div className="mt-3 flex h-12 items-center justify-between px-1.5">
+          <div className="flex items-center gap-2">
+            <h3 className="font-ovo text-lg tracking-tight text-zinc-200">Scheduled</h3>
+            <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-zinc-800 px-1.5 text-[11px] font-medium leading-none text-zinc-400">
+              {scheduledTasks.length}
+            </span>
+          </div>
           <button
             type="button"
             onClick={() => openComposer('scheduled')}
-            className="flex h-7 w-7 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-200"
+            className="flex h-8 w-8 items-center justify-center rounded-md bg-zinc-800 text-zinc-300 transition-colors hover:bg-zinc-700 hover:text-white"
             aria-label="New scheduled task"
             title="New scheduled task"
           >
-            <Plus size={15} />
+            <Plus size={16} />
           </button>
         </div>
 

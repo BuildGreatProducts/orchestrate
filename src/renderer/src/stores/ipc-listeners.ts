@@ -33,18 +33,17 @@ export function ensureGlobalIpcListeners(): void {
           if (taskId && /^[A-Za-z0-9_-]{1,64}$/.test(taskId)) {
             const tasksState = useTasksStore.getState()
             const task = tasksState.taskList?.tasks[taskId]
-            if (task) {
-              // Prevent duplicate sends (check both committed and in-flight)
-              if (tasksState.activeAgentTasks[taskId] || pendingTaskAgents.has(taskId)) break
-              pendingTaskAgents.add(taskId)
-              executeTask(taskId, agent || task.agentType)
-                .catch((err) => {
-                  console.error('[IPC] Failed to execute task:', err)
-                })
-                .finally(() => {
-                  pendingTaskAgents.delete(taskId)
-                })
-            }
+            const agentType = agent || task?.agentType
+            // Prevent duplicate sends (check both committed and in-flight)
+            if (tasksState.activeAgentTasks[taskId] || pendingTaskAgents.has(taskId)) break
+            pendingTaskAgents.add(taskId)
+            executeTask(taskId, agentType)
+              .catch((err) => {
+                console.error('[IPC] Failed to execute task:', err)
+              })
+              .finally(() => {
+                pendingTaskAgents.delete(taskId)
+              })
           }
         }
         break

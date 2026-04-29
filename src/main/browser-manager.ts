@@ -131,8 +131,7 @@ export class BrowserViewManager {
     })
 
     wc.on('render-process-gone', () => {
-      this.onTabClosed(id)
-      this.tabs.delete(id)
+      this.disposeTab(id, true)
     })
 
     win.contentView.addChildView(view)

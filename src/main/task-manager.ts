@@ -225,7 +225,7 @@ export class TaskManager {
   private legacyColumnStatus(column: ColumnId): TaskStatus {
     if (column === 'review') return 'review'
     if (column === 'done') return 'done'
-    if (column === 'in-progress') return 'failed'
+    if (column === 'in-progress') return 'running'
     return 'todo'
   }
 
@@ -299,7 +299,10 @@ export class TaskManager {
 
   async saveTasks(tasks: TaskListState): Promise<void> {
     await this.ensureDir()
-    const normalized = normalizeTaskList(tasks) ?? structuredClone(EMPTY_TASKS)
+    const normalized = normalizeTaskList(tasks)
+    if (!normalized) {
+      throw new Error('Invalid task list state')
+    }
     const tmpPath = join(this.tasksDir, 'tasks.json.tmp')
     const finalPath = join(this.tasksDir, 'tasks.json')
     try {

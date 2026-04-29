@@ -87,7 +87,7 @@ function SortableCommandEntry({
             value={entry.command}
             onChange={(e) => onChangeCommand(entry._id, e.target.value)}
             placeholder="e.g., npm run dev"
-            className="w-full rounded bg-zinc-800/70 px-2 py-1 font-mono text-sm text-zinc-200 outline-none transition-colors placeholder:text-zinc-600 hover:bg-zinc-800 focus:bg-zinc-800"
+            className="w-full rounded bg-zinc-800/70 px-2 py-1 font-mono text-sm text-zinc-200 outline-none transition-colors placeholder:text-zinc-600 hover:bg-zinc-800 focus:bg-zinc-800 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900"
           />
         </div>
         <div>
@@ -99,7 +99,7 @@ function SortableCommandEntry({
             value={entry.label ?? ''}
             onChange={(e) => onChangeLabel(entry._id, e.target.value)}
             placeholder="e.g., Frontend server"
-            className="w-full rounded bg-zinc-800/50 px-2 py-1 text-sm text-zinc-300 outline-none transition-colors placeholder:text-zinc-600 hover:bg-zinc-800 focus:bg-zinc-800"
+            className="w-full rounded bg-zinc-800/50 px-2 py-1 text-sm text-zinc-300 outline-none transition-colors placeholder:text-zinc-600 hover:bg-zinc-800 focus:bg-zinc-800 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900"
           />
         </div>
       </div>

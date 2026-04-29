@@ -138,12 +138,6 @@ export default function BottomTerminalPanel({
                     event.stopPropagation()
                     requestCloseTab(tab.id)
                   }}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.stopPropagation()
-                      requestCloseTab(tab.id)
-                    }
-                  }}
                   className="rounded p-0.5 text-zinc-600 opacity-0 transition-opacity hover:bg-zinc-700 hover:text-red-400 group-hover:opacity-100"
                   aria-label={`Close ${tab.name}`}
                 >

@@ -14,7 +14,7 @@ interface AgentSpawnDialogProps {
   onClose: () => void
 }
 
-function agentTrailingIcon(agentId: string): ReactNode {
+function agentInlineIcon(agentId: string): ReactNode {
   return agentId === 'claude-code' || agentId === 'codex' ? (
     <AgentIcon agentId={agentId} />
   ) : undefined
@@ -175,7 +175,7 @@ export default function AgentSpawnDialog({
             options={enabledAgents.map((agent) => ({
               value: agent.id,
               label: agent.displayName,
-              trailingIcon: agentTrailingIcon(agent.id)
+              inlineIcon: agentInlineIcon(agent.id)
             }))}
             onChange={setAgentId}
           />

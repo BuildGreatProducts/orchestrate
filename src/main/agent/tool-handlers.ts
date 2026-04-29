@@ -179,6 +179,15 @@ export async function handleCreateTask(
     const id = mgr.generateId()
     const prompt = (args.prompt || args.title || '').trim()
     if (!prompt) return fail('Task prompt is required')
+    let schedule: TaskSchedule | undefined
+    if (args.schedule !== undefined) {
+      try {
+        schedule = normalizeSchedule(args.schedule)
+      } catch (err) {
+        return fail(`Invalid schedule: ${err instanceof Error ? err.message : String(err)}`)
+      }
+      if (!schedule) return fail('Invalid schedule')
+    }
     const now = new Date().toISOString()
     const task: SimpleTask = {
       id,
@@ -188,7 +197,7 @@ export async function handleCreateTask(
       branchName: (args.branchName || args.branch || '').trim() || defaultTaskBranch(id),
       agentType: args.agent || 'claude-code',
       pinned: args.pinned === true,
-      schedule: normalizeSchedule(args.schedule),
+      schedule,
       createdAt: now,
       updatedAt: now
     }

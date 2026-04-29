@@ -58,7 +58,7 @@ export interface SimpleTask {
   status: TaskStatus
   branchName: string
   agentType: AgentType
-  pinned?: boolean
+  pinned: boolean
   schedule?: TaskSchedule
   createdAt: string
   updatedAt: string

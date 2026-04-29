@@ -313,9 +313,17 @@ const readyResolvers = new Map<
   string,
   {
     resolve: (dimensions: TerminalDimensions) => void
+    reject: (error: Error) => void
     timeoutId: ReturnType<typeof setTimeout>
   }
 >()
+
+class CancelledTerminalWaitError extends Error {
+  constructor(id: string) {
+    super(`Terminal surface wait cancelled for ${id}`)
+    this.name = 'CancelledTerminalWaitError'
+  }
+}
 
 function getFallbackDimensions(kind: TerminalKind): TerminalDimensions {
   return kind === 'agent' ? DEFAULT_AGENT_DIMENSIONS : DEFAULT_TERMINAL_DIMENSIONS
@@ -341,7 +349,7 @@ function waitForTerminalSurface(id: string, kind: TerminalKind): Promise<Termina
     return Promise.resolve(dimensions)
   }
 
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const timeoutId = setTimeout(() => {
       readyResolvers.delete(id)
       resolve(getFallbackDimensions(kind))
@@ -352,6 +360,7 @@ function waitForTerminalSurface(id: string, kind: TerminalKind): Promise<Termina
         clearTimeout(timeoutId)
         resolve(readyDimensions)
       },
+      reject,
       timeoutId
     })
   })
@@ -362,6 +371,7 @@ function clearTerminalReadyWaiter(id: string): void {
   if (!waiter) return
   clearTimeout(waiter.timeoutId)
   readyResolvers.delete(id)
+  waiter.reject(new CancelledTerminalWaitError(id))
 }
 
 export function signalTerminalReady(id: string, cols: number, rows: number): void {
@@ -460,6 +470,9 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
           activeTabId: state.activeTabId === id ? (newTabs.at(-1)?.id ?? null) : state.activeTabId
         }
       })
+      if (err instanceof CancelledTerminalWaitError) {
+        return id
+      }
       toast.error(`Failed to create terminal: ${err instanceof Error ? err.message : String(err)}`)
       throw err
     }

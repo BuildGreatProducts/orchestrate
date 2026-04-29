@@ -494,10 +494,10 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
                 <button
                   key={agent.id}
                   onClick={() => handleNewAgentWithType(agent.id)}
-                  className="flex w-full items-center px-3 py-1.5 text-left text-sm text-zinc-300 hover:bg-zinc-700"
+                  className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-sm text-zinc-300 hover:bg-zinc-700"
                 >
-                  <span className="min-w-0 flex-1 truncate">{agent.displayName}</span>
-                  <AgentIcon agentId={agent.id} className="ml-2 h-3.5 w-3.5" />
+                  <span className="min-w-0 truncate">{agent.displayName}</span>
+                  <AgentIcon agentId={agent.id} className="h-3.5 w-3.5" />
                 </button>
               ))}
               {savedCommands.length > 0 && (

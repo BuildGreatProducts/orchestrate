@@ -15,6 +15,7 @@ export interface DropdownSelectOption {
   value: string
   label: string
   icon?: ReactNode
+  inlineIcon?: ReactNode
   trailingIcon?: ReactNode
   meta?: ReactNode
 }
@@ -61,6 +62,7 @@ export default function DropdownSelect({
   const [style, setStyle] = useState<CSSProperties>({})
   const triggerRef = useRef<HTMLButtonElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const listboxRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
 
   const selectedOption = options.find((option) => option.value === value)
@@ -74,6 +76,7 @@ export default function DropdownSelect({
     !options.some((option) => option.value === trimmedSearch)
   const displayLabel = (selectedOption?.label ?? value) || placeholder || ''
   const triggerIcon = selectedOption?.icon ?? leadingIcon
+  const triggerInlineIcon = selectedOption?.inlineIcon
   const triggerTrailingIcon = selectedOption?.trailingIcon
   const resolvedShowChevron = showChevron ?? variant === 'field'
 
@@ -89,10 +92,26 @@ export default function DropdownSelect({
     setOpen(true)
   }, [menuWidth])
 
+  const closeDropdown = useCallback(() => {
+    setOpen(false)
+    requestAnimationFrame(() => triggerRef.current?.focus())
+  }, [])
+
   useEffect(() => {
     if (!open) return
-    requestAnimationFrame(() => searchRef.current?.focus())
-  }, [open])
+    requestAnimationFrame(() => {
+      if (searchPlaceholder) {
+        searchRef.current?.focus()
+        return
+      }
+      const firstOption = listboxRef.current?.querySelector<HTMLElement>('[role="option"]')
+      if (firstOption) {
+        firstOption.focus()
+      } else {
+        listboxRef.current?.focus()
+      }
+    })
+  }, [open, searchPlaceholder])
 
   useEffect(() => {
     if (!open) return
@@ -103,29 +122,32 @@ export default function DropdownSelect({
         triggerRef.current &&
         !triggerRef.current.contains(event.target as Node)
       ) {
-        setOpen(false)
+        closeDropdown()
       }
     }
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
-  }, [open])
+  }, [closeDropdown, open])
 
   const handleSelect = (nextValue: string): void => {
-    const trimmed = nextValue.trim()
-    if (!trimmed) return
-    onChange(trimmed)
-    setOpen(false)
+    const isPredefinedValue = options.some((option) => option.value === nextValue)
+    const resolvedValue = isPredefinedValue ? nextValue : nextValue.trim()
+    if (!isPredefinedValue && !resolvedValue) return
+    onChange(resolvedValue)
+    closeDropdown()
   }
 
   const handleTriggerKeyDown = (event: KeyboardEvent<HTMLButtonElement>): void => {
     if (event.key === 'Escape') {
       event.preventDefault()
-      if (open) setOpen(false)
+      if (open) closeDropdown()
       return
     }
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-      event.preventDefault()
-      if (!open) openDropdown()
+      if (!open) {
+        event.preventDefault()
+        openDropdown()
+      }
     }
   }
 
@@ -143,7 +165,7 @@ export default function DropdownSelect({
         aria-expanded={open}
         aria-haspopup="listbox"
         disabled={disabled}
-        onClick={() => (open ? setOpen(false) : openDropdown())}
+        onClick={() => (open ? closeDropdown() : openDropdown())}
         onKeyDown={handleTriggerKeyDown}
         className={triggerClassName}
         title={displayLabel}
@@ -151,12 +173,14 @@ export default function DropdownSelect({
         {triggerIcon && <span className="shrink-0 text-zinc-500">{triggerIcon}</span>}
         <span
           className={cn(
-            'min-w-0 flex-1 truncate text-left',
+            'min-w-0 flex-1 items-center gap-1.5 text-left',
+            triggerInlineIcon ? 'inline-flex' : 'block truncate',
             monospaced && 'font-mono',
             !displayLabel && 'text-zinc-600'
           )}
         >
-          {displayLabel || placeholder}
+          <span className="min-w-0 truncate">{displayLabel || placeholder}</span>
+          {triggerInlineIcon && <span className="shrink-0 text-zinc-500">{triggerInlineIcon}</span>}
         </span>
         {triggerTrailingIcon && (
           <span className="shrink-0 text-zinc-500">{triggerTrailingIcon}</span>
@@ -169,6 +193,12 @@ export default function DropdownSelect({
           <div
             ref={dropdownRef}
             style={style}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') {
+                event.preventDefault()
+                closeDropdown()
+              }
+            }}
             className="overflow-hidden rounded-md bg-zinc-800 shadow-xl"
           >
             {searchPlaceholder && (
@@ -182,7 +212,7 @@ export default function DropdownSelect({
                     if (event.key === 'Enter' && canUseCustomValue) {
                       handleSelect(trimmedSearch)
                     }
-                    if (event.key === 'Escape') setOpen(false)
+                    if (event.key === 'Escape') closeDropdown()
                   }}
                   placeholder={searchPlaceholder}
                   className="w-full rounded bg-zinc-900/70 px-2 py-1 text-xs text-zinc-200 outline-none transition-colors placeholder:text-zinc-600 focus:bg-zinc-900"
@@ -190,7 +220,12 @@ export default function DropdownSelect({
               </div>
             )}
 
-            <div role="listbox" className="max-h-60 overflow-y-auto py-1 dark-scrollbar">
+            <div
+              ref={listboxRef}
+              role="listbox"
+              tabIndex={-1}
+              className="max-h-60 overflow-y-auto py-1 dark-scrollbar"
+            >
               {filteredOptions.length === 0 && !canUseCustomValue ? (
                 <div className="px-3 py-2 text-xs text-zinc-500">{noOptionsLabel}</div>
               ) : (
@@ -218,8 +253,17 @@ export default function DropdownSelect({
                       {isSelected && option.icon && (
                         <span className="shrink-0 text-zinc-500">{option.icon}</span>
                       )}
-                      <span className={cn('min-w-0 flex-1 truncate', monospaced && 'font-mono')}>
-                        {option.label}
+                      <span
+                        className={cn(
+                          'min-w-0 flex-1 items-center gap-1.5',
+                          option.inlineIcon ? 'inline-flex' : 'block truncate',
+                          monospaced && 'font-mono'
+                        )}
+                      >
+                        <span className="min-w-0 truncate">{option.label}</span>
+                        {option.inlineIcon && (
+                          <span className="shrink-0 text-zinc-500">{option.inlineIcon}</span>
+                        )}
                       </span>
                       {option.trailingIcon && (
                         <span className="shrink-0 text-zinc-500">{option.trailingIcon}</span>
