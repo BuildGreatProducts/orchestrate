@@ -48,6 +48,11 @@ import {
 let httpServer: HttpServer | null = null
 let serverPort: number | null = null
 
+interface McpRequestContext {
+  projectFolder?: string
+  taskId?: string
+}
+
 /** Read and JSON-parse the request body from an IncomingMessage */
 function readBody(req: IncomingMessage): Promise<unknown> {
   return new Promise((resolve, reject) => {
@@ -67,15 +72,45 @@ function readBody(req: IncomingMessage): Promise<unknown> {
 }
 
 /** Create a fresh McpServer with all tool registrations */
-function createMcpInstance(deps: ToolExecutorDeps): McpServer {
-  const { getCurrentFolder, getTaskManager, getGitManager, getSkillManager, notifyStateChanged } =
-    deps
+function createMcpInstance(deps: ToolExecutorDeps, context: McpRequestContext = {}): McpServer {
+  const {
+    getCurrentFolder,
+    getTaskManager,
+    getTaskManagerForProject,
+    getGitManager,
+    getGitManagerForProject,
+    getSkillManager,
+    notifyStateChanged
+  } = deps
 
-  const taskDeps = { getTaskManager, notifyStateChanged }
-  const gitDeps = { getGitManager, notifyStateChanged }
-  const fileDeps = { getCurrentFolder, notifyStateChanged }
-  const skillDeps = { getSkillManager, getCurrentFolder }
-  const termDeps = { notifyStateChanged }
+  const scopedProjectFolder = context.projectFolder
+  const scopedGetCurrentFolder = (): string | null => scopedProjectFolder ?? getCurrentFolder()
+  const scopedNotifyStateChanged = (domain: string, data?: unknown): void => {
+    const payload =
+      data && typeof data === 'object' && !Array.isArray(data)
+        ? { ...data, projectFolder: scopedProjectFolder, taskId: context.taskId }
+        : scopedProjectFolder || context.taskId
+          ? { value: data, projectFolder: scopedProjectFolder, taskId: context.taskId }
+          : data
+    notifyStateChanged(domain, payload)
+  }
+
+  const taskDeps = {
+    getTaskManager: () =>
+      scopedProjectFolder ? getTaskManagerForProject(scopedProjectFolder) : getTaskManager(),
+    notifyStateChanged: scopedNotifyStateChanged
+  }
+  const gitDeps = {
+    getGitManager: () =>
+      scopedProjectFolder ? getGitManagerForProject(scopedProjectFolder) : getGitManager(),
+    notifyStateChanged: scopedNotifyStateChanged
+  }
+  const fileDeps = {
+    getCurrentFolder: scopedGetCurrentFolder,
+    notifyStateChanged: scopedNotifyStateChanged
+  }
+  const skillDeps = { getSkillManager, getCurrentFolder: scopedGetCurrentFolder }
+  const termDeps = { notifyStateChanged: scopedNotifyStateChanged }
 
   const server = new McpServer(
     { name: 'orchestrate', version: '1.0.0' },
@@ -312,7 +347,16 @@ export async function startMcpServer(
           await transport.handleRequest(req, res, body)
         } else if (!sessionId && isInitializeRequest(body)) {
           // New initialization — create server + transport per session
-          const server = createMcpInstance(deps)
+          const projectHeader = req.headers['x-orchestrate-project']
+          const taskHeader = req.headers['x-orchestrate-task']
+          const server = createMcpInstance(deps, {
+            projectFolder:
+              typeof projectHeader === 'string' && projectHeader.trim()
+                ? projectHeader.trim()
+                : undefined,
+            taskId:
+              typeof taskHeader === 'string' && taskHeader.trim() ? taskHeader.trim() : undefined
+          })
           const transport = new StreamableHTTPServerTransport({
             sessionIdGenerator: () => crypto.randomUUID(),
             enableJsonResponse: true,

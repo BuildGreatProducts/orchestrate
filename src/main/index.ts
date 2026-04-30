@@ -5,9 +5,10 @@ import icon from '../../resources/icon.png?asset'
 import { registerFolderHandlers, getCurrentFolder } from './ipc/folder'
 import { registerFileHandlers } from './ipc/files'
 import { registerTerminalHandlers, closeAllTerminals, getPtyManager } from './ipc/terminal'
-import { registerTaskHandlers, getTaskManager } from './ipc/tasks'
+import { registerTaskHandlers, getTaskManager, getTaskManagerForProject } from './ipc/tasks'
 import { TaskScheduler } from './task-scheduler'
 import { registerGitHandlers, getGitManager } from './ipc/git'
+import { GitManager } from './git-manager'
 import { registerSkillHandlers } from './ipc/skills'
 import { registerCommandHandlers } from './ipc/commands'
 import { registerWorktreeHandlers } from './ipc/worktree'
@@ -23,7 +24,9 @@ import {
   writeMcpConfigFile,
   cleanupMcpConfigFile,
   getMcpConfigPath,
-  getCodexMcpFlags
+  getMcpConfigPathForProject,
+  getCodexMcpFlags,
+  getCodexMcpFlagsForProject
 } from './agent/mcp-config'
 
 let mainWindow: BrowserWindow | null = null
@@ -126,12 +129,20 @@ app.whenReady().then(() => {
   ipcMain.handle('mcp:getUrl', () => getMcpServerUrl())
   ipcMain.handle('mcp:getConfigPath', () => getMcpConfigPath())
   ipcMain.handle('mcp:getCodexFlags', () => getCodexMcpFlags())
+  ipcMain.handle('mcp:getConfigPathForProject', (_event, projectFolder: string, taskId?: string) =>
+    getMcpConfigPathForProject(projectFolder, taskId)
+  )
+  ipcMain.handle('mcp:getCodexFlagsForProject', (_event, projectFolder: string, taskId?: string) =>
+    getCodexMcpFlagsForProject(projectFolder, taskId)
+  )
 
   // Start the HTTP MCP server for CLI agents
   startMcpServer({
     getCurrentFolder,
     getTaskManager,
+    getTaskManagerForProject,
     getGitManager,
+    getGitManagerForProject: (projectFolder: string) => new GitManager(projectFolder),
     getSkillManager,
     getWindow: () => mainWindow,
     notifyStateChanged: (domain, data) => {

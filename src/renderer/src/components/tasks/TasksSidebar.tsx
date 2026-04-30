@@ -10,6 +10,7 @@ import {
 import { createPortal } from 'react-dom'
 import { CronExpressionParser } from 'cron-parser'
 import {
+  Clock,
   GitBranch,
   Hammer,
   ListChecks,
@@ -26,11 +27,20 @@ import {
 import { useAgentsStore } from '@renderer/stores/agents'
 import { useTasksStore } from '@renderer/stores/tasks'
 import { isTaskRunning } from '@renderer/stores/task-execution-engine'
-import { useTerminalStore, type TerminalTab } from '@renderer/stores/terminal'
+import { useTerminalStore } from '@renderer/stores/terminal'
+import { useAppStore } from '@renderer/stores/app'
 import { useAppModalLayer } from '@renderer/hooks/useAppModalLayer'
 import DropdownSelect from '@renderer/components/ui/DropdownSelect'
+import ConfirmDialog from '@renderer/components/history/ConfirmDialog'
 import { AgentIcon } from '@renderer/lib/agent-icons'
 import type { AgentConfig, BranchInfo, SimpleTask, TaskMode, TaskSchedule } from '@shared/types'
+import {
+  displayStatusForTask,
+  linkedAgentForTask,
+  sortTasksForDisplay,
+  taskHasFailed,
+  type TaskDisplayStatus
+} from './task-status'
 
 interface TasksSidebarProps {
   projectFolder: string
@@ -45,47 +55,6 @@ const SCHEDULE_PRESETS = [
 
 const FIELD_CLASS =
   'h-7 w-full min-w-0 rounded-md bg-zinc-800/70 px-2 text-[11px] leading-none text-zinc-300 outline-none transition-colors placeholder:text-zinc-600 hover:bg-zinc-800 focus:bg-zinc-800 disabled:cursor-default disabled:opacity-45'
-interface TaskDisplayStatus {
-  label: string
-  dotClass: string
-  textClass: string
-  pulse?: boolean
-}
-
-const TASK_STATUS_STYLES = {
-  todo: {
-    label: 'Todo',
-    dotClass: 'bg-zinc-500',
-    textClass: 'text-zinc-400'
-  },
-  working: {
-    label: 'Working',
-    dotClass: 'bg-sky-400',
-    textClass: 'text-sky-300',
-    pulse: true
-  },
-  attention: {
-    label: 'Needs input',
-    dotClass: 'bg-amber-400',
-    textClass: 'text-amber-300',
-    pulse: true
-  },
-  idle: {
-    label: 'Idle',
-    dotClass: 'bg-zinc-500',
-    textClass: 'text-zinc-400'
-  },
-  completed: {
-    label: 'Completed',
-    dotClass: 'bg-emerald-400',
-    textClass: 'text-emerald-300'
-  },
-  failed: {
-    label: 'Failed',
-    dotClass: 'bg-red-400',
-    textClass: 'text-red-300'
-  }
-} satisfies Record<string, TaskDisplayStatus>
 
 function cronFrequency(cron: string): string {
   const parts = cron.trim().split(/\s+/)
@@ -122,56 +91,6 @@ function nextRunLabel(cron: string): string | null {
   } catch {
     return null
   }
-}
-
-function linkedAgentForTask(task: SimpleTask, tabs: TerminalTab[]): TerminalTab | undefined {
-  const liveTaskTab = tabs.find((tab) => tab.taskId === task.id && !tab.exited)
-  if (liveTaskTab) return liveTaskTab
-
-  const lastRunTab = task.lastRun?.terminalId
-    ? tabs.find((tab) => tab.id === task.lastRun?.terminalId)
-    : undefined
-  if (lastRunTab) return lastRunTab
-
-  return tabs.find((tab) => tab.taskId === task.id)
-}
-
-function displayStatusForTask(
-  task: SimpleTask,
-  agentTab: TerminalTab | undefined
-): TaskDisplayStatus {
-  if (agentTab) {
-    if (agentTab.exited) {
-      return agentTab.exitCode === 0 ? TASK_STATUS_STYLES.completed : TASK_STATUS_STYLES.failed
-    }
-    if (agentTab.bell) return TASK_STATUS_STYLES.attention
-    if (agentTab.busy) return TASK_STATUS_STYLES.working
-    return TASK_STATUS_STYLES.idle
-  }
-
-  if (task.status === 'running' || task.lastRun?.status === 'running') {
-    return TASK_STATUS_STYLES.working
-  }
-  if (task.status === 'failed' || task.lastRun?.status === 'failed') {
-    return TASK_STATUS_STYLES.failed
-  }
-  if (task.status === 'done' || task.status === 'review' || task.lastRun?.status === 'completed') {
-    return TASK_STATUS_STYLES.completed
-  }
-
-  return TASK_STATUS_STYLES.todo
-}
-
-function taskHasFailed(task: SimpleTask, agentTab: TerminalTab | undefined): boolean {
-  return (
-    task.status === 'failed' ||
-    task.lastRun?.status === 'failed' ||
-    Boolean(agentTab?.exited && agentTab.exitCode !== undefined && agentTab.exitCode !== 0)
-  )
-}
-
-function sortTasksForDisplay(tasks: SimpleTask[]): SimpleTask[] {
-  return [...tasks].sort((a, b) => Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)))
 }
 
 function TaskStatusIndicator({ status }: { status: TaskDisplayStatus }): React.JSX.Element {
@@ -260,10 +179,12 @@ function schedulePresetFor(schedule: TaskSchedule | undefined): string {
 
 function TaskScheduleControl({
   task,
-  disabled
+  disabled,
+  projectFolder
 }: {
   task: SimpleTask
   disabled: boolean
+  projectFolder: string
 }): React.JSX.Element {
   const updateTask = useTasksStore((s) => s.updateTask)
   const [selectedPreset, setSelectedPreset] = useState(schedulePresetFor(task.schedule))
@@ -293,16 +214,18 @@ function TaskScheduleControl({
     setCustomCron(cron)
     setCronError(null)
     if (cron !== scheduleCron) {
-      void updateTask(task.id, { schedule: { enabled: true, cron } })
+      void updateTask(task.id, { schedule: { enabled: true, cron } }, projectFolder)
     }
-  }, [customCron, disabled, scheduleCron, task.id, updateTask])
+  }, [customCron, disabled, projectFolder, scheduleCron, task.id, updateTask])
 
   return (
-    <div className="mt-1.5 grid grid-cols-[minmax(0,1fr)_auto] gap-1.5">
+    <div className="-mt-0.5 grid grid-cols-[minmax(0,1fr)_auto] gap-1.5">
       <DropdownSelect
         ariaLabel="Schedule"
         value={selectedPreset}
         disabled={disabled}
+        leadingIcon={<Clock size={11} />}
+        monospaced
         options={SCHEDULE_PRESETS}
         onChange={(value) => {
           setSelectedPreset(value)
@@ -310,10 +233,10 @@ function TaskScheduleControl({
           if (value === '__custom__') {
             return
           }
-          void updateTask(task.id, { schedule: { enabled: true, cron: value } })
+          void updateTask(task.id, { schedule: { enabled: true, cron: value } }, projectFolder)
         }}
       />
-      <div className="flex h-7 items-center text-[11px] text-zinc-600">
+      <div className="flex h-7 items-center font-mono text-[11px] text-zinc-600">
         {nextRunLabel(selectedCron) ?? cronFrequency(selectedCron)}
       </div>
       {selectedPreset === '__custom__' && (
@@ -346,19 +269,26 @@ function TaskScheduleControl({
 }
 
 interface TaskDialogProps {
-  branches: BranchInfo[]
   agents: AgentConfig[]
 }
 
-function TaskDialog({ branches, agents }: TaskDialogProps): React.JSX.Element | null {
-  const taskList = useTasksStore((s) => s.taskList)
+export function TaskDialog({ agents }: TaskDialogProps): React.JSX.Element | null {
+  const activeTaskList = useTasksStore((s) => s.taskList)
+  const taskListsByProject = useTasksStore((s) => s.taskListsByProject)
   const composerOpen = useTasksStore((s) => s.composerOpen)
   const composerKind = useTasksStore((s) => s.composerKind)
   const editingTaskId = useTasksStore((s) => s.editingTaskId)
+  const composerProjectFolder = useTasksStore((s) => s.composerProjectFolder)
   const closeComposer = useTasksStore((s) => s.closeComposer)
   const createTask = useTasksStore((s) => s.createTask)
   const updateTask = useTasksStore((s) => s.updateTask)
+  const currentFolder = useAppStore((s) => s.currentFolder)
+  const projectFolder = composerProjectFolder ?? currentFolder
+  const taskList = projectFolder
+    ? (taskListsByProject[projectFolder] ?? activeTaskList)
+    : activeTaskList
   const promptRef = useRef<HTMLTextAreaElement>(null)
+  const [branches, setBranches] = useState<BranchInfo[]>([])
   useAppModalLayer(composerOpen)
 
   const editingTask = editingTaskId ? taskList?.tasks[editingTaskId] : undefined
@@ -373,6 +303,22 @@ function TaskDialog({ branches, agents }: TaskDialogProps): React.JSX.Element | 
   const [schedulePreset, setSchedulePreset] = useState(SCHEDULE_PRESETS[0].value)
   const [customCron, setCustomCron] = useState(SCHEDULE_PRESETS[0].value)
   const [formError, setFormError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!composerOpen || !projectFolder) return
+    let active = true
+    window.orchestrate
+      .listBranches(projectFolder)
+      .then((list) => {
+        if (active) setBranches(list)
+      })
+      .catch(() => {
+        if (active) setBranches([])
+      })
+    return () => {
+      active = false
+    }
+  }, [composerOpen, projectFolder])
 
   /* eslint-disable react-hooks/set-state-in-effect -- Seed the dialog draft from the task being edited when the composer opens. */
   useEffect(() => {
@@ -423,9 +369,9 @@ function TaskDialog({ branches, agents }: TaskDialogProps): React.JSX.Element | 
     }
 
     if (editingTask) {
-      await updateTask(editingTask.id, payload)
+      await updateTask(editingTask.id, payload, projectFolder)
     } else {
-      await createTask(payload)
+      await createTask(payload, projectFolder)
     }
   }
 
@@ -598,10 +544,12 @@ function TaskDialog({ branches, agents }: TaskDialogProps): React.JSX.Element | 
 }
 
 function TaskRow({
+  projectFolder,
   task,
   branches,
   agents
 }: {
+  projectFolder: string
   task: SimpleTask
   branches: BranchInfo[]
   agents: AgentConfig[]
@@ -613,14 +561,14 @@ function TaskRow({
   const openComposer = useTasksStore((s) => s.openComposer)
   const tabs = useTerminalStore((s) => s.tabs)
   const [actionsOpen, setActionsOpen] = useState(false)
+  const [confirmStopOpen, setConfirmStopOpen] = useState(false)
   const [actionsStyle, setActionsStyle] = useState<CSSProperties>({})
   const actionsButtonRef = useRef<HTMLButtonElement>(null)
   const actionsMenuRef = useRef<HTMLDivElement>(null)
-  const agentTab = linkedAgentForTask(task, tabs)
+  const agentTab = linkedAgentForTask(task, tabs, projectFolder)
   const displayStatus = displayStatusForTask(task, agentTab)
   const failed = taskHasFailed(task, agentTab)
-  const running =
-    isTaskRunning(task.id) || task.status === 'running' || Boolean(agentTab && !agentTab.exited)
+  const running = isTaskRunning(task.id, projectFolder) || Boolean(agentTab && !agentTab.exited)
   const agentOptions = useMemo(() => agentOptionsForTask(task, agents), [agents, task])
   const branchOptions = useMemo(() => {
     const branchNames = branches.filter((branch) => !branch.isRemote).map((branch) => branch.name)
@@ -634,34 +582,38 @@ function TaskRow({
     }))
   }, [branches, task.branchName])
   const openTaskEditor = useCallback(() => {
-    openComposer(task.schedule?.enabled ? 'scheduled' : 'manual', task.id)
-  }, [openComposer, task.id, task.schedule?.enabled])
+    openComposer(task.schedule?.enabled ? 'scheduled' : 'manual', task.id, projectFolder)
+  }, [openComposer, projectFolder, task.id, task.schedule?.enabled])
   const toggleTaskPin = useCallback(() => {
-    void updateTask(task.id, { pinned: !task.pinned })
-  }, [task.id, task.pinned, updateTask])
+    void updateTask(task.id, { pinned: !task.pinned }, projectFolder)
+  }, [projectFolder, task.id, task.pinned, updateTask])
   const unpinTask = useCallback(() => {
-    void updateTask(task.id, { pinned: false })
-  }, [task.id, updateTask])
+    void updateTask(task.id, { pinned: false }, projectFolder)
+  }, [projectFolder, task.id, updateTask])
   const handleRunToggle = useCallback(() => {
     if (running) {
-      stopTask(task.id)
+      setConfirmStopOpen(true)
       return
     }
-    void startTask(task.id).catch((err) => {
+    void startTask(task.id, undefined, { projectFolder }).catch((err) => {
       console.error('[Tasks] Failed to start task:', err)
     })
-  }, [running, startTask, stopTask, task.id])
+  }, [projectFolder, running, startTask, task.id])
+  const confirmStopTask = useCallback(() => {
+    stopTask(task.id, projectFolder)
+    setConfirmStopOpen(false)
+  }, [projectFolder, stopTask, task.id])
   const handleDeleteTask = useCallback(() => {
     if (running) {
       console.warn('[Tasks] Refusing to delete running task:', task.id)
       setActionsOpen(false)
       return
     }
-    void deleteTask(task.id).catch((err) => {
+    void deleteTask(task.id, projectFolder).catch((err) => {
       console.error('[Tasks] Failed to delete task:', err)
     })
     setActionsOpen(false)
-  }, [deleteTask, running, task.id])
+  }, [deleteTask, projectFolder, running, task.id])
   const openActionsMenu = useCallback(() => {
     const rect = actionsButtonRef.current?.getBoundingClientRect()
     if (!rect) {
@@ -706,7 +658,7 @@ function TaskRow({
   }, [actionsOpen])
 
   return (
-    <article className="rounded-md bg-zinc-800/70 p-3 transition-colors hover:bg-zinc-800/85">
+    <article className="rounded-md bg-zinc-800/70 p-2.5 transition-colors hover:bg-zinc-800/85">
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           <TaskStatusIndicator status={displayStatus} />
@@ -738,75 +690,84 @@ function TaskRow({
         </div>
       </div>
 
-      <div className="mt-1.5 flex items-center justify-between gap-2">
+      <div className="mt-1 flex items-center justify-between gap-2">
         <TaskPromptLabel task={task} onOpen={openTaskEditor} />
         <button
           type="button"
           onClick={handleRunToggle}
-          className={`flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-xs font-medium transition-colors ${
+          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-xs font-medium transition-colors ${
             running
               ? 'text-red-300 hover:bg-zinc-800'
               : 'bg-zinc-800 text-zinc-200 hover:bg-zinc-700 hover:text-white'
           }`}
+          aria-label={running ? 'Stop task' : failed ? 'Rerun task' : 'Start task'}
+          title={running ? 'Stop task' : failed ? 'Rerun task' : 'Start task'}
         >
-          {running ? (
-            <>
-              Stop
-              <Square size={13} />
-            </>
-          ) : failed ? (
-            <>
-              Rerun
-              <RotateCcw size={13} />
-            </>
-          ) : (
-            <>
-              Start
-              <Play size={13} />
-            </>
-          )}
+          {running ? <Square size={13} /> : failed ? <RotateCcw size={13} /> : <Play size={13} />}
         </button>
       </div>
 
-      <div className="mt-1.5 grid grid-cols-[minmax(0,1fr)_66px_minmax(106px,1.08fr)] gap-1.5">
-        <DropdownSelect
-          ariaLabel="Branch"
-          value={task.branchName}
-          disabled={running}
-          leadingIcon={<GitBranch size={11} />}
-          monospaced
-          searchPlaceholder="Filter or type branch..."
-          noOptionsLabel="No branches found"
-          allowCustomValue
-          customActionLabel={(value) => <>Use branch &ldquo;{value}&rdquo;</>}
-          options={branchOptions}
-          onChange={(value) => void updateTask(task.id, { branchName: value })}
-        />
-        <DropdownSelect
-          ariaLabel="Mode"
-          value={task.mode}
-          disabled={running}
-          options={[
-            { value: 'build', label: 'Build', icon: <Hammer size={11} /> },
-            { value: 'plan', label: 'Plan', icon: <ListChecks size={11} /> }
-          ]}
-          onChange={(value) => void updateTask(task.id, { mode: value as TaskMode })}
-        />
+      <div className="mt-1 flex items-center gap-1.5">
+        <div className="w-[116px] min-w-0 shrink-0">
+          <DropdownSelect
+            ariaLabel="Branch"
+            value={task.branchName}
+            disabled={running}
+            leadingIcon={<GitBranch size={11} />}
+            monospaced
+            searchPlaceholder="Filter or type branch..."
+            noOptionsLabel="No branches found"
+            allowCustomValue
+            customActionLabel={(value) => <>Use branch &ldquo;{value}&rdquo;</>}
+            options={branchOptions}
+            onChange={(value) => void updateTask(task.id, { branchName: value }, projectFolder)}
+          />
+        </div>
+        <div className="w-fit shrink-0">
+          <DropdownSelect
+            ariaLabel="Mode"
+            value={task.mode}
+            disabled={running}
+            monospaced
+            options={[
+              { value: 'build', label: 'Build', icon: <Hammer size={11} /> },
+              { value: 'plan', label: 'Plan', icon: <ListChecks size={11} /> }
+            ]}
+            onChange={(value) =>
+              void updateTask(task.id, { mode: value as TaskMode }, projectFolder)
+            }
+          />
+        </div>
         <DropdownSelect
           ariaLabel="Agent"
           value={task.agentType}
           disabled={running}
+          className="ml-auto w-fit max-w-[132px] shrink-0"
+          monospaced
           options={agentOptions.map((agent) => ({
             value: agent.id,
             label: agent.displayName,
             inlineIcon: agentInlineIcon(agent.id)
           }))}
           searchPlaceholder="Filter agents..."
-          onChange={(value) => void updateTask(task.id, { agentType: value })}
+          onChange={(value) => void updateTask(task.id, { agentType: value }, projectFolder)}
         />
       </div>
 
-      {task.schedule?.enabled && <TaskScheduleControl task={task} disabled={running} />}
+      {task.schedule?.enabled && (
+        <TaskScheduleControl task={task} disabled={running} projectFolder={projectFolder} />
+      )}
+
+      {confirmStopOpen && (
+        <ConfirmDialog
+          title="Stop Agent"
+          description="This will terminate the agent running this task. You can rerun the task afterward."
+          confirmLabel="Stop"
+          variant="danger"
+          onConfirm={confirmStopTask}
+          onCancel={() => setConfirmStopOpen(false)}
+        />
+      )}
 
       {actionsOpen &&
         createPortal(
@@ -926,7 +887,13 @@ export default function TasksSidebar({ projectFolder }: TasksSidebarProps): Reac
         )}
         <div className="flex flex-col gap-1.5">
           {manualTasks.map((task) => (
-            <TaskRow key={task.id} task={task} branches={branches} agents={agents} />
+            <TaskRow
+              key={task.id}
+              projectFolder={projectFolder}
+              task={task}
+              branches={branches}
+              agents={agents}
+            />
           ))}
         </div>
 
@@ -956,11 +923,16 @@ export default function TasksSidebar({ projectFolder }: TasksSidebarProps): Reac
         )}
         <div className="flex flex-col gap-1.5">
           {scheduledTasks.map((task) => (
-            <TaskRow key={task.id} task={task} branches={branches} agents={agents} />
+            <TaskRow
+              key={task.id}
+              projectFolder={projectFolder}
+              task={task}
+              branches={branches}
+              agents={agents}
+            />
           ))}
         </div>
       </div>
-      <TaskDialog branches={branches} agents={agents} />
     </aside>
   )
 }

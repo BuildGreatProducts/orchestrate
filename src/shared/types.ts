@@ -325,13 +325,16 @@ export interface OrchestrateAPI {
 
   // Tasks
   loadTasks: () => Promise<TaskListState>
+  loadTasksForProject: (projectFolder: string) => Promise<TaskListState>
   saveTasks: (tasks: TaskListState) => Promise<void>
+  saveTasksForProject: (projectFolder: string, tasks: TaskListState) => Promise<void>
   deleteTask: (
     id: string
   ) => Promise<
     { success: true; id: string; deleted: boolean } | { success: false; id?: string; error: string }
   >
   sendToAgent: (id: string, agent: AgentType) => Promise<void>
+  sendToAgentForProject: (projectFolder: string, id: string, agent: AgentType) => Promise<void>
 
   // Legacy task aliases
   loadBoard: () => Promise<BoardState>
@@ -422,6 +425,8 @@ export interface OrchestrateAPI {
   getMcpServerUrl: () => Promise<string | null>
   getMcpConfigPath: () => Promise<string | null>
   getCodexMcpFlags: () => Promise<string | null>
+  getMcpConfigPathForProject: (projectFolder: string, taskId?: string) => Promise<string | null>
+  getCodexMcpFlagsForProject: (projectFolder: string, taskId?: string) => Promise<string | null>
 
   // Settings
   getSetting: (key: string) => Promise<unknown>

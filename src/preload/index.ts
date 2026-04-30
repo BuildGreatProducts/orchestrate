@@ -64,9 +64,15 @@ const api: OrchestrateAPI = {
 
   // Tasks
   loadTasks: () => ipcRenderer.invoke('task:loadTasks'),
+  loadTasksForProject: (projectFolder: string) =>
+    ipcRenderer.invoke('task:loadTasksForProject', projectFolder),
   saveTasks: (tasks: TaskListState) => ipcRenderer.invoke('task:saveTasks', tasks),
+  saveTasksForProject: (projectFolder: string, tasks: TaskListState) =>
+    ipcRenderer.invoke('task:saveTasksForProject', projectFolder, tasks),
   deleteTask: (id: string) => ipcRenderer.invoke('task:delete', id),
   sendToAgent: (id: string, agent: string) => ipcRenderer.invoke('task:sendToAgent', id, agent),
+  sendToAgentForProject: (projectFolder: string, id: string, agent: string) =>
+    ipcRenderer.invoke('task:sendToAgentForProject', projectFolder, id, agent),
 
   // Legacy task aliases
   loadBoard: () => ipcRenderer.invoke('task:loadBoard'),
@@ -144,6 +150,10 @@ const api: OrchestrateAPI = {
   getMcpServerUrl: () => ipcRenderer.invoke('mcp:getUrl'),
   getMcpConfigPath: () => ipcRenderer.invoke('mcp:getConfigPath'),
   getCodexMcpFlags: () => ipcRenderer.invoke('mcp:getCodexFlags'),
+  getMcpConfigPathForProject: (projectFolder: string, taskId?: string) =>
+    ipcRenderer.invoke('mcp:getConfigPathForProject', projectFolder, taskId),
+  getCodexMcpFlagsForProject: (projectFolder: string, taskId?: string) =>
+    ipcRenderer.invoke('mcp:getCodexFlagsForProject', projectFolder, taskId),
 
   // Updates
   checkForUpdates: () => ipcRenderer.invoke('updater:check'),

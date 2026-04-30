@@ -4,6 +4,7 @@ import { useFilesStore } from './files'
 import { useTerminalStore } from './terminal'
 import { useAppStore } from './app'
 import { executeTask } from './task-execution-engine'
+import { taskExecutionKey } from './tasks'
 
 // Tracks task IDs with in-flight terminal creation to prevent duplicate sends
 const pendingTaskAgents = new Set<string>()
@@ -23,35 +24,42 @@ export function ensureGlobalIpcListeners(): void {
 
   const cleanupStateChanged = window.orchestrate.onAgentStateChanged((domain, data) => {
     const folder = useAppStore.getState().currentFolder
+    const projectFolder =
+      data && typeof data === 'object' && 'projectFolder' in data
+        ? (data as { projectFolder?: string }).projectFolder
+        : undefined
     switch (domain) {
       case 'tasks':
-        useTasksStore.getState().loadTasks()
+        useTasksStore.getState().loadTasks(projectFolder ?? folder)
         break
       case 'task-agent': {
-        if (folder && data && typeof data === 'object') {
+        const targetFolder = projectFolder ?? folder
+        if (targetFolder && data && typeof data === 'object') {
           const { taskId, agent } = data as { taskId: string; agent: string }
           if (taskId && /^[A-Za-z0-9_-]{1,64}$/.test(taskId)) {
             const tasksState = useTasksStore.getState()
-            const task = tasksState.taskList?.tasks[taskId]
+            const task = tasksState.taskListsByProject[targetFolder]?.tasks[taskId]
             const agentType = agent || task?.agentType
+            const key = taskExecutionKey(targetFolder, taskId)
             // Prevent duplicate sends (check both committed and in-flight)
-            if (tasksState.activeAgentTasks[taskId] || pendingTaskAgents.has(taskId)) break
-            pendingTaskAgents.add(taskId)
-            executeTask(taskId, agentType)
+            if (tasksState.activeAgentTasks[key] || pendingTaskAgents.has(key)) break
+            pendingTaskAgents.add(key)
+            executeTask(taskId, agentType, { projectFolder: targetFolder })
               .catch((err) => {
                 console.error('[IPC] Failed to execute task:', err)
               })
               .finally(() => {
-                pendingTaskAgents.delete(taskId)
+                pendingTaskAgents.delete(key)
               })
           }
         }
         break
       }
       case 'task-trigger': {
-        if (data && typeof data === 'object') {
+        const targetFolder = projectFolder ?? folder
+        if (targetFolder && data && typeof data === 'object') {
           const { taskId } = data as { taskId: string }
-          if (taskId) executeTask(taskId)
+          if (taskId) executeTask(taskId, undefined, { projectFolder: targetFolder })
         }
         break
       }
@@ -62,7 +70,8 @@ export function ensureGlobalIpcListeners(): void {
         useFilesStore.getState().refreshTree()
         break
       case 'terminal': {
-        if (folder && data && typeof data === 'object') {
+        const targetFolder = projectFolder ?? folder
+        if (targetFolder && data && typeof data === 'object') {
           const { name, command } = data as {
             name?: string
             command?: string
@@ -70,13 +79,15 @@ export function ensureGlobalIpcListeners(): void {
           useTerminalStore
             .getState()
             .createTab({
-              cwd: folder,
+              cwd: targetFolder,
               name,
               command,
               kind: command ? 'command' : 'terminal'
             })
             .then(() => {
-              useAppStore.getState().showTerminal()
+              if (targetFolder === useAppStore.getState().currentFolder) {
+                useAppStore.getState().showTerminal()
+              }
             })
             .catch((err) => {
               console.error('[IPC] Failed to create terminal tab:', err)
@@ -90,10 +101,13 @@ export function ensureGlobalIpcListeners(): void {
   // Listen for cron-scheduled task triggers
   const cleanupTaskTrigger = window.orchestrate.onTaskScheduleTrigger((taskId) => {
     const tasksState = useTasksStore.getState()
+    const folder = useAppStore.getState().currentFolder
     const run = (): void => {
-      const task = useTasksStore.getState().taskList?.tasks[taskId]
-      if (task) {
-        void executeTask(taskId, task.agentType).catch((err) => {
+      const task = folder
+        ? useTasksStore.getState().taskListsByProject[folder]?.tasks[taskId]
+        : null
+      if (folder && task) {
+        void executeTask(taskId, task.agentType, { projectFolder: folder }).catch((err) => {
           console.error(
             `[Scheduler] Failed to execute scheduled task ${taskId} with agent ${task.agentType}:`,
             err
@@ -101,11 +115,11 @@ export function ensureGlobalIpcListeners(): void {
         })
       }
     }
-    if (tasksState.taskList?.tasks[taskId]) {
+    if (folder && tasksState.taskListsByProject[folder]?.tasks[taskId]) {
       run()
     } else {
       tasksState
-        .loadTasks()
+        .loadTasks(folder)
         .then(run)
         .catch((err) => {
           console.error('[Scheduler] Failed to load scheduled task:', err)
