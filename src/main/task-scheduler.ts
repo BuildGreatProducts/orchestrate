@@ -43,40 +43,40 @@ export class TaskScheduler {
       const capped = delay > MAX_TIMEOUT
       if (capped) delay = MAX_TIMEOUT
 
-      this.taskTimers.set(
-        key,
-        setTimeout(async () => {
+      const timer = setTimeout(async () => {
+        if (this.taskTimers.get(key) === timer) {
           this.taskTimers.delete(key)
-          if (capped) {
-            // Not yet time — reschedule with a fresh delay calculation
-            this.scheduleTask(taskId, schedule, projectFolder)
-            return
-          }
-          const win = this.getWindow()
-          if (win && !win.isDestroyed()) {
-            win.webContents.send('task:scheduleTrigger', taskId, projectFolder ?? null)
-          }
-          // Re-read the latest schedule from the task list before rescheduling
-          const loader =
-            projectFolder && this.getProjectTasks
-              ? () => this.getProjectTasks!(projectFolder)
-              : this.getTasks
-          if (loader) {
-            try {
-              const tasks = await loader()
-              const fresh = tasks.tasks[taskId]?.schedule
-              if (fresh) {
-                this.scheduleTask(taskId, fresh, projectFolder)
-              }
-            } catch {
-              // Fallback to the captured schedule
-              this.scheduleTask(taskId, schedule, projectFolder)
+        }
+        if (capped) {
+          // Not yet time — reschedule with a fresh delay calculation
+          this.scheduleTask(taskId, schedule, projectFolder)
+          return
+        }
+        const win = this.getWindow()
+        if (win && !win.isDestroyed()) {
+          win.webContents.send('task:scheduleTrigger', taskId, projectFolder ?? null)
+        }
+        // Re-read the latest schedule from the task list before rescheduling
+        const loader =
+          projectFolder && this.getProjectTasks
+            ? () => this.getProjectTasks!(projectFolder)
+            : this.getTasks
+        if (loader) {
+          try {
+            const tasks = await loader()
+            const fresh = tasks.tasks[taskId]?.schedule
+            if (fresh) {
+              this.scheduleTask(taskId, fresh, projectFolder)
             }
-          } else {
+          } catch {
+            // Fallback to the captured schedule
             this.scheduleTask(taskId, schedule, projectFolder)
           }
-        }, delay)
-      )
+        } else {
+          this.scheduleTask(taskId, schedule, projectFolder)
+        }
+      }, delay)
+      this.taskTimers.set(key, timer)
     } catch (err) {
       console.warn(`[TaskScheduler] Invalid cron for task ${taskId}:`, err)
     }
