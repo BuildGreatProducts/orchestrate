@@ -28,7 +28,6 @@ import { useAgentsStore } from '@renderer/stores/agents'
 import { useTasksStore } from '@renderer/stores/tasks'
 import { isTaskRunning } from '@renderer/stores/task-execution-engine'
 import { useTerminalStore } from '@renderer/stores/terminal'
-import { useAppStore } from '@renderer/stores/app'
 import { useAppModalLayer } from '@renderer/hooks/useAppModalLayer'
 import DropdownSelect from '@renderer/components/ui/DropdownSelect'
 import ConfirmDialog from '@renderer/components/history/ConfirmDialog'
@@ -273,7 +272,6 @@ interface TaskDialogProps {
 }
 
 export function TaskDialog({ agents }: TaskDialogProps): React.JSX.Element | null {
-  const activeTaskList = useTasksStore((s) => s.taskList)
   const taskListsByProject = useTasksStore((s) => s.taskListsByProject)
   const composerOpen = useTasksStore((s) => s.composerOpen)
   const composerKind = useTasksStore((s) => s.composerKind)
@@ -282,11 +280,8 @@ export function TaskDialog({ agents }: TaskDialogProps): React.JSX.Element | nul
   const closeComposer = useTasksStore((s) => s.closeComposer)
   const createTask = useTasksStore((s) => s.createTask)
   const updateTask = useTasksStore((s) => s.updateTask)
-  const currentFolder = useAppStore((s) => s.currentFolder)
-  const projectFolder = composerProjectFolder ?? currentFolder
-  const taskList = projectFolder
-    ? (taskListsByProject[projectFolder] ?? activeTaskList)
-    : activeTaskList
+  const projectFolder = composerProjectFolder
+  const taskList = projectFolder ? taskListsByProject[projectFolder] : undefined
   const promptRef = useRef<HTMLTextAreaElement>(null)
   const [branches, setBranches] = useState<BranchInfo[]>([])
   useAppModalLayer(composerOpen)
@@ -343,7 +338,7 @@ export function TaskDialog({ agents }: TaskDialogProps): React.JSX.Element | nul
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [closeComposer, composerOpen])
 
-  if (!composerOpen) return null
+  if (!composerOpen || !projectFolder) return null
 
   const localBranches = branches.filter((branch) => !branch.isRemote)
   const cron = schedulePreset === '__custom__' ? customCron.trim() : schedulePreset
@@ -824,12 +819,19 @@ function TaskRow({
 }
 
 export default function TasksSidebar({ projectFolder }: TasksSidebarProps): React.JSX.Element {
-  const taskList = useTasksStore((s) => s.taskList)
-  const isLoading = useTasksStore((s) => s.isLoading)
-  const loadError = useTasksStore((s) => s.loadError)
+  const taskList = useTasksStore((s) => s.taskListsByProject[projectFolder] ?? null)
+  const isLoading = useTasksStore((s) => s.loadingByProject[projectFolder] ?? false)
+  const loadError = useTasksStore((s) => s.loadErrorsByProject[projectFolder] ?? null)
+  const loadTasks = useTasksStore((s) => s.loadTasks)
   const openComposer = useTasksStore((s) => s.openComposer)
   const agents = useAgentsStore((s) => s.agents)
   const [branches, setBranches] = useState<BranchInfo[]>([])
+
+  useEffect(() => {
+    if (!taskList && !isLoading && !loadError) {
+      void loadTasks(projectFolder)
+    }
+  }, [isLoading, loadError, loadTasks, projectFolder, taskList])
 
   useEffect(() => {
     let active = true
@@ -869,7 +871,7 @@ export default function TasksSidebar({ projectFolder }: TasksSidebarProps): Reac
         </div>
         <button
           type="button"
-          onClick={() => openComposer('manual')}
+          onClick={() => openComposer('manual', null, projectFolder)}
           className="flex h-8 w-8 items-center justify-center rounded-md bg-zinc-800 text-zinc-300 transition-colors hover:bg-zinc-700 hover:text-white"
           aria-label="New task"
           title="New task"
@@ -906,7 +908,7 @@ export default function TasksSidebar({ projectFolder }: TasksSidebarProps): Reac
           </div>
           <button
             type="button"
-            onClick={() => openComposer('scheduled')}
+            onClick={() => openComposer('scheduled', null, projectFolder)}
             className="flex h-8 w-8 items-center justify-center rounded-md bg-zinc-800 text-zinc-300 transition-colors hover:bg-zinc-700 hover:text-white"
             aria-label="New scheduled task"
             title="New scheduled task"

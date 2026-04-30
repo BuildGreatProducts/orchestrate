@@ -343,7 +343,9 @@ export interface OrchestrateAPI {
   writeTaskMarkdown: (id: string, content: string) => Promise<void>
 
   // Task schedule triggers
-  onTaskScheduleTrigger: (callback: (taskId: string) => void) => () => void
+  onTaskScheduleTrigger: (
+    callback: (taskId: string, projectFolder?: string | null) => void
+  ) => () => void
 
   // Saved Commands
   listCommands: (projectFolder?: string) => Promise<SavedCommand[]>

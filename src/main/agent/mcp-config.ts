@@ -125,9 +125,7 @@ export function getMcpConfigPathForProject(
   if (activePort === null) return null
   if (!projectFolder) return getMcpConfigPath()
   const path = scopedConfigPath(projectFolder, taskId)
-  if (!existsSync(path)) {
-    writeConfigFile(path, projectFolder, taskId)
-  }
+  writeConfigFile(path, projectFolder, taskId)
   return path
 }
 

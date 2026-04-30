@@ -115,7 +115,12 @@ export function registerTaskHandlers(
     const mgr = getManager()
     await mgr.saveTasks(tasks)
     try {
-      scheduler?.rescheduleAllTasks(tasks)
+      const folder = getCurrentFolder()
+      if (folder) {
+        scheduler?.rescheduleProjectTasks(folder, tasks)
+      } else {
+        scheduler?.rescheduleAllTasks(tasks)
+      }
     } catch (err) {
       console.error('[Tasks] Failed to reschedule tasks:', err)
     }
@@ -126,12 +131,10 @@ export function registerTaskHandlers(
     async (_, projectFolder: string, tasks: TaskListState) => {
       const mgr = getManagerForProject(projectFolder)
       await mgr.saveTasks(tasks)
-      if (projectFolder === getCurrentFolder()) {
-        try {
-          scheduler?.rescheduleAllTasks(tasks)
-        } catch (err) {
-          console.error('[Tasks] Failed to reschedule tasks:', err)
-        }
+      try {
+        scheduler?.rescheduleProjectTasks(projectFolder, tasks)
+      } catch (err) {
+        console.error('[Tasks] Failed to reschedule tasks:', err)
       }
     }
   )
@@ -169,7 +172,12 @@ export function registerTaskHandlers(
         delete tasks.tasks[id]
         await mgr.saveTasks(tasks)
         try {
-          scheduler?.rescheduleAllTasks(tasks)
+          const folder = getCurrentFolder()
+          if (folder) {
+            scheduler?.rescheduleProjectTasks(folder, tasks)
+          } else {
+            scheduler?.rescheduleAllTasks(tasks)
+          }
         } catch (err) {
           console.error('[Tasks] Failed to reschedule tasks after delete:', err)
         }

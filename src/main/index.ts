@@ -1,5 +1,5 @@
 import { app, shell, BrowserWindow, ipcMain } from 'electron'
-import { join, basename } from 'path'
+import { join, basename, isAbsolute, normalize } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { registerFolderHandlers, getCurrentFolder } from './ipc/folder'
@@ -35,6 +35,14 @@ const skillStore = new Store()
 const skillManager = new SkillManager(skillStore)
 const getSkillManager = (): SkillManager => skillManager
 const taskScheduler = new TaskScheduler(() => mainWindow)
+
+function validatedProjectFolder(projectFolder: string): string {
+  const normalized = normalize(projectFolder.trim())
+  if (!isAbsolute(normalized)) {
+    throw new Error('Project folder must be an absolute path')
+  }
+  return normalized
+}
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -91,7 +99,7 @@ app.whenReady().then(() => {
       if (taskMgr) {
         taskMgr
           .loadTasks()
-          .then((tasks) => taskScheduler.rescheduleAllTasks(tasks))
+          .then((tasks) => taskScheduler.rescheduleProjectTasks(folder, tasks))
           .catch((err) => {
             console.error('[Scheduler] Failed to reschedule tasks:', err)
           })
@@ -106,6 +114,9 @@ app.whenReady().then(() => {
     if (!mgr) throw new Error('No task manager')
     return mgr.loadTasks()
   })
+  taskScheduler.setProjectTaskLoader(async (projectFolder) =>
+    getTaskManagerForProject(projectFolder).loadTasks()
+  )
   registerGitHandlers(() => mainWindow, getCurrentFolder)
   registerWorktreeHandlers(() => mainWindow, getCurrentFolder)
   registerBranchHandlers(() => mainWindow, getCurrentFolder)
@@ -142,7 +153,8 @@ app.whenReady().then(() => {
     getTaskManager,
     getTaskManagerForProject,
     getGitManager,
-    getGitManagerForProject: (projectFolder: string) => new GitManager(projectFolder),
+    getGitManagerForProject: (projectFolder: string) =>
+      new GitManager(validatedProjectFolder(projectFolder)),
     getSkillManager,
     getWindow: () => mainWindow,
     notifyStateChanged: (domain, data) => {

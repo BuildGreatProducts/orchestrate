@@ -90,9 +90,13 @@ const api: OrchestrateAPI = {
   deleteCommand: (id, scope, projectFolder?) =>
     ipcRenderer.invoke('command:delete', id, scope, projectFolder),
 
-  onTaskScheduleTrigger: (callback: (taskId: string) => void) => {
-    const handler = (_: Electron.IpcRendererEvent, taskId: string): void => {
-      callback(taskId)
+  onTaskScheduleTrigger: (callback: (taskId: string, projectFolder?: string | null) => void) => {
+    const handler = (
+      _: Electron.IpcRendererEvent,
+      taskId: string,
+      projectFolder?: string | null
+    ): void => {
+      callback(taskId, projectFolder)
     }
     ipcRenderer.on('task:scheduleTrigger', handler)
     return () => {

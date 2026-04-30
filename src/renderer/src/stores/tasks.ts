@@ -444,15 +444,18 @@ export const useTasksStore = create<TasksState>((set, get) => ({
       console.error('[Tasks] Failed to load tasks:', err)
       toast.error(`Failed to load tasks: ${message}`)
       if (folder) {
-        const empty = structuredClone(EMPTY_TASKS)
-        set((state) => ({
-          taskListsByProject: { ...state.taskListsByProject, [folder]: empty },
-          loadingByProject: { ...state.loadingByProject, [folder]: false },
-          loadErrorsByProject: { ...state.loadErrorsByProject, [folder]: message },
-          ...(currentProjectFolder() === folder
-            ? { taskList: empty, isLoading: false, hasLoaded: true, loadError: message }
-            : {})
-        }))
+        set((state) => {
+          const taskListsByProject = { ...state.taskListsByProject }
+          delete taskListsByProject[folder]
+          return {
+            taskListsByProject,
+            loadingByProject: { ...state.loadingByProject, [folder]: false },
+            loadErrorsByProject: { ...state.loadErrorsByProject, [folder]: message },
+            ...(currentProjectFolder() === folder
+              ? { taskList: null, isLoading: false, hasLoaded: false, loadError: message }
+              : {})
+          }
+        })
       } else {
         set({
           taskList: structuredClone(EMPTY_TASKS),
@@ -467,8 +470,13 @@ export const useTasksStore = create<TasksState>((set, get) => ({
   resetTasks: () => {
     set({
       taskList: null,
+      taskListsByProject: {},
+      isLoading: false,
+      loadingByProject: {},
       hasLoaded: false,
       loadError: null,
+      loadErrorsByProject: {},
+      activeAgentTasks: {},
       composerOpen: false,
       editingTaskId: null,
       composerProjectFolder: null

@@ -99,14 +99,17 @@ export function ensureGlobalIpcListeners(): void {
   })
 
   // Listen for cron-scheduled task triggers
-  const cleanupTaskTrigger = window.orchestrate.onTaskScheduleTrigger((taskId) => {
+  const cleanupTaskTrigger = window.orchestrate.onTaskScheduleTrigger((taskId, projectFolder) => {
     const tasksState = useTasksStore.getState()
-    const folder = useAppStore.getState().currentFolder
+    const folder =
+      typeof projectFolder === 'string' && projectFolder.trim().length > 0 ? projectFolder : null
+    if (!folder) {
+      console.error(`[Scheduler] Missing project folder for scheduled task ${taskId}`)
+      return
+    }
     const run = (): void => {
-      const task = folder
-        ? useTasksStore.getState().taskListsByProject[folder]?.tasks[taskId]
-        : null
-      if (folder && task) {
+      const task = useTasksStore.getState().taskListsByProject[folder]?.tasks[taskId]
+      if (task) {
         void executeTask(taskId, task.agentType, { projectFolder: folder }).catch((err) => {
           console.error(
             `[Scheduler] Failed to execute scheduled task ${taskId} with agent ${task.agentType}:`,
@@ -115,7 +118,7 @@ export function ensureGlobalIpcListeners(): void {
         })
       }
     }
-    if (folder && tasksState.taskListsByProject[folder]?.tasks[taskId]) {
+    if (tasksState.taskListsByProject[folder]?.tasks[taskId]) {
       run()
     } else {
       tasksState
