@@ -55,6 +55,12 @@ const SCHEDULE_PRESETS = [
 const FIELD_CLASS =
   'h-7 w-full min-w-0 rounded-md bg-zinc-800/70 px-2 text-[11px] leading-none text-zinc-300 outline-none transition-colors placeholder:text-zinc-600 hover:bg-zinc-800 focus:bg-zinc-800 disabled:cursor-default disabled:opacity-45'
 
+interface ProjectGitBranchState {
+  projectFolder: string
+  isGitRepo: boolean
+  branches: BranchInfo[]
+}
+
 function cronFrequency(cron: string): string {
   const parts = cron.trim().split(/\s+/)
   if (parts.length < 5) return cron
@@ -90,6 +96,16 @@ function nextRunLabel(cron: string): string | null {
   } catch {
     return null
   }
+}
+
+async function loadProjectGitBranches(
+  projectFolder: string
+): Promise<{ isGitRepo: boolean; branches: BranchInfo[] }> {
+  const isGitRepo = await window.orchestrate.isGitRepo(projectFolder).catch(() => false)
+  if (!isGitRepo) return { isGitRepo: false, branches: [] }
+
+  const branches = await window.orchestrate.listBranches(projectFolder).catch(() => [])
+  return { isGitRepo: true, branches }
 }
 
 function TaskStatusIndicator({ status }: { status: TaskDisplayStatus }): React.JSX.Element {
@@ -283,7 +299,7 @@ export function TaskDialog({ agents }: TaskDialogProps): React.JSX.Element | nul
   const projectFolder = composerProjectFolder
   const taskList = projectFolder ? taskListsByProject[projectFolder] : undefined
   const promptRef = useRef<HTMLTextAreaElement>(null)
-  const [branches, setBranches] = useState<BranchInfo[]>([])
+  const [gitBranchState, setGitBranchState] = useState<ProjectGitBranchState | null>(null)
   useAppModalLayer(composerOpen)
 
   const editingTask = editingTaskId ? taskList?.tasks[editingTaskId] : undefined
@@ -302,14 +318,10 @@ export function TaskDialog({ agents }: TaskDialogProps): React.JSX.Element | nul
   useEffect(() => {
     if (!composerOpen || !projectFolder) return
     let active = true
-    window.orchestrate
-      .listBranches(projectFolder)
-      .then((list) => {
-        if (active) setBranches(list)
-      })
-      .catch(() => {
-        if (active) setBranches([])
-      })
+    loadProjectGitBranches(projectFolder).then((state) => {
+      if (!active) return
+      setGitBranchState({ projectFolder, ...state })
+    })
     return () => {
       active = false
     }
@@ -340,7 +352,10 @@ export function TaskDialog({ agents }: TaskDialogProps): React.JSX.Element | nul
 
   if (!composerOpen || !projectFolder) return null
 
-  const localBranches = branches.filter((branch) => !branch.isRemote)
+  const activeGitBranchState =
+    gitBranchState?.projectFolder === projectFolder ? gitBranchState : null
+  const isGitRepo = activeGitBranchState?.isGitRepo ?? false
+  const localBranches = (activeGitBranchState?.branches ?? []).filter((branch) => !branch.isRemote)
   const cron = schedulePreset === '__custom__' ? customCron.trim() : schedulePreset
   const canSubmit = prompt.trim().length > 0
 
@@ -456,30 +471,32 @@ export function TaskDialog({ agents }: TaskDialogProps): React.JSX.Element | nul
             </label>
           </div>
 
-          <label className="block">
-            <span className="mb-1 block text-xs font-medium text-zinc-500">Branch</span>
-            <DropdownSelect
-              ariaLabel="Branch"
-              value={branchName}
-              variant="field"
-              leadingIcon={<GitBranch size={14} />}
-              monospaced
-              placeholder="Auto-create task branch"
-              searchPlaceholder="Filter or type branch..."
-              noOptionsLabel="No branches found"
-              allowCustomValue
-              customActionLabel={(value) => <>Use branch &ldquo;{value}&rdquo;</>}
-              options={localBranches.map((branch) => ({
-                value: branch.name,
-                label: branch.name,
-                icon: <GitBranch size={11} />,
-                meta: branch.current ? (
-                  <span className="text-[10px] text-zinc-600">current</span>
-                ) : undefined
-              }))}
-              onChange={setBranchName}
-            />
-          </label>
+          {isGitRepo && (
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-zinc-500">Branch</span>
+              <DropdownSelect
+                ariaLabel="Branch"
+                value={branchName}
+                variant="field"
+                leadingIcon={<GitBranch size={14} />}
+                monospaced
+                placeholder="Auto-create task branch"
+                searchPlaceholder="Filter or type branch..."
+                noOptionsLabel="No branches found"
+                allowCustomValue
+                customActionLabel={(value) => <>Use branch &ldquo;{value}&rdquo;</>}
+                options={localBranches.map((branch) => ({
+                  value: branch.name,
+                  label: branch.name,
+                  icon: <GitBranch size={11} />,
+                  meta: branch.current ? (
+                    <span className="text-[10px] text-zinc-600">current</span>
+                  ) : undefined
+                }))}
+                onChange={setBranchName}
+              />
+            </label>
+          )}
 
           {isScheduled && (
             <div className="grid grid-cols-[1fr_auto] gap-2">
@@ -542,11 +559,13 @@ function TaskRow({
   projectFolder,
   task,
   branches,
+  isGitRepo,
   agents
 }: {
   projectFolder: string
   task: SimpleTask
   branches: BranchInfo[]
+  isGitRepo: boolean
   agents: AgentConfig[]
 }): React.JSX.Element {
   const startTask = useTasksStore((s) => s.startTask)
@@ -703,21 +722,23 @@ function TaskRow({
       </div>
 
       <div className="mt-1 flex items-center gap-1.5">
-        <div className="w-[116px] min-w-0 shrink-0">
-          <DropdownSelect
-            ariaLabel="Branch"
-            value={task.branchName}
-            disabled={running}
-            leadingIcon={<GitBranch size={11} />}
-            monospaced
-            searchPlaceholder="Filter or type branch..."
-            noOptionsLabel="No branches found"
-            allowCustomValue
-            customActionLabel={(value) => <>Use branch &ldquo;{value}&rdquo;</>}
-            options={branchOptions}
-            onChange={(value) => void updateTask(task.id, { branchName: value }, projectFolder)}
-          />
-        </div>
+        {isGitRepo && (
+          <div className="w-[116px] min-w-0 shrink-0">
+            <DropdownSelect
+              ariaLabel="Branch"
+              value={task.branchName}
+              disabled={running}
+              leadingIcon={<GitBranch size={11} />}
+              monospaced
+              searchPlaceholder="Filter or type branch..."
+              noOptionsLabel="No branches found"
+              allowCustomValue
+              customActionLabel={(value) => <>Use branch &ldquo;{value}&rdquo;</>}
+              options={branchOptions}
+              onChange={(value) => void updateTask(task.id, { branchName: value }, projectFolder)}
+            />
+          </div>
+        )}
         <div className="w-fit shrink-0">
           <DropdownSelect
             ariaLabel="Mode"
@@ -825,7 +846,7 @@ export default function TasksSidebar({ projectFolder }: TasksSidebarProps): Reac
   const loadTasks = useTasksStore((s) => s.loadTasks)
   const openComposer = useTasksStore((s) => s.openComposer)
   const agents = useAgentsStore((s) => s.agents)
-  const [branches, setBranches] = useState<BranchInfo[]>([])
+  const [gitBranchState, setGitBranchState] = useState<ProjectGitBranchState | null>(null)
 
   useEffect(() => {
     if (!taskList && !isLoading && !loadError) {
@@ -835,18 +856,19 @@ export default function TasksSidebar({ projectFolder }: TasksSidebarProps): Reac
 
   useEffect(() => {
     let active = true
-    window.orchestrate
-      .listBranches(projectFolder)
-      .then((list) => {
-        if (active) setBranches(list)
-      })
-      .catch(() => {
-        if (active) setBranches([])
-      })
+    loadProjectGitBranches(projectFolder).then((state) => {
+      if (!active) return
+      setGitBranchState({ projectFolder, ...state })
+    })
     return () => {
       active = false
     }
   }, [projectFolder])
+
+  const activeGitBranchState =
+    gitBranchState?.projectFolder === projectFolder ? gitBranchState : null
+  const isGitRepo = activeGitBranchState?.isGitRepo ?? false
+  const branches = activeGitBranchState?.branches ?? []
 
   const { manualTasks, scheduledTasks } = useMemo(() => {
     const tasks = taskList
@@ -894,6 +916,7 @@ export default function TasksSidebar({ projectFolder }: TasksSidebarProps): Reac
               projectFolder={projectFolder}
               task={task}
               branches={branches}
+              isGitRepo={isGitRepo}
               agents={agents}
             />
           ))}
@@ -930,6 +953,7 @@ export default function TasksSidebar({ projectFolder }: TasksSidebarProps): Reac
               projectFolder={projectFolder}
               task={task}
               branches={branches}
+              isGitRepo={isGitRepo}
               agents={agents}
             />
           ))}

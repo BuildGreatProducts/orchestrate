@@ -7,9 +7,24 @@ import crypto from 'crypto'
 import { createServer, type Server as HttpServer, type IncomingMessage } from 'http'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
-import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js'
+import {
+  getParseErrorMessage,
+  normalizeObjectSchema,
+  safeParseAsync
+} from '@modelcontextprotocol/sdk/server/zod-compat.js'
+import { toJsonSchemaCompat } from '@modelcontextprotocol/sdk/server/zod-json-schema-compat.js'
+import {
+  CallToolRequestSchema,
+  ErrorCode,
+  isInitializeRequest,
+  ListToolsRequestSchema,
+  McpError,
+  type CallToolResult,
+  type Tool
+} from '@modelcontextprotocol/sdk/types.js'
 import { z } from 'zod'
 import type { ToolExecutorDeps } from './tool-handlers'
+import type { McpConnectionManager } from './mcp-connection-manager'
 
 // Per-process secret for authenticating mutating tool requests
 const MCP_SECRET = process.env.MCP_SECRET || crypto.randomBytes(32).toString('hex')
@@ -47,17 +62,122 @@ import {
 
 let httpServer: HttpServer | null = null
 let serverPort: number | null = null
+const MAX_MCP_BODY_BYTES = 4 * 1024 * 1024
 
 interface McpRequestContext {
   projectFolder?: string
   taskId?: string
 }
 
+interface RegisteredMcpTool {
+  title?: string
+  description?: string
+  inputSchema?: unknown
+  outputSchema?: unknown
+  annotations?: Tool['annotations']
+  execution?: Tool['execution']
+  _meta?: Record<string, unknown>
+  enabled?: boolean
+  handler: (args?: unknown, extra?: unknown) => CallToolResult | Promise<CallToolResult>
+}
+
+const EMPTY_OBJECT_JSON_SCHEMA: Tool['inputSchema'] = { type: 'object', properties: {} }
+
+function getRegisteredTools(server: McpServer): Record<string, RegisteredMcpTool> {
+  return (
+    (server as unknown as { _registeredTools?: Record<string, RegisteredMcpTool> })
+      ._registeredTools ?? {}
+  )
+}
+
+function schemaToJsonSchema(schema: unknown): Tool['inputSchema'] {
+  const normalized = normalizeObjectSchema(schema as never)
+  if (!normalized) return EMPTY_OBJECT_JSON_SCHEMA
+  return toJsonSchemaCompat(normalized, {
+    strictUnions: true,
+    pipeStrategy: 'input'
+  }) as Tool['inputSchema']
+}
+
+function registeredToolToDefinition(name: string, tool: RegisteredMcpTool): Tool {
+  const definition: Tool = {
+    name,
+    title: tool.title,
+    description: tool.description,
+    inputSchema: schemaToJsonSchema(tool.inputSchema),
+    annotations: tool.annotations,
+    execution: tool.execution,
+    _meta: tool._meta
+  }
+  if (tool.outputSchema) {
+    definition.outputSchema = schemaToJsonSchema(tool.outputSchema)
+  }
+  return definition
+}
+
+async function parseToolArguments(tool: RegisteredMcpTool, args: unknown): Promise<unknown> {
+  const schema = normalizeObjectSchema(tool.inputSchema as never)
+  if (!schema) return args && typeof args === 'object' ? args : {}
+  const result = await safeParseAsync(schema, args ?? {})
+  if (!result.success) {
+    throw new McpError(
+      ErrorCode.InvalidParams,
+      `Invalid tool arguments: ${getParseErrorMessage(result.error)}`
+    )
+  }
+  return result.data
+}
+
+function installAggregatedToolHandlers(
+  server: McpServer,
+  opts: {
+    getProjectFolder: () => string | null
+    getMcpConnectionManager: () => McpConnectionManager | null
+  }
+): void {
+  server.server.setRequestHandler(ListToolsRequestSchema, async () => {
+    const firstPartyTools = Object.entries(getRegisteredTools(server))
+      .filter(([, tool]) => tool.enabled !== false)
+      .map(([name, tool]) => registeredToolToDefinition(name, tool))
+
+    const mcpManager = opts.getMcpConnectionManager()
+    const upstreamTools = mcpManager ? await mcpManager.listTools(opts.getProjectFolder()) : []
+
+    return { tools: [...firstPartyTools, ...upstreamTools] }
+  })
+
+  server.server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
+    const tool = getRegisteredTools(server)[request.params.name]
+    if (tool && tool.enabled !== false) {
+      const parsedArgs = await parseToolArguments(tool, request.params.arguments)
+      return tool.handler(parsedArgs, extra)
+    }
+
+    const mcpManager = opts.getMcpConnectionManager()
+    if (mcpManager) {
+      return (await mcpManager.callTool(
+        opts.getProjectFolder(),
+        request.params.name,
+        request.params.arguments ?? {}
+      )) as CallToolResult
+    }
+
+    throw new McpError(ErrorCode.InvalidParams, `Tool ${request.params.name} not found`)
+  })
+}
+
 /** Read and JSON-parse the request body from an IncomingMessage */
 function readBody(req: IncomingMessage): Promise<unknown> {
   return new Promise((resolve, reject) => {
     let data = ''
+    let bytes = 0
     req.on('data', (chunk: Buffer) => {
+      bytes += chunk.byteLength
+      if (bytes > MAX_MCP_BODY_BYTES) {
+        reject(new Error('MCP request body too large'))
+        req.destroy()
+        return
+      }
       data += chunk.toString()
     })
     req.on('end', () => {
@@ -317,6 +437,11 @@ function createMcpInstance(deps: ToolExecutorDeps, context: McpRequestContext = 
     { name: z.string().describe('The skill name to activate') },
     async (args) => handleActivateSkill(args, skillDeps)
   )
+
+  installAggregatedToolHandlers(server, {
+    getProjectFolder: scopedGetCurrentFolder,
+    getMcpConnectionManager: deps.getMcpConnectionManager
+  })
 
   return server
 }

@@ -4,7 +4,7 @@ import BrowserTab from '@renderer/components/browser/BrowserTab'
 import FilesTab from '@renderer/components/files/FilesTab'
 import HistoryTab from '@renderer/components/history/HistoryTab'
 import CommandsTab from '@renderer/components/commands/CommandsTab'
-import SkillsSettings from '@renderer/components/settings/SkillsSettings'
+import SkillsSettings, { McpSettings } from '@renderer/components/settings/SkillsSettings'
 import { PROJECT_DETAIL_TABS } from '@renderer/lib/project-detail-tabs'
 
 const TAB_COMPONENTS: Record<ProjectDetailTabId, React.ComponentType> = {
@@ -12,7 +12,8 @@ const TAB_COMPONENTS: Record<ProjectDetailTabId, React.ComponentType> = {
   commands: CommandsTab,
   files: FilesTab,
   history: HistoryTab,
-  skills: SkillsSettings
+  skills: SkillsSettings,
+  mcp: McpSettings
 }
 
 export default function ProjectDetailPage(): React.JSX.Element {

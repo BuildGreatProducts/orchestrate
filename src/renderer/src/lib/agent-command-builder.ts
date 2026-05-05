@@ -26,6 +26,10 @@ export function buildAgentCommand(opts: BuildCommandOptions): string {
     mcpFlags = `--mcp-config ${shellQuote(mcpConfigPath)}`
   } else if (agent.mcpMode === 'codex-flags' && codexMcpFlags) {
     mcpFlags = codexMcpFlags
+  } else if (agent.mcpMode === 'custom' && agent.mcpFlagTemplate) {
+    mcpFlags = agent.mcpFlagTemplate
+      .replace(/\{mcp_config_path\}/g, mcpConfigPath ? shellQuote(mcpConfigPath) : '')
+      .replace(/\{codex_mcp_flags\}/g, codexMcpFlags || '')
   }
 
   // Interactive mode: no prompt and no task file, just launch the CLI with MCP flags
@@ -44,10 +48,7 @@ export function buildAgentCommand(opts: BuildCommandOptions): string {
   // Substitute placeholders
   template = template.replace(/\{mcp_flags\}/g, mcpFlags)
   template = template.replace(/\{prompt\}/g, effectivePrompt)
-  template = template.replace(
-    /\{system_prompt\}/g,
-    systemPrompt ? shellQuote(systemPrompt) : "''"
-  )
+  template = template.replace(/\{system_prompt\}/g, systemPrompt ? shellQuote(systemPrompt) : "''")
   template = template.replace(/\{task_file\}/g, taskFileRef || effectivePrompt)
 
   // Clean up double spaces from empty substitutions

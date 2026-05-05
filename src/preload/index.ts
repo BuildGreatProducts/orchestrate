@@ -158,6 +158,17 @@ const api: OrchestrateAPI = {
     ipcRenderer.invoke('mcp:getConfigPathForProject', projectFolder, taskId),
   getCodexMcpFlagsForProject: (projectFolder: string, taskId?: string) =>
     ipcRenderer.invoke('mcp:getCodexFlagsForProject', projectFolder, taskId),
+  listMcpRegistry: (projectFolder?: string) =>
+    ipcRenderer.invoke('mcp:listRegistry', projectFolder),
+  addMcpServer: (input, enableForProject?) =>
+    ipcRenderer.invoke('mcp:addServer', input, enableForProject ?? null),
+  updateMcpServer: (id, input) => ipcRenderer.invoke('mcp:updateServer', id, input),
+  removeMcpServer: (id) => ipcRenderer.invoke('mcp:removeServer', id),
+  setProjectMcpEnabled: (projectFolder, serverId, enabled) =>
+    ipcRenderer.invoke('mcp:setProjectEnabled', projectFolder, serverId, enabled),
+  testMcpServer: (id, projectFolder?) =>
+    ipcRenderer.invoke('mcp:testServer', id, projectFolder ?? null),
+  startMcpOAuth: (id) => ipcRenderer.invoke('mcp:startOAuth', id),
 
   // Updates
   checkForUpdates: () => ipcRenderer.invoke('updater:check'),
