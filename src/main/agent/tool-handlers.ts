@@ -14,7 +14,10 @@ import type { SimpleTask, TaskMode, TaskSchedule, TaskStatus } from '@shared/typ
 export interface ToolExecutorDeps {
   getCurrentFolder: () => string | null
   getTaskManager: () => TaskManager | null
+  getTaskManagerForProject: (projectFolder: string) => TaskManager
   getGitManager: () => GitManager | null
+  getGitManagerForProject: (projectFolder: string) => GitManager
+  resolveProjectFolder: (projectFolder: string) => string | null
   getSkillManager: () => SkillManager | null
   getWindow: () => import('electron').BrowserWindow | null
   notifyStateChanged: (domain: string, data?: unknown) => void

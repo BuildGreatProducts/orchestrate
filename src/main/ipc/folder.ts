@@ -12,6 +12,13 @@ export function getCurrentFolder(): string | null {
   return store.get('lastFolder')
 }
 
+export function resolveRegisteredProject(folderPath: unknown): string | null {
+  if (typeof folderPath !== 'string' || folderPath.trim().length === 0) return null
+  const resolved = path.resolve(folderPath.trim())
+  const projects = store.get('projects').map((project) => path.resolve(project))
+  return projects.includes(resolved) && fs.existsSync(resolved) ? resolved : null
+}
+
 function addProjectToStore(folderPath: string): string[] {
   const resolved = path.resolve(folderPath)
   const projects = store.get('projects')

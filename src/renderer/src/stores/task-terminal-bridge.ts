@@ -8,10 +8,11 @@ import { useTasksStore } from './tasks'
  */
 export async function handleTaskTerminalExit(terminalId: string, exitCode: number): Promise<void> {
   try {
-    const taskId = useTerminalStore.getState().getTaskId(terminalId)
+    const tab = useTerminalStore.getState().tabs.find((item) => item.id === terminalId)
+    const taskId = tab?.taskId
     if (!taskId) return
 
-    const task = useTasksStore.getState().taskList?.tasks[taskId]
+    const task = useTasksStore.getState().taskListsByProject[tab.projectFolder]?.tasks[taskId]
     if (!task || task.status !== 'running') return
     if (task.lastRun?.terminalId && task.lastRun.terminalId !== terminalId) return
 
@@ -27,7 +28,8 @@ export async function handleTaskTerminalExit(terminalId: string, exitCode: numbe
         exitCode,
         finishedAt: new Date().toISOString()
       },
-      exitCode === 0 ? 'done' : 'failed'
+      exitCode === 0 ? 'done' : 'failed',
+      tab.projectFolder
     )
   } catch (err) {
     console.error('[TaskBridge] handleTaskTerminalExit error:', err)

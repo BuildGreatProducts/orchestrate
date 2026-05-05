@@ -11,6 +11,8 @@ import type {
   UpdateSimpleTaskInput
 } from '@shared/types'
 import { toast } from './toast'
+import { useAppStore } from './app'
+import { beginProjectApiFallback } from './project-api-fallback-lock'
 
 const SAFE_ID_RE = /^[A-Za-z0-9_-]{1,64}$/
 
@@ -18,6 +20,10 @@ const EMPTY_TASKS: TaskListState = {
   version: 1,
   order: [],
   tasks: {}
+}
+
+export function taskExecutionKey(projectFolder: string, taskId: string): string {
+  return `${projectFolder}\0${taskId}`
 }
 
 const LEGACY_COLUMNS: ColumnId[] = ['planning', 'in-progress', 'review', 'done']
@@ -151,7 +157,58 @@ function legacyBoardFromTaskList(taskList: TaskListState): BoardState {
   return board
 }
 
-async function loadTaskListFromApi(): Promise<TaskListState> {
+let projectApiFallbackQueue: Promise<unknown> = Promise.resolve()
+
+function withProjectApiFallback<T>(projectFolder: string, action: () => Promise<T>): Promise<T> {
+  const previous = projectApiFallbackQueue.catch(() => undefined)
+  const next = previous.then(async () => {
+    const releaseFallbackLock = beginProjectApiFallback()
+    const restoreFolder = currentProjectFolder()
+    await window.orchestrate.setActiveProject(projectFolder)
+    try {
+      return await action()
+    } finally {
+      try {
+        await window.orchestrate.setActiveProject(restoreFolder)
+      } finally {
+        releaseFallbackLock()
+      }
+    }
+  })
+  projectApiFallbackQueue = next.catch(() => undefined)
+  return next
+}
+
+async function loadTaskListFromApi(projectFolder?: string | null): Promise<TaskListState> {
+  if (projectFolder && typeof window.orchestrate.loadTasksForProject === 'function') {
+    try {
+      return await window.orchestrate.loadTasksForProject(projectFolder)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      if (!message.includes('No handler registered')) throw err
+      console.warn('[Tasks] task:loadTasksForProject handler unavailable; using scoped fallback')
+    }
+  }
+
+  if (projectFolder) {
+    return withProjectApiFallback(projectFolder, async () => {
+      if (typeof window.orchestrate.loadTasks === 'function') {
+        try {
+          return await window.orchestrate.loadTasks()
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err)
+          if (!message.includes('No handler registered')) throw err
+          console.warn(
+            '[Tasks] task:loadTasks handler unavailable; falling back to legacy task board'
+          )
+        }
+      }
+
+      const board = await window.orchestrate.loadBoard()
+      return taskListFromLegacyBoard(board)
+    })
+  }
+
   if (typeof window.orchestrate.loadTasks === 'function') {
     try {
       return await window.orchestrate.loadTasks()
@@ -167,7 +224,51 @@ async function loadTaskListFromApi(): Promise<TaskListState> {
   return taskListFromLegacyBoard(board)
 }
 
-async function saveTaskListToApi(taskList: TaskListState): Promise<void> {
+async function saveTaskListToApi(
+  taskList: TaskListState,
+  projectFolder?: string | null
+): Promise<void> {
+  if (projectFolder && typeof window.orchestrate.saveTasksForProject === 'function') {
+    try {
+      await window.orchestrate.saveTasksForProject(projectFolder, taskList)
+      return
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      if (!message.includes('No handler registered')) throw err
+      console.warn('[Tasks] task:saveTasksForProject handler unavailable; using scoped fallback')
+    }
+  }
+
+  if (projectFolder) {
+    await withProjectApiFallback(projectFolder, async () => {
+      if (typeof window.orchestrate.saveTasks === 'function') {
+        try {
+          await window.orchestrate.saveTasks(taskList)
+          return
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err)
+          if (!message.includes('No handler registered')) throw err
+          console.warn(
+            '[Tasks] task:saveTasks handler unavailable; falling back to legacy task board'
+          )
+        }
+      }
+
+      await window.orchestrate.saveBoard(legacyBoardFromTaskList(taskList))
+      await Promise.all(
+        taskList.order.map(async (id) => {
+          const task = taskList.tasks[id]
+          if (!task) return
+          await window.orchestrate.writeTaskMarkdown(
+            id,
+            `# ${task.prompt.split('\n')[0]}\n\n${task.prompt}\n`
+          )
+        })
+      )
+    })
+    return
+  }
+
   if (typeof window.orchestrate.saveTasks === 'function') {
     try {
       await window.orchestrate.saveTasks(taskList)
@@ -195,44 +296,115 @@ async function saveTaskListToApi(taskList: TaskListState): Promise<void> {
 
 interface TasksState {
   taskList: TaskListState | null
+  taskListsByProject: Record<string, TaskListState>
   isLoading: boolean
+  loadingByProject: Record<string, boolean>
   hasLoaded: boolean
   loadError: string | null
+  loadErrorsByProject: Record<string, string | null>
   activeAgentTasks: Record<string, { terminalId: string; agent: AgentType }>
   composerOpen: boolean
   composerKind: 'manual' | 'scheduled'
   editingTaskId: string | null
+  composerProjectFolder: string | null
 
-  loadTasks: () => Promise<void>
+  loadTasks: (projectFolder?: string | null) => Promise<void>
   resetTasks: () => void
-  saveTaskList: (taskList: TaskListState) => Promise<void>
-  openComposer: (kind?: 'manual' | 'scheduled', taskId?: string | null) => void
+  getTaskList: (projectFolder?: string | null) => TaskListState | null
+  saveTaskList: (taskList: TaskListState, projectFolder?: string | null) => Promise<void>
+  openComposer: (
+    kind?: 'manual' | 'scheduled',
+    taskId?: string | null,
+    projectFolder?: string | null
+  ) => void
   closeComposer: () => void
-  createTask: (input: CreateSimpleTaskInput) => Promise<string | null>
-  updateTask: (id: string, updates: UpdateSimpleTaskInput) => Promise<void>
-  deleteTask: (id: string) => Promise<void>
-  setTaskStatus: (id: string, status: Exclude<TaskStatus, 'running'>) => Promise<void>
-  updateTaskRun: (taskId: string, run: SimpleTaskRun, status?: TaskStatus) => Promise<void>
-  startTask: (id: string, agentOverride?: AgentType) => Promise<void>
-  stopTask: (id: string) => void
-  markActiveAgentTask: (taskId: string, terminalId: string, agent: AgentType) => void
-  clearActiveAgentTask: (taskId: string) => void
+  createTask: (
+    input: CreateSimpleTaskInput,
+    projectFolder?: string | null
+  ) => Promise<string | null>
+  updateTask: (
+    id: string,
+    updates: UpdateSimpleTaskInput,
+    projectFolder?: string | null
+  ) => Promise<void>
+  deleteTask: (id: string, projectFolder?: string | null) => Promise<void>
+  setTaskStatus: (
+    id: string,
+    status: Exclude<TaskStatus, 'running'>,
+    projectFolder?: string | null
+  ) => Promise<void>
+  updateTaskRun: (
+    taskId: string,
+    run: SimpleTaskRun,
+    status?: TaskStatus,
+    projectFolder?: string | null
+  ) => Promise<void>
+  startTask: (
+    id: string,
+    agentOverride?: AgentType,
+    options?: { projectFolder?: string | null; navigateOnStart?: boolean }
+  ) => Promise<void>
+  stopTask: (id: string, projectFolder?: string | null) => void
+  markActiveAgentTask: (
+    taskId: string,
+    terminalId: string,
+    agent: AgentType,
+    projectFolder?: string | null
+  ) => void
+  clearActiveAgentTask: (taskId: string, projectFolder?: string | null) => void
+}
+
+function currentProjectFolder(): string | null {
+  return useAppStore.getState().currentFolder
+}
+
+function resolveProjectFolder(projectFolder?: string | null): string | null {
+  return projectFolder ?? currentProjectFolder()
+}
+
+function setLoadedTaskList(
+  set: (partial: Partial<TasksState> | ((state: TasksState) => Partial<TasksState>)) => void,
+  projectFolder: string | null,
+  taskList: TaskListState
+): void {
+  if (!projectFolder) {
+    set({ taskList })
+    return
+  }
+  set((state) => ({
+    taskListsByProject: { ...state.taskListsByProject, [projectFolder]: taskList },
+    ...(currentProjectFolder() === projectFolder ? { taskList } : {})
+  }))
 }
 
 export const useTasksStore = create<TasksState>((set, get) => ({
   taskList: null,
+  taskListsByProject: {},
   isLoading: false,
+  loadingByProject: {},
   hasLoaded: false,
   loadError: null,
+  loadErrorsByProject: {},
   activeAgentTasks: {},
   composerOpen: false,
   composerKind: 'manual',
   editingTaskId: null,
+  composerProjectFolder: null,
 
-  loadTasks: async () => {
-    set({ isLoading: true, loadError: null })
+  loadTasks: async (projectFolder = null) => {
+    const folder = resolveProjectFolder(projectFolder)
+    if (folder) {
+      set((state) => ({
+        loadingByProject: { ...state.loadingByProject, [folder]: true },
+        loadErrorsByProject: { ...state.loadErrorsByProject, [folder]: null },
+        ...(currentProjectFolder() === folder ? { isLoading: true, loadError: null } : {})
+      }))
+    } else {
+      set({ isLoading: true, loadError: null })
+    }
+
     try {
-      const taskList = await loadTaskListFromApi()
+      const taskList = await loadTaskListFromApi(folder)
       const loaded = taskList ?? structuredClone(EMPTY_TASKS)
       const { activeAgentTasks } = get()
       let changed = false
@@ -241,7 +413,8 @@ export const useTasksStore = create<TasksState>((set, get) => ({
       for (const id of loaded.order) {
         const task = loaded.tasks[id]
         if (!task) continue
-        if (task.status === 'running' && !activeAgentTasks[id]) {
+        const activeKey = folder ? taskExecutionKey(folder, id) : id
+        if (task.status === 'running' && !activeAgentTasks[activeKey]) {
           task.status = 'failed'
           task.updatedAt = now
           if (task.lastRun?.status === 'running') {
@@ -252,7 +425,7 @@ export const useTasksStore = create<TasksState>((set, get) => ({
       }
 
       if (changed) {
-        saveTaskListToApi(loaded).catch((err) => {
+        saveTaskListToApi(loaded, folder).catch((err) => {
           console.error(
             `[Tasks] Failed to persist consistency fix for task list (${loaded.order.length} tasks: ${loaded.order.join(', ')}):`,
             err
@@ -260,51 +433,102 @@ export const useTasksStore = create<TasksState>((set, get) => ({
         })
       }
 
-      set({ taskList: loaded, isLoading: false, hasLoaded: true })
+      if (folder) {
+        set((state) => ({
+          taskListsByProject: { ...state.taskListsByProject, [folder]: loaded },
+          loadingByProject: { ...state.loadingByProject, [folder]: false },
+          loadErrorsByProject: { ...state.loadErrorsByProject, [folder]: null },
+          ...(currentProjectFolder() === folder
+            ? { taskList: loaded, isLoading: false, hasLoaded: true, loadError: null }
+            : {})
+        }))
+      } else {
+        set({ taskList: loaded, isLoading: false, hasLoaded: true })
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error'
       console.error('[Tasks] Failed to load tasks:', err)
       toast.error(`Failed to load tasks: ${message}`)
-      set({
-        taskList: structuredClone(EMPTY_TASKS),
-        isLoading: false,
-        hasLoaded: true,
-        loadError: message
-      })
+      if (folder) {
+        set((state) => {
+          const taskListsByProject = { ...state.taskListsByProject }
+          delete taskListsByProject[folder]
+          return {
+            taskListsByProject,
+            loadingByProject: { ...state.loadingByProject, [folder]: false },
+            loadErrorsByProject: { ...state.loadErrorsByProject, [folder]: message },
+            ...(currentProjectFolder() === folder
+              ? { taskList: null, isLoading: false, hasLoaded: false, loadError: message }
+              : {})
+          }
+        })
+      } else {
+        set({
+          taskList: structuredClone(EMPTY_TASKS),
+          isLoading: false,
+          hasLoaded: true,
+          loadError: message
+        })
+      }
     }
   },
 
   resetTasks: () => {
     set({
       taskList: null,
+      taskListsByProject: {},
+      isLoading: false,
+      loadingByProject: {},
       hasLoaded: false,
       loadError: null,
+      loadErrorsByProject: {},
+      activeAgentTasks: {},
       composerOpen: false,
-      editingTaskId: null
+      editingTaskId: null,
+      composerProjectFolder: null
     })
   },
 
-  saveTaskList: async (taskList) => {
-    const previousTaskList = get().taskList
-    set({ taskList })
+  getTaskList: (projectFolder = null) => {
+    const folder = resolveProjectFolder(projectFolder)
+    if (folder) return get().taskListsByProject[folder] ?? null
+    return get().taskList
+  },
+
+  saveTaskList: async (taskList, projectFolder = null) => {
+    const folder = resolveProjectFolder(projectFolder)
+    const previousTaskList = folder ? get().taskListsByProject[folder] : get().taskList
+    setLoadedTaskList(set, folder, taskList)
     try {
-      await saveTaskListToApi(taskList)
+      await saveTaskListToApi(taskList, folder)
     } catch (err) {
-      set({ taskList: previousTaskList })
+      if (previousTaskList) {
+        setLoadedTaskList(set, folder, previousTaskList)
+      }
       throw err
     }
   },
 
-  openComposer: (kind = 'manual', taskId = null) => {
-    set({ composerOpen: true, composerKind: kind, editingTaskId: taskId })
+  openComposer: (kind = 'manual', taskId = null, projectFolder = null) => {
+    const folder = resolveProjectFolder(projectFolder)
+    set({
+      composerOpen: true,
+      composerKind: kind,
+      editingTaskId: taskId,
+      composerProjectFolder: folder
+    })
   },
 
   closeComposer: () => {
-    set({ composerOpen: false, editingTaskId: null })
+    set({ composerOpen: false, editingTaskId: null, composerProjectFolder: null })
   },
 
-  createTask: async (input) => {
-    const taskList = get().taskList
+  createTask: async (input, projectFolder = null) => {
+    const folder = resolveProjectFolder(projectFolder ?? get().composerProjectFolder)
+    if (folder && !get().taskListsByProject[folder]) {
+      await get().loadTasks(folder)
+    }
+    const taskList = folder ? get().taskListsByProject[folder] : get().taskList
     if (!taskList) return null
 
     const prompt = normalizePrompt(input.prompt)
@@ -344,13 +568,14 @@ export const useTasksStore = create<TasksState>((set, get) => ({
       }
     }
 
-    await get().saveTaskList(next)
-    set({ composerOpen: false, editingTaskId: null })
+    await get().saveTaskList(next, folder)
+    set({ composerOpen: false, editingTaskId: null, composerProjectFolder: null })
     return id
   },
 
-  updateTask: async (id, updates) => {
-    const taskList = get().taskList
+  updateTask: async (id, updates, projectFolder = null) => {
+    const folder = resolveProjectFolder(projectFolder ?? get().composerProjectFolder)
+    const taskList = folder ? get().taskListsByProject[folder] : get().taskList
     const task = taskList?.tasks[id]
     if (!taskList || !task) return
 
@@ -371,12 +596,13 @@ export const useTasksStore = create<TasksState>((set, get) => ({
       updatedAt: new Date().toISOString()
     }
 
-    await get().saveTaskList(cloneTasksWithTask(taskList, nextTask))
-    set({ composerOpen: false, editingTaskId: null })
+    await get().saveTaskList(cloneTasksWithTask(taskList, nextTask), folder)
+    set({ composerOpen: false, editingTaskId: null, composerProjectFolder: null })
   },
 
-  deleteTask: async (id) => {
-    const taskList = get().taskList
+  deleteTask: async (id, projectFolder = null) => {
+    const folder = resolveProjectFolder(projectFolder)
+    const taskList = folder ? get().taskListsByProject[folder] : get().taskList
     if (!taskList?.tasks[id]) return
     const tasks = { ...taskList.tasks }
     delete tasks[id]
@@ -385,11 +611,12 @@ export const useTasksStore = create<TasksState>((set, get) => ({
       order: taskList.order.filter((taskId) => taskId !== id),
       tasks
     }
-    await get().saveTaskList(next)
+    await get().saveTaskList(next, folder)
   },
 
-  setTaskStatus: async (id, status) => {
-    const taskList = get().taskList
+  setTaskStatus: async (id, status, projectFolder = null) => {
+    const folder = resolveProjectFolder(projectFolder)
+    const taskList = folder ? get().taskListsByProject[folder] : get().taskList
     const task = taskList?.tasks[id]
     if (!taskList || !task || task.status === 'running') return
     await get().saveTaskList(
@@ -397,12 +624,14 @@ export const useTasksStore = create<TasksState>((set, get) => ({
         ...task,
         status,
         updatedAt: new Date().toISOString()
-      })
+      }),
+      folder
     )
   },
 
-  updateTaskRun: async (taskId, run, status) => {
-    const taskList = get().taskList
+  updateTaskRun: async (taskId, run, status, projectFolder = null) => {
+    const folder = resolveProjectFolder(projectFolder)
+    const taskList = folder ? get().taskListsByProject[folder] : get().taskList
     const task = taskList?.tasks[taskId]
     if (!taskList || !task) return
     const nextTask: SimpleTask = {
@@ -411,39 +640,43 @@ export const useTasksStore = create<TasksState>((set, get) => ({
       lastRun: run,
       updatedAt: new Date().toISOString()
     }
-    await get().saveTaskList(cloneTasksWithTask(taskList, nextTask))
+    await get().saveTaskList(cloneTasksWithTask(taskList, nextTask), folder)
   },
 
-  startTask: async (id, agentOverride) => {
+  startTask: async (id, agentOverride, options) => {
     if (!SAFE_ID_RE.test(id)) {
       console.error('[Tasks] Refusing to start task with unsafe ID:', id)
       return
     }
     const { executeTask } = await import('./task-execution-engine')
-    await executeTask(id, agentOverride)
+    await executeTask(id, agentOverride, options)
   },
 
-  stopTask: (id) => {
+  stopTask: (id, projectFolder = null) => {
     import('./task-execution-engine')
-      .then(({ abortTask }) => abortTask(id))
+      .then(({ abortTask }) => abortTask(id, resolveProjectFolder(projectFolder)))
       .catch((err) => {
         console.error('[Tasks] Failed to stop task:', err)
       })
   },
 
-  markActiveAgentTask: (taskId, terminalId, agent) => {
+  markActiveAgentTask: (taskId, terminalId, agent, projectFolder = null) => {
+    const folder = resolveProjectFolder(projectFolder)
+    const key = folder ? taskExecutionKey(folder, taskId) : taskId
     set((state) => ({
       activeAgentTasks: {
         ...state.activeAgentTasks,
-        [taskId]: { terminalId, agent }
+        [key]: { terminalId, agent }
       }
     }))
   },
 
-  clearActiveAgentTask: (taskId) => {
+  clearActiveAgentTask: (taskId, projectFolder = null) => {
+    const folder = resolveProjectFolder(projectFolder)
+    const key = folder ? taskExecutionKey(folder, taskId) : taskId
     set((state) => {
       const activeAgentTasks = { ...state.activeAgentTasks }
-      delete activeAgentTasks[taskId]
+      delete activeAgentTasks[key]
       return { activeAgentTasks }
     })
   }

@@ -20,7 +20,9 @@ const stubs: StubDef[] = [
 
   // Tasks
   { channel: 'task:loadTasks', returns: { version: 1, order: [], tasks: {} } },
+  { channel: 'task:loadTasksForProject', returns: { version: 1, order: [], tasks: {} } },
   { channel: 'task:saveTasks', returns: undefined },
+  { channel: 'task:saveTasksForProject', returns: undefined },
   {
     channel: 'task:loadBoard',
     returns: { columns: { planning: [], 'in-progress': [], review: [], done: [] }, tasks: {} }
@@ -30,6 +32,7 @@ const stubs: StubDef[] = [
   { channel: 'task:writeMarkdown', returns: undefined },
   { channel: 'task:delete', returns: undefined },
   { channel: 'task:sendToAgent', returns: undefined },
+  { channel: 'task:sendToAgentForProject', returns: undefined },
 
   // Saved Commands
   { channel: 'command:list', returns: [] },

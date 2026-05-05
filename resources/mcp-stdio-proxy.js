@@ -5,14 +5,19 @@
  * Codex spawns this as a stdio MCP server; it bridges tool calls to the
  * Orchestrate HTTP MCP server running on localhost.
  *
- * Usage: node mcp-stdio-proxy.js http://127.0.0.1:PORT/mcp
+ * Usage: node mcp-stdio-proxy.js http://127.0.0.1:PORT/mcp <secret> [projectFolder] [taskId]
  *
  * Self-contained — no npm dependencies (uses Node.js built-in fetch).
  */
 
 const HTTP_URL = process.argv[2]
-if (!HTTP_URL) {
-  process.stderr.write('Usage: node mcp-stdio-proxy.js <http-mcp-url>\n')
+const MCP_SECRET = process.argv[3]
+const PROJECT_FOLDER = process.argv[4]
+const TASK_ID = process.argv[5]
+if (!HTTP_URL || !MCP_SECRET) {
+  process.stderr.write(
+    'Usage: node mcp-stdio-proxy.js <http-mcp-url> <secret> [projectFolder] [taskId]\n'
+  )
   process.exit(1)
 }
 
@@ -84,8 +89,14 @@ async function httpRpc(method, params) {
   const body = { jsonrpc: '2.0', method, id }
   if (params) body.params = params
 
-  const headers = { 'Content-Type': 'application/json', Accept: 'application/json' }
+  const headers = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+    'X-MCP-Secret': MCP_SECRET
+  }
   if (sessionId) headers['mcp-session-id'] = sessionId
+  if (PROJECT_FOLDER) headers['X-Orchestrate-Project'] = PROJECT_FOLDER
+  if (TASK_ID) headers['X-Orchestrate-Task'] = TASK_ID
 
   const res = await fetch(HTTP_URL, {
     method: 'POST',
@@ -107,8 +118,14 @@ async function ensureSession() {
     clientInfo: { name: 'orchestrate-proxy', version: '1.0.0' }
   })
   // Send initialized notification (no id = notification)
-  const headers = { 'Content-Type': 'application/json', Accept: 'application/json' }
+  const headers = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+    'X-MCP-Secret': MCP_SECRET
+  }
   if (sessionId) headers['mcp-session-id'] = sessionId
+  if (PROJECT_FOLDER) headers['X-Orchestrate-Project'] = PROJECT_FOLDER
+  if (TASK_ID) headers['X-Orchestrate-Task'] = TASK_ID
   await fetch(HTTP_URL, {
     method: 'POST',
     headers,

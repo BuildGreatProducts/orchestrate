@@ -9,6 +9,7 @@ export class TaskScheduler {
   private taskTimers = new Map<string, NodeJS.Timeout>()
   private getWindow: () => BrowserWindow | null
   private getTasks: (() => Promise<TaskListState>) | null = null
+  private getProjectTasks: ((projectFolder: string) => Promise<TaskListState>) | null = null
 
   constructor(getWindow: () => BrowserWindow | null) {
     this.getWindow = getWindow
@@ -19,8 +20,17 @@ export class TaskScheduler {
     this.getTasks = loader
   }
 
-  scheduleTask(taskId: string, schedule: TaskSchedule): void {
-    this.unscheduleTask(taskId)
+  setProjectTaskLoader(loader: (projectFolder: string) => Promise<TaskListState>): void {
+    this.getProjectTasks = loader
+  }
+
+  private timerKey(taskId: string, projectFolder?: string | null): string {
+    return `${projectFolder ?? ''}\0${taskId}`
+  }
+
+  scheduleTask(taskId: string, schedule: TaskSchedule, projectFolder?: string | null): void {
+    const key = this.timerKey(taskId, projectFolder)
+    this.unscheduleTask(taskId, projectFolder)
     if (!schedule.enabled || !schedule.cron) return
 
     try {
@@ -33,45 +43,51 @@ export class TaskScheduler {
       const capped = delay > MAX_TIMEOUT
       if (capped) delay = MAX_TIMEOUT
 
-      this.taskTimers.set(
-        taskId,
-        setTimeout(async () => {
-          if (capped) {
-            // Not yet time — reschedule with a fresh delay calculation
-            this.scheduleTask(taskId, schedule)
-            return
-          }
-          const win = this.getWindow()
-          if (win && !win.isDestroyed()) {
-            win.webContents.send('task:scheduleTrigger', taskId)
-          }
-          // Re-read the latest schedule from the task list before rescheduling
-          if (this.getTasks) {
-            try {
-              const tasks = await this.getTasks()
-              const fresh = tasks.tasks[taskId]?.schedule
-              if (fresh) {
-                this.scheduleTask(taskId, fresh)
-              }
-            } catch {
-              // Fallback to the captured schedule
-              this.scheduleTask(taskId, schedule)
+      const timer = setTimeout(async () => {
+        if (this.taskTimers.get(key) === timer) {
+          this.taskTimers.delete(key)
+        }
+        if (capped) {
+          // Not yet time — reschedule with a fresh delay calculation
+          this.scheduleTask(taskId, schedule, projectFolder)
+          return
+        }
+        const win = this.getWindow()
+        if (win && !win.isDestroyed()) {
+          win.webContents.send('task:scheduleTrigger', taskId, projectFolder ?? null)
+        }
+        // Re-read the latest schedule from the task list before rescheduling
+        const loader =
+          projectFolder && this.getProjectTasks
+            ? () => this.getProjectTasks!(projectFolder)
+            : this.getTasks
+        if (loader) {
+          try {
+            const tasks = await loader()
+            const fresh = tasks.tasks[taskId]?.schedule
+            if (fresh) {
+              this.scheduleTask(taskId, fresh, projectFolder)
             }
-          } else {
-            this.scheduleTask(taskId, schedule)
+          } catch {
+            // Fallback to the captured schedule
+            this.scheduleTask(taskId, schedule, projectFolder)
           }
-        }, delay)
-      )
+        } else {
+          this.scheduleTask(taskId, schedule, projectFolder)
+        }
+      }, delay)
+      this.taskTimers.set(key, timer)
     } catch (err) {
       console.warn(`[TaskScheduler] Invalid cron for task ${taskId}:`, err)
     }
   }
 
-  unscheduleTask(taskId: string): void {
-    const timer = this.taskTimers.get(taskId)
+  unscheduleTask(taskId: string, projectFolder?: string | null): void {
+    const key = this.timerKey(taskId, projectFolder)
+    const timer = this.taskTimers.get(key)
     if (timer) {
       clearTimeout(timer)
-      this.taskTimers.delete(taskId)
+      this.taskTimers.delete(key)
     }
   }
 
@@ -81,6 +97,24 @@ export class TaskScheduler {
       if (meta.schedule) {
         this.scheduleTask(id, meta.schedule)
       }
+    }
+  }
+
+  rescheduleProjectTasks(projectFolder: string, tasks: TaskListState): void {
+    this.unscheduleProjectTasks(projectFolder)
+    for (const [id, meta] of Object.entries(tasks.tasks)) {
+      if (meta.schedule) {
+        this.scheduleTask(id, meta.schedule, projectFolder)
+      }
+    }
+  }
+
+  private unscheduleProjectTasks(projectFolder: string): void {
+    const prefix = `${projectFolder}\0`
+    for (const [key, timer] of this.taskTimers.entries()) {
+      if (!key.startsWith(prefix)) continue
+      clearTimeout(timer)
+      this.taskTimers.delete(key)
     }
   }
 

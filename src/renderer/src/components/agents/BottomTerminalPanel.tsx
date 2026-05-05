@@ -102,7 +102,7 @@ export default function BottomTerminalPanel({
 
   return (
     <section className="flex h-72 w-full shrink-0 flex-col border-t-2 border-zinc-900 bg-black">
-      <div className="flex h-10 items-center px-3">
+      <div className="flex h-12 shrink-0 items-center px-4">
         <div
           role="tablist"
           aria-orientation="horizontal"
@@ -157,11 +157,11 @@ export default function BottomTerminalPanel({
             }
             void openNewTerminalMenu()
           }}
-          className="ml-2 flex h-7 w-7 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-200"
+          className="ml-2 flex h-8 w-8 items-center justify-center rounded-md bg-zinc-800 text-zinc-300 transition-colors hover:bg-zinc-700 hover:text-white"
           aria-label="New terminal"
           aria-expanded={menuOpen}
         >
-          <Plus size={15} />
+          <Plus size={16} />
         </button>
         {menuOpen &&
           bottomTerminalOpen &&

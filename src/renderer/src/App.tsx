@@ -11,6 +11,7 @@ import { useAgentsStore } from '@renderer/stores/agents'
 import OrchestrateTab from '@renderer/components/orchestrate/OrchestrateTab'
 import SettingsPage from '@renderer/components/settings/SettingsPage'
 import ConfirmDialog from '@renderer/components/history/ConfirmDialog'
+import { TaskDialog } from '@renderer/components/tasks/TasksSidebar'
 import { PROJECT_DETAIL_TAB_IDS } from '@renderer/lib/project-detail-tabs'
 import { cn } from '@renderer/lib/utils'
 
@@ -19,6 +20,7 @@ function App(): React.JSX.Element {
   const loadLastFolder = useAppStore((s) => s.loadLastFolder)
   const loadProjects = useAppStore((s) => s.loadProjects)
   const modalLayerOpen = useAppStore((s) => s.modalLayerDepth > 0)
+  const agents = useAgentsStore((s) => s.agents)
 
   useEffect(() => {
     loadLastFolder()
@@ -144,6 +146,7 @@ function App(): React.JSX.Element {
         <BrowserModalSnapshot />
       </div>
       <ToastContainer />
+      <TaskDialog agents={agents} />
       <CloseTerminalDialog />
     </div>
   )
