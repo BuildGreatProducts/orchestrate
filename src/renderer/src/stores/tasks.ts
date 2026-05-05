@@ -12,6 +12,7 @@ import type {
 } from '@shared/types'
 import { toast } from './toast'
 import { useAppStore } from './app'
+import { beginProjectApiFallback } from './project-api-fallback-lock'
 
 const SAFE_ID_RE = /^[A-Za-z0-9_-]{1,64}$/
 
@@ -161,13 +162,18 @@ let projectApiFallbackQueue: Promise<unknown> = Promise.resolve()
 function withProjectApiFallback<T>(projectFolder: string, action: () => Promise<T>): Promise<T> {
   const previous = projectApiFallbackQueue.catch(() => undefined)
   const next = previous.then(async () => {
+    const releaseFallbackLock = beginProjectApiFallback()
     const restoreFolder = currentProjectFolder()
     await window.orchestrate.setActiveProject(projectFolder)
     try {
       return await action()
     } finally {
-      if (currentProjectFolder() === projectFolder) {
-        await window.orchestrate.setActiveProject(restoreFolder)
+      try {
+        if (currentProjectFolder() === projectFolder) {
+          await window.orchestrate.setActiveProject(restoreFolder)
+        }
+      } finally {
+        releaseFallbackLock()
       }
     }
   })

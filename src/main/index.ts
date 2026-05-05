@@ -2,7 +2,7 @@ import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join, basename, isAbsolute, normalize } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { registerFolderHandlers, getCurrentFolder } from './ipc/folder'
+import { registerFolderHandlers, getCurrentFolder, resolveRegisteredProject } from './ipc/folder'
 import { registerFileHandlers } from './ipc/files'
 import { registerTerminalHandlers, closeAllTerminals, getPtyManager } from './ipc/terminal'
 import { registerTaskHandlers, getTaskManager, getTaskManagerForProject } from './ipc/tasks'
@@ -155,6 +155,7 @@ app.whenReady().then(() => {
     getGitManager,
     getGitManagerForProject: (projectFolder: string) =>
       new GitManager(validatedProjectFolder(projectFolder)),
+    resolveProjectFolder: resolveRegisteredProject,
     getSkillManager,
     getWindow: () => mainWindow,
     notifyStateChanged: (domain, data) => {

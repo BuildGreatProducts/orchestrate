@@ -71,6 +71,16 @@ function readBody(req: IncomingMessage): Promise<unknown> {
   })
 }
 
+function writeJsonRpcError(
+  res: import('http').ServerResponse,
+  statusCode: number,
+  code: number,
+  message: string
+): void {
+  res.writeHead(statusCode, { 'Content-Type': 'application/json' })
+  res.end(JSON.stringify({ jsonrpc: '2.0', error: { code, message }, id: null }))
+}
+
 /** Create a fresh McpServer with all tool registrations */
 function createMcpInstance(deps: ToolExecutorDeps, context: McpRequestContext = {}): McpServer {
   const {
@@ -349,11 +359,23 @@ export async function startMcpServer(
           // New initialization — create server + transport per session
           const projectHeader = req.headers['x-orchestrate-project']
           const taskHeader = req.headers['x-orchestrate-task']
+          const projectHeaderValue =
+            typeof projectHeader === 'string' && projectHeader.trim()
+              ? projectHeader.trim()
+              : undefined
+          const scopedProjectFolder = projectHeaderValue
+            ? deps.resolveProjectFolder(projectHeaderValue)
+            : undefined
+          if (projectHeaderValue && !scopedProjectFolder) {
+            console.warn(
+              '[MCP] Rejecting initialization for unregistered project:',
+              projectHeaderValue
+            )
+            writeJsonRpcError(res, 400, -32000, 'Invalid project scope')
+            return
+          }
           const server = createMcpInstance(deps, {
-            projectFolder:
-              typeof projectHeader === 'string' && projectHeader.trim()
-                ? projectHeader.trim()
-                : undefined,
+            projectFolder: scopedProjectFolder ?? undefined,
             taskId:
               typeof taskHeader === 'string' && taskHeader.trim() ? taskHeader.trim() : undefined
           })

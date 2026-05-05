@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { BrowserSnapshot, ContentView, NavPageId, ProjectDetailTabId } from '@shared/types'
+import { waitForProjectApiFallback } from './project-api-fallback-lock'
 
 interface BrowserModalSnapshot extends BrowserSnapshot {
   tabId: string
@@ -52,6 +53,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   showPage: (pageId) => set({ contentView: { type: 'page', pageId } }),
 
   showOrchestrate: async () => {
+    await waitForProjectApiFallback()
     set({
       currentFolder: null,
       contentView: { type: 'orchestrate' }
@@ -60,6 +62,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   showProjectDetail: async (folder, tab) => {
+    await waitForProjectApiFallback()
     await window.orchestrate.setActiveProject(folder)
     set({
       currentFolder: folder,
@@ -71,12 +74,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   setProjectDetailTab: (tab) => set({ projectDetailTab: tab }),
 
   showWorktreeDetail: async (folder, worktreePath) => {
+    await waitForProjectApiFallback()
     await window.orchestrate.setActiveProject(folder)
     set({ currentFolder: folder, contentView: { type: 'worktree-detail', worktreePath } })
   },
 
   showTerminal: async (folder) => {
     if (folder) {
+      await waitForProjectApiFallback()
       await window.orchestrate.setActiveProject(folder)
       set((state) => ({
         currentFolder: folder,
@@ -129,6 +134,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   setCurrentFolder: async (folder) => {
+    await waitForProjectApiFallback()
     await window.orchestrate.setActiveProject(folder)
     const state = get()
     // When switching back to a project from Orchestrate, go to project detail
@@ -173,6 +179,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
     })
     if (wasActive) {
+      await waitForProjectApiFallback()
       await window.orchestrate.setActiveProject(null)
     }
   }

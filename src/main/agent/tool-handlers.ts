@@ -17,6 +17,7 @@ export interface ToolExecutorDeps {
   getTaskManagerForProject: (projectFolder: string) => TaskManager
   getGitManager: () => GitManager | null
   getGitManagerForProject: (projectFolder: string) => GitManager
+  resolveProjectFolder: (projectFolder: string) => string | null
   getSkillManager: () => SkillManager | null
   getWindow: () => import('electron').BrowserWindow | null
   notifyStateChanged: (domain: string, data?: unknown) => void
