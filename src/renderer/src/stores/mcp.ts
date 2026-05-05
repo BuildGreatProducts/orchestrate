@@ -59,12 +59,13 @@ export const useMcpStore = create<McpState>((set, get) => ({
   },
 
   importServers: async (inputs, enableForProject) => {
+    let created = 0
+    let updated = 0
+    let importError: unknown
     try {
       const existingByName = new Map(
         get().servers.map((server) => [server.name.trim().toLowerCase(), server])
       )
-      let created = 0
-      let updated = 0
       for (const input of inputs) {
         const existing = existingByName.get(input.name.trim().toLowerCase())
         if (existing) {
@@ -82,12 +83,16 @@ export const useMcpStore = create<McpState>((set, get) => ({
           created += 1
         }
       }
-      await get().loadRegistry(enableForProject)
-      toast.info(`MCP import complete: ${created} added${updated ? `, ${updated} updated` : ''}.`)
     } catch (err) {
-      set({ error: err instanceof Error ? err.message : String(err) })
-      throw err
+      importError = err
+    } finally {
+      await get().loadRegistry(enableForProject)
     }
+    if (importError) {
+      set({ error: importError instanceof Error ? importError.message : String(importError) })
+      throw importError
+    }
+    toast.info(`MCP import complete: ${created} added${updated ? `, ${updated} updated` : ''}.`)
   },
 
   updateServer: async (id, input, projectFolder) => {
@@ -126,7 +131,7 @@ export const useMcpStore = create<McpState>((set, get) => ({
 
   testServer: async (id, projectFolder) => {
     try {
-      const status = await window.orchestrate.testMcpServer(id, projectFolder ?? null)
+      const status = await window.orchestrate.testMcpServer(id)
       await get().loadRegistry(projectFolder)
       return status
     } catch (err) {

@@ -166,8 +166,7 @@ const api: OrchestrateAPI = {
   removeMcpServer: (id) => ipcRenderer.invoke('mcp:removeServer', id),
   setProjectMcpEnabled: (projectFolder, serverId, enabled) =>
     ipcRenderer.invoke('mcp:setProjectEnabled', projectFolder, serverId, enabled),
-  testMcpServer: (id, projectFolder?) =>
-    ipcRenderer.invoke('mcp:testServer', id, projectFolder ?? null),
+  testMcpServer: (id) => ipcRenderer.invoke('mcp:testServer', id),
   startMcpOAuth: (id) => ipcRenderer.invoke('mcp:startOAuth', id),
 
   // Updates

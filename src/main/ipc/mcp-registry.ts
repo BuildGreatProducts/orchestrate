@@ -17,14 +17,14 @@ export function registerMcpRegistryHandlers(
   markChannelRegistered('mcp:testServer')
   markChannelRegistered('mcp:startOAuth')
 
-  ipcMain.handle('mcp:listRegistry', (_event, projectFolder?: string) => {
-    return getRegistry().listRegistry(projectFolder || getCurrentFolder())
+  ipcMain.handle('mcp:listRegistry', (_event, projectFolder?: string | null) => {
+    return getRegistry().listRegistry(projectFolder ?? getCurrentFolder())
   })
 
   ipcMain.handle(
     'mcp:addServer',
     (_event, input: McpServerInput, enableForProject?: string | null) => {
-      return getRegistry().addServer(input, enableForProject || getCurrentFolder())
+      return getRegistry().addServer(input, enableForProject ?? getCurrentFolder())
     }
   )
 

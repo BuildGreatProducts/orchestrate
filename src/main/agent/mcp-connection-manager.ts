@@ -221,7 +221,7 @@ async function startOAuthCallbackServer(
 
 export class McpConnectionManager {
   private registry: McpRegistryManager
-  private connections = new Map<string, ActiveConnection>()
+  private connections = new Map<string, ActiveConnection | Promise<ActiveConnection>>()
 
   constructor(registry: McpRegistryManager) {
     this.registry = registry
@@ -345,8 +345,10 @@ export class McpConnectionManager {
     const conn = this.connections.get(serverId)
     if (!conn) return
     this.connections.delete(serverId)
-    await conn.client.close().catch(() => {})
-    await conn.transport.close?.().catch(() => {})
+    const active = await Promise.resolve(conn).catch(() => null)
+    if (!active) return
+    await active.client.close().catch(() => {})
+    await active.transport.close?.().catch(() => {})
   }
 
   async closeAll(): Promise<void> {
@@ -375,20 +377,34 @@ export class McpConnectionManager {
     const existing = this.connections.get(server.id)
     if (existing) return existing
 
-    const client = new Client({ name: 'orchestrate-upstream', version: '1.0.0' })
-    const transport = this.createTransport(server, false)
+    const connecting = (async (): Promise<ActiveConnection> => {
+      const client = new Client({ name: 'orchestrate-upstream', version: '1.0.0' })
+      const transport = this.createTransport(server, false)
+      try {
+        await client.connect(transport)
+        return { client, transport, serverId: server.id }
+      } catch (err) {
+        await client.close().catch(() => {})
+        await transport.close?.().catch(() => {})
+        if (err instanceof UnauthorizedError) {
+          this.setStatus(server.id, 'auth-required', 'OAuth authorization required')
+        } else {
+          this.setStatus(server.id, 'error', err instanceof Error ? err.message : String(err))
+        }
+        throw err
+      }
+    })()
+
+    this.connections.set(server.id, connecting)
     try {
-      await client.connect(transport)
-      const conn = { client, transport, serverId: server.id }
-      this.connections.set(server.id, conn)
+      const conn = await connecting
+      if (this.connections.get(server.id) === connecting) {
+        this.connections.set(server.id, conn)
+      }
       return conn
     } catch (err) {
-      await client.close().catch(() => {})
-      await transport.close?.().catch(() => {})
-      if (err instanceof UnauthorizedError) {
-        this.setStatus(server.id, 'auth-required', 'OAuth authorization required')
-      } else {
-        this.setStatus(server.id, 'error', err instanceof Error ? err.message : String(err))
+      if (this.connections.get(server.id) === connecting) {
+        this.connections.delete(server.id)
       }
       throw err
     }

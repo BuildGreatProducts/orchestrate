@@ -69,6 +69,58 @@ function AgentToggle({
   )
 }
 
+function McpAgentFieldsEditor({
+  customMcpMode,
+  setCustomMcpMode,
+  customMcpFlagTemplate,
+  setCustomMcpFlagTemplate,
+  customCommandTemplate,
+  setCustomCommandTemplate,
+  customCommand,
+  onCommandTemplateKeyDown
+}: {
+  customMcpMode: AgentConfig['mcpMode']
+  setCustomMcpMode: (value: AgentConfig['mcpMode']) => void
+  customMcpFlagTemplate: string
+  setCustomMcpFlagTemplate: (value: string) => void
+  customCommandTemplate: string
+  setCustomCommandTemplate: (value: string) => void
+  customCommand?: string
+  onCommandTemplateKeyDown?: (event: React.KeyboardEvent<HTMLInputElement>) => void
+}): React.JSX.Element {
+  return (
+    <>
+      <select
+        value={customMcpMode}
+        onChange={(e) => setCustomMcpMode(e.target.value as AgentConfig['mcpMode'])}
+        className="w-full rounded bg-zinc-800/70 px-3 py-1.5 text-sm text-zinc-200 outline-none transition-colors hover:bg-zinc-800 focus:bg-zinc-800"
+      >
+        <option value="none">No MCP</option>
+        <option value="config-file">MCP config file flags</option>
+        <option value="codex-flags">Codex MCP flags</option>
+        <option value="custom">Custom MCP flags</option>
+      </select>
+      {customMcpMode === 'custom' && (
+        <input
+          type="text"
+          value={customMcpFlagTemplate}
+          onChange={(e) => setCustomMcpFlagTemplate(e.target.value)}
+          placeholder="--mcp-config {mcp_config_path}"
+          className="w-full rounded bg-zinc-800/70 px-3 py-1.5 text-sm text-zinc-200 outline-none transition-colors placeholder:text-zinc-600 hover:bg-zinc-800 focus:bg-zinc-800"
+        />
+      )}
+      <input
+        type="text"
+        value={customCommandTemplate}
+        onChange={(e) => setCustomCommandTemplate(e.target.value)}
+        onKeyDown={onCommandTemplateKeyDown}
+        placeholder={`${customCommand || 'agent'} ${customMcpMode === 'none' ? '{prompt}' : '{mcp_flags} {prompt}'}`}
+        className="w-full rounded bg-zinc-800/70 px-3 py-1.5 text-sm text-zinc-200 outline-none transition-colors placeholder:text-zinc-600 hover:bg-zinc-800 focus:bg-zinc-800"
+      />
+    </>
+  )
+}
+
 export default function SettingsPage(): React.JSX.Element {
   const [version, setVersion] = useState<string>('')
   const [defaultUrl, setDefaultUrl] = useState<string>('')
@@ -265,31 +317,14 @@ export default function SettingsPage(): React.JSX.Element {
                         placeholder="CLI command (e.g. aider)"
                         className="w-full rounded bg-zinc-800/70 px-3 py-1.5 text-sm text-zinc-200 outline-none transition-colors placeholder:text-zinc-600 hover:bg-zinc-800 focus:bg-zinc-800"
                       />
-                      <select
-                        value={customMcpMode}
-                        onChange={(e) => setCustomMcpMode(e.target.value as AgentConfig['mcpMode'])}
-                        className="w-full rounded bg-zinc-800/70 px-3 py-1.5 text-sm text-zinc-200 outline-none transition-colors hover:bg-zinc-800 focus:bg-zinc-800"
-                      >
-                        <option value="none">No MCP</option>
-                        <option value="config-file">MCP config file flags</option>
-                        <option value="codex-flags">Codex MCP flags</option>
-                        <option value="custom">Custom MCP flags</option>
-                      </select>
-                      {customMcpMode === 'custom' && (
-                        <input
-                          type="text"
-                          value={customMcpFlagTemplate}
-                          onChange={(e) => setCustomMcpFlagTemplate(e.target.value)}
-                          placeholder="--mcp-config {mcp_config_path}"
-                          className="w-full rounded bg-zinc-800/70 px-3 py-1.5 text-sm text-zinc-200 outline-none transition-colors placeholder:text-zinc-600 hover:bg-zinc-800 focus:bg-zinc-800"
-                        />
-                      )}
-                      <input
-                        type="text"
-                        value={customCommandTemplate}
-                        onChange={(e) => setCustomCommandTemplate(e.target.value)}
-                        placeholder={`${customCommand || 'agent'} ${customMcpMode === 'none' ? '{prompt}' : '{mcp_flags} {prompt}'}`}
-                        className="w-full rounded bg-zinc-800/70 px-3 py-1.5 text-sm text-zinc-200 outline-none transition-colors placeholder:text-zinc-600 hover:bg-zinc-800 focus:bg-zinc-800"
+                      <McpAgentFieldsEditor
+                        customMcpMode={customMcpMode}
+                        setCustomMcpMode={setCustomMcpMode}
+                        customMcpFlagTemplate={customMcpFlagTemplate}
+                        setCustomMcpFlagTemplate={setCustomMcpFlagTemplate}
+                        customCommandTemplate={customCommandTemplate}
+                        setCustomCommandTemplate={setCustomCommandTemplate}
+                        customCommand={customCommand}
                       />
                       <div className="flex gap-2">
                         <button
@@ -372,36 +407,19 @@ export default function SettingsPage(): React.JSX.Element {
                   placeholder="CLI command (e.g. aider)"
                   className="w-full rounded bg-zinc-800/70 px-3 py-1.5 text-sm text-zinc-200 outline-none transition-colors placeholder:text-zinc-600 hover:bg-zinc-800 focus:bg-zinc-800"
                 />
-                <select
-                  value={customMcpMode}
-                  onChange={(e) => setCustomMcpMode(e.target.value as AgentConfig['mcpMode'])}
-                  className="w-full rounded bg-zinc-800/70 px-3 py-1.5 text-sm text-zinc-200 outline-none transition-colors hover:bg-zinc-800 focus:bg-zinc-800"
-                >
-                  <option value="none">No MCP</option>
-                  <option value="config-file">MCP config file flags</option>
-                  <option value="codex-flags">Codex MCP flags</option>
-                  <option value="custom">Custom MCP flags</option>
-                </select>
-                {customMcpMode === 'custom' && (
-                  <input
-                    type="text"
-                    value={customMcpFlagTemplate}
-                    onChange={(e) => setCustomMcpFlagTemplate(e.target.value)}
-                    placeholder="--mcp-config {mcp_config_path}"
-                    className="w-full rounded bg-zinc-800/70 px-3 py-1.5 text-sm text-zinc-200 outline-none transition-colors placeholder:text-zinc-600 hover:bg-zinc-800 focus:bg-zinc-800"
-                  />
-                )}
-                <input
-                  type="text"
-                  value={customCommandTemplate}
-                  onChange={(e) => setCustomCommandTemplate(e.target.value)}
-                  onKeyDown={(e) => {
+                <McpAgentFieldsEditor
+                  customMcpMode={customMcpMode}
+                  setCustomMcpMode={setCustomMcpMode}
+                  customMcpFlagTemplate={customMcpFlagTemplate}
+                  setCustomMcpFlagTemplate={setCustomMcpFlagTemplate}
+                  customCommandTemplate={customCommandTemplate}
+                  setCustomCommandTemplate={setCustomCommandTemplate}
+                  customCommand={customCommand}
+                  onCommandTemplateKeyDown={(e) => {
                     if (e.key === 'Enter') handleAddCustomAgent()
                     if (e.key === 'Escape') cancelEdit()
                     if (e.metaKey || e.ctrlKey) e.stopPropagation()
                   }}
-                  placeholder={`${customCommand || 'agent'} ${customMcpMode === 'none' ? '{prompt}' : '{mcp_flags} {prompt}'}`}
-                  className="w-full rounded bg-zinc-800/70 px-3 py-1.5 text-sm text-zinc-200 outline-none transition-colors placeholder:text-zinc-600 hover:bg-zinc-800 focus:bg-zinc-800"
                 />
                 <div className="flex gap-2">
                   <button
@@ -422,10 +440,8 @@ export default function SettingsPage(): React.JSX.Element {
             ) : (
               <button
                 onClick={() => {
+                  cancelEdit()
                   setAddingCustom(true)
-                  setEditingId(null)
-                  setCustomName('')
-                  setCustomCommand('')
                 }}
                 className="mt-3 flex items-center gap-1.5 text-xs text-zinc-400 transition-colors hover:text-zinc-200"
               >

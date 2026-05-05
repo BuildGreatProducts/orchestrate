@@ -291,6 +291,11 @@ export class McpRegistryManager {
       headerKeys: headers.keys,
       encryptedEnv: env.encrypted,
       encryptedHeaders: headers.encrypted,
+      encryptedOAuthTokens: authType === 'oauth' ? existing.encryptedOAuthTokens : undefined,
+      encryptedOAuthClientInformation:
+        authType === 'oauth' ? existing.encryptedOAuthClientInformation : undefined,
+      encryptedOAuthCodeVerifier:
+        authType === 'oauth' ? existing.encryptedOAuthCodeVerifier : undefined,
       updatedAt: new Date().toISOString()
     }
     this.validateServerShape(next)

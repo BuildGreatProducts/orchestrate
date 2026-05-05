@@ -78,6 +78,11 @@ const stubs: StubDef[] = [
   { channel: 'skill:openFolder', returns: undefined },
 
   // MCP Registry
+  { channel: 'mcp:getUrl', returns: null },
+  { channel: 'mcp:getConfigPath', returns: null },
+  { channel: 'mcp:getCodexFlags', returns: null },
+  { channel: 'mcp:getConfigPathForProject', returns: null },
+  { channel: 'mcp:getCodexFlagsForProject', returns: null },
   { channel: 'mcp:listRegistry', returns: { servers: [], project: null } },
   { channel: 'mcp:addServer', returns: null },
   { channel: 'mcp:updateServer', returns: null },

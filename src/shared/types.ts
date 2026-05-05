@@ -511,7 +511,7 @@ export interface OrchestrateAPI {
     serverId: string,
     enabled: boolean
   ) => Promise<McpProjectSelection>
-  testMcpServer: (id: string, projectFolder?: string | null) => Promise<McpConnectionStatus>
+  testMcpServer: (id: string) => Promise<McpConnectionStatus>
   startMcpOAuth: (id: string) => Promise<McpConnectionStatus>
 
   // Settings

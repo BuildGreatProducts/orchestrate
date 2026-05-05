@@ -336,7 +336,7 @@ function parseCursorMcpJson(raw: string): McpServerInput[] {
           ? explicitAuth
           : Object.keys(headers).length > 0
             ? 'secret'
-            : 'oauth'
+            : 'none'
       inputs.push({
         name,
         transport,

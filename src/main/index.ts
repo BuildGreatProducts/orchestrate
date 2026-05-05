@@ -16,7 +16,7 @@ import { registerWorktreeHandlers } from './ipc/worktree'
 import { registerBranchHandlers } from './ipc/branch'
 import { registerBrowserHandlers, closeAllBrowserTabs } from './ipc/browser'
 import { registerUpdaterHandlers } from './ipc/updater'
-import { registerStubHandlers } from './ipc/stubs'
+import { markChannelRegistered, registerStubHandlers } from './ipc/stubs'
 import { startWatching, stopWatching } from './file-watcher'
 import { SkillManager } from './skill-manager'
 import { McpRegistryManager, type McpRegistryStoreData } from './agent/mcp-registry-manager'
@@ -136,6 +136,14 @@ app.whenReady().then(() => {
   registerCommandHandlers(() => mainWindow, getCurrentFolder)
   registerBrowserHandlers(() => mainWindow)
   registerUpdaterHandlers(() => mainWindow)
+  const mcpConfigChannels = [
+    'mcp:getUrl',
+    'mcp:getConfigPath',
+    'mcp:getCodexFlags',
+    'mcp:getConfigPathForProject',
+    'mcp:getCodexFlagsForProject'
+  ]
+  mcpConfigChannels.forEach(markChannelRegistered)
   registerStubHandlers()
 
   // Register settings IPC handlers
@@ -223,6 +231,8 @@ app.on('window-all-closed', () => {
 
 app.on('will-quit', () => {
   closeMcpServer?.()
-  mcpConnectionManager.closeAll().catch(() => {})
+  mcpConnectionManager.closeAll().catch((err) => {
+    console.error('[MCP] Failed to close upstream MCP connections:', err)
+  })
   cleanupMcpConfigFile()
 })
