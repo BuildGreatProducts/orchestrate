@@ -75,7 +75,21 @@ const stubs: StubDef[] = [
   { channel: 'skill:remove', returns: undefined },
   { channel: 'skill:setEnabled', returns: undefined },
   { channel: 'skill:getContent', returns: '' },
-  { channel: 'skill:openFolder', returns: undefined }
+  { channel: 'skill:openFolder', returns: undefined },
+
+  // MCP Registry
+  { channel: 'mcp:getUrl', returns: null },
+  { channel: 'mcp:getConfigPath', returns: null },
+  { channel: 'mcp:getCodexFlags', returns: null },
+  { channel: 'mcp:getConfigPathForProject', returns: null },
+  { channel: 'mcp:getCodexFlagsForProject', returns: null },
+  { channel: 'mcp:listRegistry', returns: { servers: [], project: null } },
+  { channel: 'mcp:addServer', returns: null },
+  { channel: 'mcp:updateServer', returns: null },
+  { channel: 'mcp:removeServer', returns: undefined },
+  { channel: 'mcp:setProjectEnabled', returns: null },
+  { channel: 'mcp:testServer', returns: null },
+  { channel: 'mcp:startOAuth', returns: null }
 ]
 
 // Track which channels have real handlers registered

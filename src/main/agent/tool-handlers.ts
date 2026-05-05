@@ -7,6 +7,7 @@ import { CronExpressionParser } from 'cron-parser'
 import type { TaskManager } from '../task-manager'
 import type { GitManager } from '../git-manager'
 import type { SkillManager } from '../skill-manager'
+import type { McpConnectionManager } from './mcp-connection-manager'
 import type { SimpleTask, TaskMode, TaskSchedule, TaskStatus } from '@shared/types'
 
 // ── Deps interface ──
@@ -19,6 +20,7 @@ export interface ToolExecutorDeps {
   getGitManagerForProject: (projectFolder: string) => GitManager
   resolveProjectFolder: (projectFolder: string) => string | null
   getSkillManager: () => SkillManager | null
+  getMcpConnectionManager: () => McpConnectionManager | null
   getWindow: () => import('electron').BrowserWindow | null
   notifyStateChanged: (domain: string, data?: unknown) => void
 }

@@ -235,8 +235,14 @@ export default function ProjectSection({ folder }: ProjectSectionProps): React.J
       if (agentId) {
         const agentConfig = useAgentsStore.getState().getAgent(agentId)
         if (!agentConfig) return
-        const mcpConfigPath = await window.orchestrate.getMcpConfigPath().catch(() => null)
-        const codexMcpFlags = await window.orchestrate.getCodexMcpFlags().catch(() => null)
+        const mcpConfigPath =
+          typeof window.orchestrate.getMcpConfigPathForProject === 'function'
+            ? await window.orchestrate.getMcpConfigPathForProject(folder).catch(() => null)
+            : await window.orchestrate.getMcpConfigPath().catch(() => null)
+        const codexMcpFlags =
+          typeof window.orchestrate.getCodexMcpFlagsForProject === 'function'
+            ? await window.orchestrate.getCodexMcpFlagsForProject(folder).catch(() => null)
+            : await window.orchestrate.getCodexMcpFlags().catch(() => null)
         const cmd = buildAgentCommand({
           agent: agentConfig,
           prompt: '',

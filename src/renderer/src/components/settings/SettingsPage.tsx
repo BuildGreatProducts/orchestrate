@@ -13,6 +13,10 @@ function slugify(name: string): string {
     .replace(/^-|-$/g, '')
 }
 
+function defaultCommandTemplate(command: string, mcpMode: AgentConfig['mcpMode']): string {
+  return mcpMode === 'none' ? `${command} {prompt}` : `${command} {mcp_flags} {prompt}`
+}
+
 function ToggleSwitch({
   enabled,
   label,
@@ -65,6 +69,58 @@ function AgentToggle({
   )
 }
 
+function McpAgentFieldsEditor({
+  customMcpMode,
+  setCustomMcpMode,
+  customMcpFlagTemplate,
+  setCustomMcpFlagTemplate,
+  customCommandTemplate,
+  setCustomCommandTemplate,
+  customCommand,
+  onCommandTemplateKeyDown
+}: {
+  customMcpMode: AgentConfig['mcpMode']
+  setCustomMcpMode: (value: AgentConfig['mcpMode']) => void
+  customMcpFlagTemplate: string
+  setCustomMcpFlagTemplate: (value: string) => void
+  customCommandTemplate: string
+  setCustomCommandTemplate: (value: string) => void
+  customCommand?: string
+  onCommandTemplateKeyDown?: (event: React.KeyboardEvent<HTMLInputElement>) => void
+}): React.JSX.Element {
+  return (
+    <>
+      <select
+        value={customMcpMode}
+        onChange={(e) => setCustomMcpMode(e.target.value as AgentConfig['mcpMode'])}
+        className="w-full rounded bg-zinc-800/70 px-3 py-1.5 text-sm text-zinc-200 outline-none transition-colors hover:bg-zinc-800 focus:bg-zinc-800"
+      >
+        <option value="none">No MCP</option>
+        <option value="config-file">MCP config file flags</option>
+        <option value="codex-flags">Codex MCP flags</option>
+        <option value="custom">Custom MCP flags</option>
+      </select>
+      {customMcpMode === 'custom' && (
+        <input
+          type="text"
+          value={customMcpFlagTemplate}
+          onChange={(e) => setCustomMcpFlagTemplate(e.target.value)}
+          placeholder="--mcp-config {mcp_config_path}"
+          className="w-full rounded bg-zinc-800/70 px-3 py-1.5 text-sm text-zinc-200 outline-none transition-colors placeholder:text-zinc-600 hover:bg-zinc-800 focus:bg-zinc-800"
+        />
+      )}
+      <input
+        type="text"
+        value={customCommandTemplate}
+        onChange={(e) => setCustomCommandTemplate(e.target.value)}
+        onKeyDown={onCommandTemplateKeyDown}
+        placeholder={`${customCommand || 'agent'} ${customMcpMode === 'none' ? '{prompt}' : '{mcp_flags} {prompt}'}`}
+        className="w-full rounded bg-zinc-800/70 px-3 py-1.5 text-sm text-zinc-200 outline-none transition-colors placeholder:text-zinc-600 hover:bg-zinc-800 focus:bg-zinc-800"
+      />
+    </>
+  )
+}
+
 export default function SettingsPage(): React.JSX.Element {
   const [version, setVersion] = useState<string>('')
   const [defaultUrl, setDefaultUrl] = useState<string>('')
@@ -84,6 +140,9 @@ export default function SettingsPage(): React.JSX.Element {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [customName, setCustomName] = useState('')
   const [customCommand, setCustomCommand] = useState('')
+  const [customMcpMode, setCustomMcpMode] = useState<AgentConfig['mcpMode']>('none')
+  const [customCommandTemplate, setCustomCommandTemplate] = useState('')
+  const [customMcpFlagTemplate, setCustomMcpFlagTemplate] = useState('')
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -132,11 +191,17 @@ export default function SettingsPage(): React.JSX.Element {
       displayName: name,
       cliCommand: command,
       enabled: true,
-      mcpMode: 'none',
-      commandTemplate: `${command} {prompt}`
+      mcpMode: customMcpMode,
+      commandTemplate:
+        customCommandTemplate.trim() || defaultCommandTemplate(command, customMcpMode),
+      mcpFlagTemplate:
+        customMcpMode === 'custom' ? customMcpFlagTemplate.trim() || undefined : undefined
     })
     setCustomName('')
     setCustomCommand('')
+    setCustomMcpMode('none')
+    setCustomCommandTemplate('')
+    setCustomMcpFlagTemplate('')
     setAddingCustom(false)
   }
 
@@ -147,17 +212,27 @@ export default function SettingsPage(): React.JSX.Element {
     await updateCustomAgent(id, {
       displayName: name,
       cliCommand: command,
-      commandTemplate: `${command} {prompt}`
+      mcpMode: customMcpMode,
+      commandTemplate:
+        customCommandTemplate.trim() || defaultCommandTemplate(command, customMcpMode),
+      mcpFlagTemplate:
+        customMcpMode === 'custom' ? customMcpFlagTemplate.trim() || undefined : undefined
     })
     setEditingId(null)
     setCustomName('')
     setCustomCommand('')
+    setCustomMcpMode('none')
+    setCustomCommandTemplate('')
+    setCustomMcpFlagTemplate('')
   }
 
   const startEdit = (agent: AgentConfig): void => {
     setEditingId(agent.id)
     setCustomName(agent.displayName)
     setCustomCommand(agent.cliCommand)
+    setCustomMcpMode(agent.mcpMode)
+    setCustomCommandTemplate(agent.commandTemplate)
+    setCustomMcpFlagTemplate(agent.mcpFlagTemplate ?? '')
     setAddingCustom(false)
   }
 
@@ -166,6 +241,9 @@ export default function SettingsPage(): React.JSX.Element {
     setAddingCustom(false)
     setCustomName('')
     setCustomCommand('')
+    setCustomMcpMode('none')
+    setCustomCommandTemplate('')
+    setCustomMcpFlagTemplate('')
   }
 
   const isDirty = defaultUrl !== savedUrl
@@ -239,6 +317,15 @@ export default function SettingsPage(): React.JSX.Element {
                         placeholder="CLI command (e.g. aider)"
                         className="w-full rounded bg-zinc-800/70 px-3 py-1.5 text-sm text-zinc-200 outline-none transition-colors placeholder:text-zinc-600 hover:bg-zinc-800 focus:bg-zinc-800"
                       />
+                      <McpAgentFieldsEditor
+                        customMcpMode={customMcpMode}
+                        setCustomMcpMode={setCustomMcpMode}
+                        customMcpFlagTemplate={customMcpFlagTemplate}
+                        setCustomMcpFlagTemplate={setCustomMcpFlagTemplate}
+                        customCommandTemplate={customCommandTemplate}
+                        setCustomCommandTemplate={setCustomCommandTemplate}
+                        customCommand={customCommand}
+                      />
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleUpdateCustomAgent(agent.id)}
@@ -260,6 +347,9 @@ export default function SettingsPage(): React.JSX.Element {
                       <div>
                         <span className="text-sm text-zinc-300">{agent.displayName}</span>
                         <span className="ml-2 text-xs text-zinc-500">{agent.cliCommand}</span>
+                        {agent.mcpMode !== 'none' && (
+                          <span className="ml-2 text-xs text-zinc-600">MCP: {agent.mcpMode}</span>
+                        )}
                       </div>
                       <div className="flex items-center gap-1">
                         <div className="mr-2">
@@ -317,6 +407,20 @@ export default function SettingsPage(): React.JSX.Element {
                   placeholder="CLI command (e.g. aider)"
                   className="w-full rounded bg-zinc-800/70 px-3 py-1.5 text-sm text-zinc-200 outline-none transition-colors placeholder:text-zinc-600 hover:bg-zinc-800 focus:bg-zinc-800"
                 />
+                <McpAgentFieldsEditor
+                  customMcpMode={customMcpMode}
+                  setCustomMcpMode={setCustomMcpMode}
+                  customMcpFlagTemplate={customMcpFlagTemplate}
+                  setCustomMcpFlagTemplate={setCustomMcpFlagTemplate}
+                  customCommandTemplate={customCommandTemplate}
+                  setCustomCommandTemplate={setCustomCommandTemplate}
+                  customCommand={customCommand}
+                  onCommandTemplateKeyDown={(e) => {
+                    if (e.key === 'Enter') handleAddCustomAgent()
+                    if (e.key === 'Escape') cancelEdit()
+                    if (e.metaKey || e.ctrlKey) e.stopPropagation()
+                  }}
+                />
                 <div className="flex gap-2">
                   <button
                     onClick={handleAddCustomAgent}
@@ -336,10 +440,8 @@ export default function SettingsPage(): React.JSX.Element {
             ) : (
               <button
                 onClick={() => {
+                  cancelEdit()
                   setAddingCustom(true)
-                  setEditingId(null)
-                  setCustomName('')
-                  setCustomCommand('')
                 }}
                 className="mt-3 flex items-center gap-1.5 text-xs text-zinc-400 transition-colors hover:text-zinc-200"
               >

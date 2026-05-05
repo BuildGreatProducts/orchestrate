@@ -24,66 +24,6 @@ if (!HTTP_URL || !MCP_SECRET) {
 let sessionId = null
 let nextRpcId = 1
 
-const TOOLS = [
-  {
-    name: 'read_task',
-    description: 'Read the markdown content of a task.',
-    inputSchema: {
-      type: 'object',
-      properties: { task_id: { type: 'string', description: 'The task ID' } },
-      required: ['task_id']
-    }
-  },
-  {
-    name: 'list_tasks',
-    description: 'List all tasks on the kanban board.',
-    inputSchema: { type: 'object', properties: {} }
-  },
-  {
-    name: 'move_task',
-    description: 'Move a task to a different column on the board.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        task_id: { type: 'string', description: 'The task ID' },
-        column: {
-          type: 'string',
-          enum: ['planning', 'in-progress', 'review', 'done'],
-          description: 'Target column'
-        }
-      },
-      required: ['task_id', 'column']
-    }
-  },
-  {
-    name: 'edit_task',
-    description: 'Edit a task title or markdown content.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        task_id: { type: 'string', description: 'The task ID' },
-        title: { type: 'string', description: 'New title' },
-        content: { type: 'string', description: 'New markdown content' }
-      },
-      required: ['task_id']
-    }
-  },
-  {
-    name: 'create_save_point',
-    description: 'Create a git save point (commit) with a message.',
-    inputSchema: {
-      type: 'object',
-      properties: { message: { type: 'string', description: 'The save point message' } },
-      required: ['message']
-    }
-  },
-  {
-    name: 'get_changes',
-    description: 'Get the current uncommitted changes (git status).',
-    inputSchema: { type: 'object', properties: {} }
-  }
-]
-
 async function httpRpc(method, params) {
   const id = nextRpcId++
   const body = { jsonrpc: '2.0', method, id }
@@ -167,7 +107,21 @@ async function handleMessage(msg) {
   if (msg.method === 'notifications/initialized') return
 
   if (msg.method === 'tools/list') {
-    send({ jsonrpc: '2.0', id: msg.id, result: { tools: TOOLS } })
+    try {
+      await ensureSession()
+      const result = await httpRpc('tools/list', msg.params || {})
+      if (result.error) {
+        send({ jsonrpc: '2.0', id: msg.id, error: result.error })
+      } else {
+        send({ jsonrpc: '2.0', id: msg.id, result: result.result })
+      }
+    } catch (err) {
+      send({
+        jsonrpc: '2.0',
+        id: msg.id,
+        error: { code: -32603, message: err.message || String(err) }
+      })
+    }
     return
   }
 

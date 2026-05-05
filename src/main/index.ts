@@ -15,14 +15,17 @@ import { TaskScheduler } from './task-scheduler'
 import { registerGitHandlers, getGitManager } from './ipc/git'
 import { GitManager } from './git-manager'
 import { registerSkillHandlers } from './ipc/skills'
+import { registerMcpRegistryHandlers } from './ipc/mcp-registry'
 import { registerCommandHandlers } from './ipc/commands'
 import { registerWorktreeHandlers } from './ipc/worktree'
 import { registerBranchHandlers } from './ipc/branch'
 import { registerBrowserHandlers, closeAllBrowserTabs } from './ipc/browser'
 import { registerUpdaterHandlers } from './ipc/updater'
-import { registerStubHandlers } from './ipc/stubs'
+import { markChannelRegistered, registerStubHandlers } from './ipc/stubs'
 import { startWatching, stopWatching } from './file-watcher'
 import { SkillManager } from './skill-manager'
+import { McpRegistryManager, type McpRegistryStoreData } from './agent/mcp-registry-manager'
+import { McpConnectionManager } from './agent/mcp-connection-manager'
 import Store from 'electron-store'
 import { startMcpServer, getMcpServerUrl } from './agent/mcp-http-server'
 import {
@@ -39,6 +42,14 @@ let closeMcpServer: (() => Promise<void>) | null = null
 const skillStore = new Store()
 const skillManager = new SkillManager(skillStore)
 const getSkillManager = (): SkillManager => skillManager
+const mcpStore = new Store<McpRegistryStoreData>({
+  name: 'mcp-registry',
+  defaults: { servers: [], projectServers: {} }
+})
+const mcpRegistryManager = new McpRegistryManager(mcpStore, resolveRegisteredProject)
+const mcpConnectionManager = new McpConnectionManager(mcpRegistryManager)
+const getMcpRegistryManager = (): McpRegistryManager => mcpRegistryManager
+const getMcpConnectionManager = (): McpConnectionManager => mcpConnectionManager
 const taskScheduler = new TaskScheduler(() => mainWindow)
 
 function validatedProjectFolder(projectFolder: string): string {
@@ -126,9 +137,18 @@ app.whenReady().then(() => {
   registerWorktreeHandlers(() => mainWindow, getCurrentFolder)
   registerBranchHandlers(() => mainWindow, getCurrentFolder)
   registerSkillHandlers(() => mainWindow, getCurrentFolder, getSkillManager)
+  registerMcpRegistryHandlers(getCurrentFolder, getMcpRegistryManager, getMcpConnectionManager)
   registerCommandHandlers(() => mainWindow, getCurrentFolder)
   registerBrowserHandlers(() => mainWindow)
   registerUpdaterHandlers(() => mainWindow)
+  const mcpConfigChannels = [
+    'mcp:getUrl',
+    'mcp:getConfigPath',
+    'mcp:getCodexFlags',
+    'mcp:getConfigPathForProject',
+    'mcp:getCodexFlagsForProject'
+  ]
+  mcpConfigChannels.forEach(markChannelRegistered)
   registerStubHandlers()
 
   // Register settings IPC handlers
@@ -162,6 +182,7 @@ app.whenReady().then(() => {
       new GitManager(validatedProjectFolder(projectFolder)),
     resolveProjectFolder: resolveRegisteredProject,
     getSkillManager,
+    getMcpConnectionManager,
     getWindow: () => mainWindow,
     notifyStateChanged: (domain, data) => {
       mainWindow?.webContents.send('agent:stateChanged', domain, data)
@@ -215,5 +236,8 @@ app.on('window-all-closed', () => {
 
 app.on('will-quit', () => {
   closeMcpServer?.()
+  mcpConnectionManager.closeAll().catch((err) => {
+    console.error('[MCP] Failed to close upstream MCP connections:', err)
+  })
   cleanupMcpConfigFile()
 })

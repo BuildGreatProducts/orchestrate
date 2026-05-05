@@ -7,7 +7,7 @@ export const NAV_PAGES: { id: NavPageId; label: string }[] = [
   { id: 'browser', label: 'Browser' }
 ]
 
-export type ProjectDetailTabId = 'browser' | 'commands' | 'files' | 'history' | 'skills'
+export type ProjectDetailTabId = 'browser' | 'commands' | 'files' | 'history' | 'skills' | 'mcp'
 
 export type ContentView =
   | { type: 'orchestrate' }
@@ -158,8 +158,9 @@ export interface AgentConfig {
   cliCommand: string
   enabled: boolean
   builtin: boolean
-  mcpMode: 'config-file' | 'codex-flags' | 'none'
+  mcpMode: 'config-file' | 'codex-flags' | 'custom' | 'none'
   commandTemplate: string
+  mcpFlagTemplate?: string
 }
 
 // ── Git / History ──
@@ -230,6 +231,75 @@ export interface SkillMeta {
   license?: string
   compatibility?: string
   metadata?: Record<string, string>
+}
+
+// ── MCP Registry ──
+
+export type McpTransportType = 'stdio' | 'streamable-http' | 'sse'
+export type McpAuthType = 'none' | 'secret' | 'oauth'
+
+export interface McpSecretField {
+  name: string
+  hasValue: boolean
+}
+
+export interface McpAuthState {
+  type: McpAuthType
+  connected: boolean
+  needsAuth?: boolean
+  error?: string
+}
+
+export type McpConnectionState = 'unknown' | 'connected' | 'error' | 'auth-required' | 'testing'
+
+export interface McpConnectionStatus {
+  serverId: string
+  state: McpConnectionState
+  message?: string
+  toolCount?: number
+  checkedAt?: string
+}
+
+export interface McpServerConfig {
+  id: string
+  name: string
+  slug: string
+  transport: McpTransportType
+  enabled: boolean
+  command?: string
+  args?: string[]
+  cwd?: string
+  url?: string
+  authType: McpAuthType
+  env: McpSecretField[]
+  headers: McpSecretField[]
+  auth: McpAuthState
+  status?: McpConnectionStatus
+  createdAt: string
+  updatedAt: string
+}
+
+export interface McpServerInput {
+  name: string
+  transport: McpTransportType
+  enabled?: boolean
+  command?: string
+  args?: string[]
+  cwd?: string
+  url?: string
+  authType?: McpAuthType
+  env?: Record<string, string>
+  headers?: Record<string, string>
+}
+
+export interface McpProjectSelection {
+  projectFolder: string
+  enabledServerIds: string[]
+}
+
+export interface McpRegistrySnapshot {
+  servers: McpServerConfig[]
+  project: McpProjectSelection | null
 }
 
 // ── Browser ──
@@ -429,6 +499,20 @@ export interface OrchestrateAPI {
   getCodexMcpFlags: () => Promise<string | null>
   getMcpConfigPathForProject: (projectFolder: string, taskId?: string) => Promise<string | null>
   getCodexMcpFlagsForProject: (projectFolder: string, taskId?: string) => Promise<string | null>
+  listMcpRegistry: (projectFolder?: string) => Promise<McpRegistrySnapshot>
+  addMcpServer: (
+    input: McpServerInput,
+    enableForProject?: string | null
+  ) => Promise<McpServerConfig>
+  updateMcpServer: (id: string, input: McpServerInput) => Promise<McpServerConfig>
+  removeMcpServer: (id: string) => Promise<void>
+  setProjectMcpEnabled: (
+    projectFolder: string,
+    serverId: string,
+    enabled: boolean
+  ) => Promise<McpProjectSelection>
+  testMcpServer: (id: string) => Promise<McpConnectionStatus>
+  startMcpOAuth: (id: string) => Promise<McpConnectionStatus>
 
   // Settings
   getSetting: (key: string) => Promise<unknown>

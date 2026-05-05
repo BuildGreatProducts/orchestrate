@@ -7,9 +7,24 @@ import crypto from 'crypto'
 import { createServer, type Server as HttpServer, type IncomingMessage } from 'http'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
-import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js'
+import {
+  getParseErrorMessage,
+  normalizeObjectSchema,
+  safeParseAsync
+} from '@modelcontextprotocol/sdk/server/zod-compat.js'
+import { toJsonSchemaCompat } from '@modelcontextprotocol/sdk/server/zod-json-schema-compat.js'
+import {
+  CallToolRequestSchema,
+  ErrorCode,
+  isInitializeRequest,
+  ListToolsRequestSchema,
+  McpError,
+  type CallToolResult,
+  type Tool
+} from '@modelcontextprotocol/sdk/types.js'
 import { z } from 'zod'
 import type { ToolExecutorDeps } from './tool-handlers'
+import type { McpConnectionManager } from './mcp-connection-manager'
 
 // Per-process secret for authenticating mutating tool requests
 const MCP_SECRET = process.env.MCP_SECRET || crypto.randomBytes(32).toString('hex')
@@ -47,17 +62,160 @@ import {
 
 let httpServer: HttpServer | null = null
 let serverPort: number | null = null
+const MAX_MCP_BODY_BYTES = 4 * 1024 * 1024
 
 interface McpRequestContext {
   projectFolder?: string
   taskId?: string
 }
 
+interface RegisteredMcpTool {
+  title?: string
+  description?: string
+  inputSchema?: unknown
+  outputSchema?: unknown
+  annotations?: Tool['annotations']
+  execution?: Tool['execution']
+  _meta?: Record<string, unknown>
+  enabled?: boolean
+  handler: RegisteredMcpToolHandler
+}
+
+type RegisteredMcpToolHandler = (
+  args?: unknown,
+  extra?: unknown
+) => CallToolResult | Promise<CallToolResult>
+type McpToolHandler = (args: never, extra?: never) => CallToolResult | Promise<CallToolResult>
+
+const EMPTY_OBJECT_JSON_SCHEMA: Tool['inputSchema'] = { type: 'object', properties: {} }
+const registeredToolRegistry = new WeakMap<McpServer, Map<string, RegisteredMcpTool>>()
+
+function getRegisteredTools(server: McpServer): Map<string, RegisteredMcpTool> {
+  let tools = registeredToolRegistry.get(server)
+  if (!tools) {
+    tools = new Map()
+    registeredToolRegistry.set(server, tools)
+  }
+  return tools
+}
+
+function registerTool(
+  server: McpServer,
+  name: string,
+  description: string,
+  inputSchemaOrHandler: Record<string, unknown> | McpToolHandler,
+  handler?: McpToolHandler
+): void {
+  const inputSchema = typeof inputSchemaOrHandler === 'function' ? undefined : inputSchemaOrHandler
+  const actualHandler = typeof inputSchemaOrHandler === 'function' ? inputSchemaOrHandler : handler
+  if (!actualHandler) throw new Error(`Missing MCP tool handler for ${name}`)
+
+  getRegisteredTools(server).set(name, {
+    description,
+    inputSchema,
+    handler: actualHandler as RegisteredMcpToolHandler
+  })
+
+  const tool = server.tool.bind(server) as (...args: unknown[]) => unknown
+  if (inputSchema) tool(name, description, inputSchema, actualHandler)
+  else tool(name, description, actualHandler)
+}
+
+function schemaToJsonSchema(schema: unknown): Tool['inputSchema'] {
+  const normalized = normalizeObjectSchema(schema as never)
+  if (!normalized) return EMPTY_OBJECT_JSON_SCHEMA
+  return toJsonSchemaCompat(normalized, {
+    strictUnions: true,
+    pipeStrategy: 'input'
+  }) as Tool['inputSchema']
+}
+
+function registeredToolToDefinition(name: string, tool: RegisteredMcpTool): Tool {
+  const definition: Tool = {
+    name,
+    title: tool.title,
+    description: tool.description,
+    inputSchema: schemaToJsonSchema(tool.inputSchema),
+    annotations: tool.annotations,
+    execution: tool.execution,
+    _meta: tool._meta
+  }
+  if (tool.outputSchema) {
+    definition.outputSchema = schemaToJsonSchema(tool.outputSchema)
+  }
+  return definition
+}
+
+async function parseToolArguments(tool: RegisteredMcpTool, args: unknown): Promise<unknown> {
+  const schema = normalizeObjectSchema(tool.inputSchema as never)
+  if (!schema) return args && typeof args === 'object' ? args : {}
+  const result = await safeParseAsync(schema, args ?? {})
+  if (!result.success) {
+    throw new McpError(
+      ErrorCode.InvalidParams,
+      `Invalid tool arguments: ${getParseErrorMessage(result.error)}`
+    )
+  }
+  return result.data
+}
+
+function installAggregatedToolHandlers(
+  server: McpServer,
+  opts: {
+    getProjectFolder: () => string | null
+    getMcpConnectionManager: () => McpConnectionManager | null
+  }
+): void {
+  server.server.setRequestHandler(ListToolsRequestSchema, async () => {
+    const firstPartyTools = Array.from(getRegisteredTools(server).entries())
+      .filter(([, tool]) => tool.enabled !== false)
+      .map(([name, tool]) => registeredToolToDefinition(name, tool))
+
+    const mcpManager = opts.getMcpConnectionManager()
+    let upstreamTools: Tool[] = []
+    if (mcpManager) {
+      try {
+        upstreamTools = await mcpManager.listTools(opts.getProjectFolder())
+      } catch (err) {
+        console.error('[MCP] Failed to list upstream MCP tools:', err)
+      }
+    }
+
+    return { tools: [...firstPartyTools, ...upstreamTools] }
+  })
+
+  server.server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
+    const tool = getRegisteredTools(server).get(request.params.name)
+    if (tool && tool.enabled !== false) {
+      const parsedArgs = await parseToolArguments(tool, request.params.arguments)
+      return tool.handler(parsedArgs, extra)
+    }
+
+    const mcpManager = opts.getMcpConnectionManager()
+    if (mcpManager) {
+      return (await mcpManager.callTool(
+        opts.getProjectFolder(),
+        request.params.name,
+        request.params.arguments ?? {}
+      )) as CallToolResult
+    }
+
+    throw new McpError(ErrorCode.InvalidParams, `Tool ${request.params.name} not found`)
+  })
+}
+
 /** Read and JSON-parse the request body from an IncomingMessage */
 function readBody(req: IncomingMessage): Promise<unknown> {
   return new Promise((resolve, reject) => {
     let data = ''
+    let bytes = 0
     req.on('data', (chunk: Buffer) => {
+      bytes += chunk.byteLength
+      if (bytes > MAX_MCP_BODY_BYTES) {
+        reject(new Error('MCP request body too large'))
+        req.destroy()
+        return
+      }
       data += chunk.toString()
     })
     req.on('end', () => {
@@ -136,7 +294,8 @@ function createMcpInstance(deps: ToolExecutorDeps, context: McpRequestContext = 
     })
     .optional()
 
-  server.tool(
+  registerTool(
+    server,
     'create_task',
     'Create a simple task with one prompt, mode, branch, agent, and optional schedule.',
     {
@@ -152,18 +311,23 @@ function createMcpInstance(deps: ToolExecutorDeps, context: McpRequestContext = 
     async (args) => handleCreateTask(args, taskDeps)
   )
 
-  server.tool(
+  registerTool(
+    server,
     'read_task',
     'Read a simple task.',
     { task_id: z.string().describe('The task ID') },
     async (args) => handleReadTask(args, taskDeps)
   )
 
-  server.tool('list_tasks', 'List all simple tasks grouped by manual and scheduled.', async () =>
-    handleListTasks(taskDeps)
+  registerTool(
+    server,
+    'list_tasks',
+    'List all simple tasks grouped by manual and scheduled.',
+    async () => handleListTasks(taskDeps)
   )
 
-  server.tool(
+  registerTool(
+    server,
     'move_task',
     'Legacy alias: update a task status using an old kanban column name.',
     {
@@ -173,7 +337,8 @@ function createMcpInstance(deps: ToolExecutorDeps, context: McpRequestContext = 
     async (args) => handleMoveTask(args, taskDeps)
   )
 
-  server.tool(
+  registerTool(
+    server,
     'edit_task',
     'Edit a simple task prompt, mode, branch, agent, pin state, schedule, or status.',
     {
@@ -195,14 +360,16 @@ function createMcpInstance(deps: ToolExecutorDeps, context: McpRequestContext = 
     async (args) => handleEditTask(args, taskDeps)
   )
 
-  server.tool(
+  registerTool(
+    server,
     'delete_task',
     'Delete a simple task.',
     { task_id: z.string().describe('The task ID to delete') },
     async (args) => handleDeleteTask(args, taskDeps)
   )
 
-  server.tool(
+  registerTool(
+    server,
     'send_to_agent',
     'Start a simple task with an AI agent.',
     {
@@ -212,7 +379,8 @@ function createMcpInstance(deps: ToolExecutorDeps, context: McpRequestContext = 
     async (args) => handleSendToAgent(args, taskDeps)
   )
 
-  server.tool(
+  registerTool(
+    server,
     'trigger_task',
     'Legacy alias: start a simple task.',
     { task_id: z.string().describe('The ID of the task to trigger') },
@@ -221,7 +389,8 @@ function createMcpInstance(deps: ToolExecutorDeps, context: McpRequestContext = 
 
   // ── Terminal tools ──
 
-  server.tool(
+  registerTool(
+    server,
     'spawn_terminal',
     'Open a new terminal tab in the Agents panel.',
     {
@@ -233,14 +402,16 @@ function createMcpInstance(deps: ToolExecutorDeps, context: McpRequestContext = 
 
   // ── File tools ──
 
-  server.tool(
+  registerTool(
+    server,
     'read_file',
     'Read the contents of a file. Path is relative to the project root.',
     { path: z.string().describe('Relative file path from project root') },
     async (args) => handleReadFile(args, fileDeps)
   )
 
-  server.tool(
+  registerTool(
+    server,
     'write_file',
     'Write content to a file. Creates parent directories if needed. Path is relative to the project root.',
     {
@@ -250,7 +421,8 @@ function createMcpInstance(deps: ToolExecutorDeps, context: McpRequestContext = 
     async (args) => handleWriteFile(args, fileDeps)
   )
 
-  server.tool(
+  registerTool(
+    server,
     'list_files',
     'List files in a directory. Path is relative to the project root. Defaults to root if no path given.',
     {
@@ -259,7 +431,8 @@ function createMcpInstance(deps: ToolExecutorDeps, context: McpRequestContext = 
     async (args) => handleListFiles(args, fileDeps)
   )
 
-  server.tool(
+  registerTool(
+    server,
     'delete_file',
     'Delete a file. Path is relative to the project root.',
     { path: z.string().describe('Relative file path from project root') },
@@ -268,14 +441,16 @@ function createMcpInstance(deps: ToolExecutorDeps, context: McpRequestContext = 
 
   // ── Git tools ──
 
-  server.tool(
+  registerTool(
+    server,
     'create_save_point',
     'Create a git save point (commit) with a message.',
     { message: z.string().describe('The save point message') },
     async (args) => handleCreateSavePoint(args, gitDeps)
   )
 
-  server.tool(
+  registerTool(
+    server,
     'list_save_points',
     'List recent git save points (commits).',
     {
@@ -291,32 +466,43 @@ function createMcpInstance(deps: ToolExecutorDeps, context: McpRequestContext = 
     async (args) => handleListSavePoints(args, gitDeps)
   )
 
-  server.tool(
+  registerTool(
+    server,
     'restore_save_point',
     'Restore the project to a specific save point. This is destructive — all uncommitted changes will be lost.',
     { hash: z.string().describe('The save point hash to restore to') },
     async (args) => handleRestoreSavePoint(args, gitDeps)
   )
 
-  server.tool(
+  registerTool(
+    server,
     'revert_save_point',
     'Revert a specific save point, undoing its changes while keeping history.',
     { hash: z.string().describe('The save point hash to revert') },
     async (args) => handleRevertSavePoint(args, gitDeps)
   )
 
-  server.tool('get_changes', 'Get the current uncommitted changes (git status).', async () =>
-    handleGetChanges(gitDeps)
+  registerTool(
+    server,
+    'get_changes',
+    'Get the current uncommitted changes (git status).',
+    async () => handleGetChanges(gitDeps)
   )
 
   // ── Skill tools ──
 
-  server.tool(
+  registerTool(
+    server,
     'activate_skill',
     'Load the full instructions of an agent skill by name. Use this when a task matches an available skill.',
     { name: z.string().describe('The skill name to activate') },
     async (args) => handleActivateSkill(args, skillDeps)
   )
+
+  installAggregatedToolHandlers(server, {
+    getProjectFolder: scopedGetCurrentFolder,
+    getMcpConnectionManager: deps.getMcpConnectionManager
+  })
 
   return server
 }

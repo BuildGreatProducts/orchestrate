@@ -11,15 +11,26 @@ interface AgentsState {
   setAgentEnabled: (id: string, enabled: boolean) => Promise<void>
   addCustomAgent: (agent: Omit<AgentConfig, 'builtin'>) => Promise<void>
   removeCustomAgent: (id: string) => Promise<void>
-  updateCustomAgent: (id: string, updates: Partial<Pick<AgentConfig, 'displayName' | 'cliCommand' | 'commandTemplate' | 'enabled'>>) => Promise<void>
+  updateCustomAgent: (
+    id: string,
+    updates: Partial<
+      Pick<
+        AgentConfig,
+        'displayName' | 'cliCommand' | 'commandTemplate' | 'enabled' | 'mcpMode' | 'mcpFlagTemplate'
+      >
+    >
+  ) => Promise<void>
 }
 
 function isValidAgentConfig(a: unknown): a is AgentConfig {
   if (!a || typeof a !== 'object') return false
   const obj = a as Record<string, unknown>
-  return typeof obj.id === 'string' && obj.id.length > 0 &&
+  return (
+    typeof obj.id === 'string' &&
+    obj.id.length > 0 &&
     typeof obj.displayName === 'string' &&
     typeof obj.cliCommand === 'string'
+  )
 }
 
 function mergeWithBuiltins(saved: unknown): AgentConfig[] {
@@ -32,7 +43,19 @@ function mergeWithBuiltins(saved: unknown): AgentConfig[] {
         savedById.set(a.id, {
           ...a,
           enabled: typeof a.enabled === 'boolean' ? a.enabled : false,
-          builtin: typeof a.builtin === 'boolean' ? a.builtin : false
+          builtin: typeof a.builtin === 'boolean' ? a.builtin : false,
+          mcpMode:
+            a.mcpMode === 'config-file' ||
+            a.mcpMode === 'codex-flags' ||
+            a.mcpMode === 'custom' ||
+            a.mcpMode === 'none'
+              ? a.mcpMode
+              : 'none',
+          commandTemplate:
+            typeof a.commandTemplate === 'string' && a.commandTemplate.trim()
+              ? a.commandTemplate
+              : `${a.cliCommand} {prompt}`,
+          mcpFlagTemplate: typeof a.mcpFlagTemplate === 'string' ? a.mcpFlagTemplate : undefined
         })
       }
     }
@@ -106,9 +129,7 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
   },
 
   updateCustomAgent: async (id: string, updates) => {
-    const agents = get().agents.map((a) =>
-      a.id === id && !a.builtin ? { ...a, ...updates } : a
-    )
+    const agents = get().agents.map((a) => (a.id === id && !a.builtin ? { ...a, ...updates } : a))
     set({ agents })
     await persistAgents(get().agents)
   }
