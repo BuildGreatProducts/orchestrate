@@ -169,9 +169,7 @@ function withProjectApiFallback<T>(projectFolder: string, action: () => Promise<
       return await action()
     } finally {
       try {
-        if (currentProjectFolder() === projectFolder) {
-          await window.orchestrate.setActiveProject(restoreFolder)
-        }
+        await window.orchestrate.setActiveProject(restoreFolder)
       } finally {
         releaseFallbackLock()
       }
