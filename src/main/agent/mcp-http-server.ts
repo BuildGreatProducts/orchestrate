@@ -88,7 +88,7 @@ function createMcpInstance(deps: ToolExecutorDeps, context: McpRequestContext = 
   const scopedNotifyStateChanged = (domain: string, data?: unknown): void => {
     const payload =
       data && typeof data === 'object' && !Array.isArray(data)
-        ? { ...data, projectFolder: scopedProjectFolder, taskId: context.taskId }
+        ? { projectFolder: scopedProjectFolder, taskId: context.taskId, ...data }
         : scopedProjectFolder || context.taskId
           ? { value: data, projectFolder: scopedProjectFolder, taskId: context.taskId }
           : data
